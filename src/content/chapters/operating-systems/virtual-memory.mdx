@@ -1,0 +1,27 @@
+Every process believes it has the entire address space to itself. On a 64-bit system, each process sees an address space of up to 16 exabytes — far more memory than any machine actually has. This illusion is *virtual memory*.
+
+### Pages and Page Tables
+
+Physical RAM is divided into fixed-size chunks called *pages* (typically 4 KB). Virtual address space is divided into pages of the same size. The OS maintains a *page table* for each process: a mapping from virtual page numbers to physical page numbers.
+
+When the CPU accesses a virtual address, the MMU (memory management unit) — a hardware component — walks the page table to find the corresponding physical address. This translation happens on every memory access.
+
+### The TLB
+
+Walking the full page table on every access would be slow. The CPU caches recent translations in a small, fast hardware structure called the *TLB* (translation lookaside buffer). A TLB hit costs ~1 cycle; a miss requires a full page table walk.
+
+Context switches flush the TLB on most architectures, which is one reason they are expensive — the first memory accesses after a switch are slower until the TLB warms up again.
+
+### Page Faults
+
+If a process accesses a virtual address with no physical page mapped to it, the CPU raises a *page fault*. The OS handles it:
+
+- **Valid fault** — the page exists but has been swapped to disk. The OS loads it into RAM, updates the page table, and resumes the process transparently.
+- **Invalid fault** — the process accessed an address it has no right to. The OS kills the process with a signal. In C, this surfaces as a segmentation fault.
+
+### Benefits of Virtual Memory
+
+- **Isolation** — two processes can use the same virtual addresses without conflict; they have separate page tables pointing to different physical memory.
+- **More memory than RAM** — infrequently used pages can be swapped to disk and reloaded on demand, making the total addressable memory larger than physical RAM.
+- **Efficient sharing** — read-only pages (like shared library code) can be mapped into multiple processes' address spaces while backed by a single physical page.
+- **Memory-mapped files** — a file can be mapped directly into the address space so that reading and writing it becomes ordinary memory accesses, with the OS handling all I/O behind the scenes.

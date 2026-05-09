@@ -1,0 +1,43 @@
+A process is a running program. It is more than just code — the OS wraps each running program in a container of state:
+
+- A **virtual address space** — the range of memory addresses the process can use.
+- **Open file descriptors** — references to files, sockets, and pipes the process has opened.
+- **A PID** — a unique process ID assigned by the OS.
+- **CPU registers and program counter** — the execution state, saved when the process is not actively running.
+- **Metadata** — owner, permissions, parent process, exit status.
+
+### Process States
+
+At any moment a process is in one of three states:
+
+- **Running** — currently executing on a CPU core.
+- **Ready** — able to run, but waiting for a CPU core to become available.
+- **Blocked** — waiting for something external (I/O, a lock, a timer). Cannot run even if a core is free.
+
+A process moves between these states constantly. Calling `read()` on a file not in the kernel's cache moves the process from running to blocked. When the data arrives from disk, it moves to ready. When the scheduler picks it, it moves back to running.
+
+### Context Switching
+
+When the OS switches from one process to another it performs a *context switch*:
+
+1. Save the current process's CPU registers and program counter to memory.
+2. Load the saved state of the next process.
+3. Resume execution where that process left off.
+
+A context switch costs on the order of microseconds. It happens thousands of times per second on a busy system.
+
+### The Scheduler
+
+The scheduler decides which ready process runs next. Modern schedulers balance several goals:
+
+- **Fairness** — every process gets a reasonable share of CPU time.
+- **Responsiveness** — interactive processes (a shell, a GUI) should feel immediate.
+- **Throughput** — batch jobs should complete efficiently.
+
+Linux uses the Completely Fair Scheduler (CFS), which tracks how much CPU time each process has received and always picks the process that has received the least. Higher-priority processes accumulate CPU time more slowly, so they get scheduled more often.
+
+**Preemption** means the OS can interrupt a running process at any time — it does not wait for the process to yield voluntarily. This is why a busy loop in one program does not freeze the rest of the system.
+
+### Creating Processes
+
+On Unix, new processes are created with `fork()`, which copies the current process, and `exec()`, which replaces the copied process's image with a new program. The shell uses exactly this sequence when you run a command: it forks itself, then execs the target binary in the child.

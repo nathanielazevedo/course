@@ -1,0 +1,31 @@
+The operating system is the layer of software that manages hardware on behalf of all running programs. Without it, every application would need its own device drivers, its own memory allocator, and some way to coordinate with every other program for access to shared resources — impossible in practice.
+
+The OS provides three things: **abstraction**, **resource management**, and **isolation**.
+
+### Abstraction
+
+The OS hides hardware complexity behind clean, uniform interfaces:
+
+- A file is just named bytes — you don't need to know whether it lives on an SSD, HDD, or a network drive.
+- A socket is just a stream of bytes — you don't need to know how packets are routed across the internet.
+- A process thinks it owns the entire CPU and all of memory — even when dozens of other processes share the same machine.
+
+These abstractions are what make software portable and composable.
+
+### Resource Management
+
+Hardware resources — CPU time, RAM, disk, network bandwidth — are finite and shared. The OS allocates them:
+
+- The **scheduler** decides which process runs on which CPU core and for how long.
+- The **memory manager** divides RAM between processes and decides what to evict when memory is full.
+- The **I/O subsystem** queues and arbitrates access to storage and network devices.
+
+### Isolation
+
+Processes are isolated from each other. One process cannot read another's memory, crash the kernel, or monopolize the CPU indefinitely. The CPU enforces this at the hardware level — user space vs kernel space — and the OS sets up the rules for each process.
+
+### The Kernel
+
+The kernel is the core of the OS: the part that runs in kernel space. It contains the scheduler, the memory manager, device drivers, and the system call interface.
+
+Everything else — the shell, graphical environment, and system utilities — runs in user space and uses system calls to request services from the kernel. The kernel is small relative to the full OS distribution, but it is the only part with direct hardware access.
