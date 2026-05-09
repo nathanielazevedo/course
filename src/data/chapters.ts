@@ -26,8 +26,8 @@ const data: {
     sections: [
       "The Parts of a Computer",
       "Bits and Bytes",
-      "The Instruction Cycle",
       "The Memory Hierarchy",
+      "The Instruction Cycle",
       "Buses and Interrupts",
     ],
   },

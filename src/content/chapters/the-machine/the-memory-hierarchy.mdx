@@ -35,3 +35,5 @@ The hierarchy works because real programs access memory in patterns:
 - **Spatial locality** — data near recently-used data will likely be used soon.
 
 This is why cache fetches data in *cache lines* (typically 64 bytes at a time): if you read one byte, you'll probably want its neighbors. It is also why looping over an array sequentially is much faster than jumping around at random.
+
+With the tiers of memory in mind, the next section is what the CPU actually does with what it loads: the instruction cycle that runs billions of times per second, and why a cache miss on the wrong instruction stalls the whole machine.

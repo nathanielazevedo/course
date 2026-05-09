@@ -1,10 +1,8 @@
 The CPU runs one instruction at a time, in a loop. Each iteration is one instruction cycle (also called the fetch–decode–execute cycle), and it runs billions of times per second.
 
-### Registers
+### The Program Counter
 
-Small, fast storage cells inside the CPU. They hold the data the CPU is currently working with.
-
-One register is special: the *program counter* (PC). It holds the memory address of the next instruction to run.
+The data the CPU is actively working on lives in registers, the top tier of the memory hierarchy. One register is special: the *program counter* (PC). It holds the memory address of the next instruction to run. Every iteration of the cycle is anchored on it.
 
 ### Fetch
 
