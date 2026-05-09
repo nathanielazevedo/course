@@ -1,0 +1,29 @@
+The CPU runs one instruction at a time, in a loop. Each iteration is one instruction cycle (also called the fetch–decode–execute cycle), and it runs billions of times per second.
+
+### Registers
+
+Small, fast storage cells inside the CPU. They hold the data the CPU is currently working with.
+
+One register is special: the *program counter* (PC). It holds the memory address of the next instruction to run.
+
+### Fetch
+
+Read the instruction at the address in the program counter. Load it into the CPU.
+
+The program counter then advances to point at the next instruction.
+
+### Decode
+
+Determine what the instruction means. Each instruction is a fixed binary pattern that maps to a specific operation — *add these two numbers*, *load this memory address*, *jump to that one*.
+
+### Execute
+
+Carry out the operation. The CPU updates registers, reads or writes memory, or modifies the program counter.
+
+A jump instruction changes the program counter to a new address. That is how loops, branches, and function calls work — without jumps, every program would run straight through to the end.
+
+### The Clock
+
+A signal that ticks at a fixed frequency, driving each step of the cycle. A 3 GHz clock ticks 3 billion times per second.
+
+Clock speed is one measure of a CPU's speed, but not the only one — modern CPUs pipeline (overlap cycles) and run several instructions in parallel.

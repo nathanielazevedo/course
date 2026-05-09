@@ -1,0 +1,27 @@
+The parts of a computer are connected by sets of wires called *buses* and coordinated by signals called *interrupts*. Together, they are how the CPU talks to memory and to the outside world.
+
+### Buses
+
+A bus is a set of wires (or traces on a circuit board) shared between components. It carries addresses, data, and control signals. The major buses in a modern computer:
+
+- **Memory bus** — between the CPU and RAM
+- **I/O bus** — between the CPU and peripherals (PCIe is the standard today)
+- **Internal CPU buses** — between cores, caches, and on-chip components
+
+Earlier systems used wide parallel buses; modern PCIe is high-speed serial.
+
+### Reading From RAM
+
+To read from RAM, the CPU sends an address over the memory bus, asserts a read signal, and waits for RAM to respond with the data. This round trip takes ~100 nanoseconds. It is why a cache miss costs the CPU dozens or hundreds of cycles of stalled work.
+
+### Interrupts
+
+When a device needs the CPU's attention — a key was pressed, a packet arrived, a disk read finished — it raises an *interrupt*: a hardware signal that pauses whatever the CPU is doing. The CPU jumps to a small piece of code called an *interrupt handler*, processes the event, and resumes.
+
+Without interrupts, the CPU would have to repeatedly check every device ("polling") to see if anything happened. Interrupts let the CPU work on something else and react only when something actually happens.
+
+### DMA (Direct Memory Access)
+
+A small dedicated chip — the *DMA controller* — that can move bytes between a device and RAM without involving the CPU. The CPU sets up the transfer (source, destination, length), and the controller does the work, raising an interrupt when finished.
+
+This is how disk reads, network packets, and video frames move at high speed: the CPU is free to run other code while the bytes flow.

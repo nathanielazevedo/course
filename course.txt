@@ -1,0 +1,13 @@
+From Web Developer to Systems Thinker: First Principles for the Age of AI
+Chapter List
+The Machine
+Software and Execution
+Operating Systems
+Processes and Concurrency
+Networking and Communication
+The Web as a System
+Data and Persistence
+Servers and Distributed Systems
+Infrastructure, Virtualization, and Cloud
+Performance, Reliability, and Security
+The Life of a Request

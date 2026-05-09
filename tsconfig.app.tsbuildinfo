@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/mdx-components.ts","./src/theme.ts","./src/vite-env.d.ts","./src/components/chaptervideo.tsx","./src/components/mdx/quiz.tsx","./src/content/chapters/index.ts","./src/data/chapters.ts","./src/pages/chapter.tsx","./src/pages/home.tsx","./src/pages/section.tsx","./src/store/usecoursestore.ts"],"version":"5.9.3"}

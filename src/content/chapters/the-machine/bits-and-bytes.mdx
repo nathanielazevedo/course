@@ -1,0 +1,31 @@
+Everything in a computer is bits. Numbers, text, images, instructions — they differ only in how those bits are read.
+
+### Bit
+
+A single 0 or 1 — the smallest unit a computer can store or transmit. In hardware, a bit is a high or low voltage in a circuit, a magnetic polarity on a disk, or a charge level in a transistor.
+
+### Byte
+
+8 bits grouped together. 256 possible values (2⁸). The unit most things are measured in.
+
+Larger units: KB ≈ 1,000 bytes, MB ≈ 1 million, GB ≈ 1 billion, TB ≈ 1 trillion.
+
+### Numbers
+
+Binary uses powers of 2 instead of powers of 10. The byte `0b00001011` = 8 + 2 + 1 = 11.
+
+Integers come in fixed sizes: 8-bit, 16-bit, 32-bit, 64-bit. A 32-bit unsigned integer holds values from 0 to ~4.3 billion. Signed integers reserve one bit for the sign and use a scheme called *two's complement*, giving roughly ±2 billion.
+
+Non-integer numbers are stored as *floats* — a separate format that encodes a number in scientific notation. They cover a wider range than integers, but with limited precision.
+
+### Text
+
+Each character maps to a number. ASCII covers English with one byte per character — `A` is 65, `a` is 97. UTF-8 extends this to every language; characters use 1–4 bytes.
+
+### Hexadecimal
+
+A compact shorthand for writing bytes. Each hex digit represents 4 bits, so one byte = two hex digits. The byte `11111111` is `0xFF` (255). Common in memory addresses, color codes (`#0066ff`), and raw byte dumps.
+
+### Instructions
+
+Even the program is bits. Each CPU instruction is a fixed binary pattern that tells the processor what to do — add these two numbers, jump to this address, copy this byte. The next section covers what happens when the CPU reads one.

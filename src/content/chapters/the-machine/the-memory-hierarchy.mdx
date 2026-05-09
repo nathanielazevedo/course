@@ -1,0 +1,37 @@
+Not all memory is equal. The CPU's fastest storage is a handful of registers. Each tier below — cache, RAM, disk — is larger but significantly slower.
+
+### Registers
+
+Tiny storage cells inside the CPU. ~1 cycle to access (sub-nanosecond) — the fastest, smallest tier.
+
+### Cache
+
+Small, fast memory inside the CPU. Holds copies of recently-used data so the CPU does not have to keep going back to RAM.
+
+- **L1 cache** — per core, ~32–64 KB, ~1 ns
+- **L2 cache** — per core, ~256 KB–1 MB, ~3 ns
+- **L3 cache** — shared across cores, ~10–30 MB, ~10 ns
+
+Cache is filled and evicted automatically. Software does not load it directly — it just sees faster reads when the data it asks for is already there (a *cache hit*).
+
+### RAM
+
+The system's working memory. Gigabytes in size, but ~100 ns to access — about 100× slower than the L1 cache. When the CPU asks for data not in cache, it has to wait for RAM (a *cache miss*).
+
+### Storage (SSD / HDD)
+
+Persistent. Terabytes in size, but slower than RAM by orders of magnitude.
+
+- **SSD**: ~100 microseconds (100,000 ns)
+- **HDD**: ~10 milliseconds (10,000,000 ns)
+
+When a program needs data from disk, the CPU has to wait. Disk is the slowest tier by far.
+
+### Locality
+
+The hierarchy works because real programs access memory in patterns:
+
+- **Temporal locality** — data that was just used will likely be used again soon.
+- **Spatial locality** — data near recently-used data will likely be used soon.
+
+This is why cache fetches data in *cache lines* (typically 64 bytes at a time): if you read one byte, you'll probably want its neighbors. It is also why looping over an array sequentially is much faster than jumping around at random.
