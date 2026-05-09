@@ -26,6 +26,15 @@ Each character maps to a number. ASCII covers English with one byte per characte
 
 A compact shorthand for writing bytes. Each hex digit represents 4 bits, so one byte = two hex digits. The byte `11111111` is `0xFF` (255). Common in memory addresses, color codes (`#0066ff`), and raw byte dumps.
 
+### Endianness
+
+When a multi-byte value is stored in memory, the bytes can be laid out in two ways:
+
+- **Little-endian** — least significant byte first. The number `0x0A0B0C0D` is stored as `0D 0C 0B 0A`. Used by x86 and ARM.
+- **Big-endian** — most significant byte first. `0x0A0B0C0D` is stored as `0A 0B 0C 0D`. Used in network protocols (TCP/IP transmits bytes big-endian, which is why it's called *network byte order*).
+
+Endianness is invisible most of the time. It matters when you read raw bytes from a file, a network socket, or shared memory — the same bytes mean different numbers depending on which end comes first.
+
 ### Instructions
 
 Even the program is bits. Each CPU instruction is a fixed binary pattern that tells the processor what to do — add these two numbers, jump to this address, copy this byte. The next section covers what happens when the CPU reads one.
