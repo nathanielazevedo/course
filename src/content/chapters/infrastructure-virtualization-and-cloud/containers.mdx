@@ -4,12 +4,10 @@ This chapter started in Chapter 3, when we covered namespaces and cgroups. This 
 
 ### Containers Are Just Processes
 
-The kernel that runs your container is the host's kernel. The container process is started from a normal `execve()` call. What makes it a container is that the kernel applies a few isolation features to it:
+The kernel that runs your container is the host's kernel. The container process is started from a normal `execve()` call. Chapter 3 covered the two core mechanisms — namespaces (restricting what a process can see) and cgroups (restricting what it can use). Containers also layer on two more:
 
-- **Namespaces** restrict what the process can see — its own process tree, network stack, mount points, hostname, user IDs.
-- **cgroups** restrict what the process can use — CPU, memory, I/O, number of processes.
-- **Capabilities** restrict what the process can do — drop the ability to load kernel modules, mount filesystems, change the system clock.
-- **seccomp filters** restrict which system calls the process can make.
+- **Capabilities** — drop specific root privileges, such as the ability to load kernel modules, mount filesystems, or change the system clock.
+- **seccomp filters** — restrict which system calls the process is allowed to make at all.
 
 This is *kernel-mediated* isolation. The container shares the host kernel, the host's CPU scheduler, the host's memory management. There is no hypervisor between them.
 
