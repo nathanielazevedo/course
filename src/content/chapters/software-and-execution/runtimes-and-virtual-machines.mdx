@@ -1,0 +1,35 @@
+Not all programs run directly as native machine code. Many run inside a *runtime* — a layer of software that manages execution and provides services the language depends on.
+
+### What a Runtime Provides
+
+A runtime sits between your code and the OS. Depending on the language, it may handle:
+
+- **Memory management** — allocating heap memory and reclaiming it (garbage collection).
+- **JIT compilation** — compiling hot code paths to native instructions at runtime.
+- **Concurrency** — thread scheduling, async event loops, or green threads.
+- **Standard library** — file I/O, networking, string handling, data structures.
+- **Safety checks** — array bounds checking, null safety, type assertions.
+
+### The JVM
+
+Java, Kotlin, and Scala compile to JVM bytecode and run on the Java Virtual Machine. The JVM provides a garbage collector, a JIT compiler (HotSpot), and a large standard library. The same `.jar` file runs on any OS where the JVM is installed — "write once, run anywhere."
+
+HotSpot identifies frequently executed bytecode and compiles it to optimized native code, which is why long-running JVM programs can be very fast after warm-up.
+
+### V8 and Node.js
+
+V8 is the JavaScript engine inside Chrome and Node.js. It JIT-compiles JavaScript to native code on the fly. Node.js wraps V8 with an event loop (libuv) and OS-level I/O bindings.
+
+JavaScript would be slow if interpreted; V8 makes it fast enough for servers by aggressively compiling and optimizing hot code. The tradeoff is that V8 is single-threaded per isolate — CPU-bound work blocks the event loop.
+
+### CPython
+
+The reference Python implementation is an interpreter. Python source is compiled to bytecode (`.pyc`) and then executed by a C program line by line. There is no JIT. This is why Python is significantly slower than Go or Java for CPU-bound work.
+
+PyPy is an alternative Python runtime with a JIT compiler. For compute-heavy Python, it can be 10–50× faster than CPython.
+
+### The Event Loop
+
+Runtimes like Node.js and browser JavaScript use a single-threaded *event loop* for concurrency. Instead of blocking on I/O (which would stall the whole thread), a program registers a callback and yields. The event loop dispatches callbacks when I/O completes.
+
+This handles high concurrency with low overhead — no thread-per-connection overhead. The catch: a single long-running synchronous computation blocks the entire loop, making the program unresponsive to all other work until it finishes.

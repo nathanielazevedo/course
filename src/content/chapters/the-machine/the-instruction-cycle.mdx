@@ -27,3 +27,22 @@ A jump instruction changes the program counter to a new address. That is how loo
 A signal that ticks at a fixed frequency, driving each step of the cycle. A 3 GHz clock ticks 3 billion times per second.
 
 Clock speed is one measure of a CPU's speed, but not the only one — modern CPUs pipeline (overlap cycles) and run several instructions in parallel.
+
+### Instruction Set Architecture (ISA)
+
+The ISA is the contract between hardware and software: it defines which instructions exist, what they mean, and how they are encoded as bits.
+
+- **x86-64** — the dominant ISA for desktops, laptops, and most cloud servers. Complex, with hundreds of instructions accumulated over decades (CISC).
+- **ARM** — used in phones, tablets, and Apple Silicon Macs. Increasingly common in cloud servers (AWS Graviton). Simpler, fixed-width instructions (RISC). Generally more power-efficient.
+
+Programs compiled for one ISA do not run on another. When you run an x86 Docker container on an ARM machine or an AWS Graviton instance, the CPU or a software layer has to translate — which is why architecture matters when choosing cloud instance types or building container images.
+
+### Pipelining and Out-of-Order Execution
+
+Modern CPUs do not run one instruction at a time in strict sequence. They use several techniques to run faster:
+
+- **Pipelining** — while one instruction is executing, the next is already being decoded, and the one after that is being fetched. Like an assembly line: multiple instructions in flight simultaneously.
+- **Out-of-order execution** — if an instruction is stalled waiting for data (e.g., a cache miss), the CPU scans ahead and runs later instructions that are already ready. Results are committed in the original order.
+- **Branch prediction** — at a conditional jump, the CPU guesses which branch will be taken and starts executing it before the condition is resolved. A wrong guess flushes the pipeline and costs ~15 cycles.
+
+These optimizations are why a modern 3 GHz chip executes far more than 3 billion simple instructions per second — and why a cache miss or a mispredicted branch is expensive relative to a register operation.

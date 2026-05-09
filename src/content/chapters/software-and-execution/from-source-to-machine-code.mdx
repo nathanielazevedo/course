@@ -1,0 +1,31 @@
+High-level code cannot run directly on a CPU. It must be translated into machine instructions the processor understands. There are several ways to do that.
+
+### Compilation
+
+A compiler translates source code into machine code ahead of time, producing an executable binary. The pipeline has several stages:
+
+1. **Parsing** — converts source text into an abstract syntax tree (AST), a structured representation of the code's meaning.
+2. **Optimization** — transforms the AST and intermediate representation to run faster: inlining functions, eliminating dead code, reordering operations.
+3. **Code generation** — emits machine instructions for the target ISA.
+4. **Assembly** — converts those instructions into object files (binary, but not yet linked).
+5. **Linking** — combines object files into a final executable.
+
+Languages like C, C++, Go, and Rust follow this path. The result runs directly on the CPU with no intermediate layer.
+
+### Interpretation
+
+An interpreter reads source code (or a bytecode representation of it) and executes it at runtime, without producing a native binary first.
+
+Python and Ruby are primarily interpreted. The interpreter is itself a native binary that does the work of executing your code. Every operation goes through the interpreter's dispatch loop, which is why interpreted languages tend to be slower for CPU-bound work.
+
+### Bytecode and Virtual Machines
+
+Many languages compile to *bytecode* — an intermediate instruction set for a virtual machine — rather than directly to native code.
+
+Java compiles `.java` files to `.class` files (JVM bytecode). Python compiles `.py` files to `.pyc` files. The bytecode is portable (not tied to one ISA) and then executed by a virtual machine on any platform.
+
+### JIT Compilation
+
+A just-in-time (JIT) compiler combines the portability of interpretation with the speed of compilation. It starts executing code immediately but compiles *hot paths* — frequently executed code — to native machine code at runtime.
+
+V8 (Node.js, Chrome), the JVM (HotSpot), and the .NET CLR all use JIT. After a warm-up period, JIT-compiled code can approach the speed of ahead-of-time compiled code while retaining the portability of bytecode.

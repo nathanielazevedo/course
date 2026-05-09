@@ -1,0 +1,41 @@
+A file system is the OS abstraction over persistent storage. It provides a way to name data, organize it hierarchically, and access it without knowing anything about the underlying hardware.
+
+### Files and Directories
+
+A *file* is a named sequence of bytes. A *directory* is a special file that maps names to other files or directories. Together they form a tree rooted at `/` on Unix systems, or a drive letter on Windows.
+
+### Inodes
+
+On most Unix file systems, a file's metadata is stored separately from its name in a structure called an *inode*. An inode holds:
+
+- File size
+- Ownership (user and group)
+- Permissions
+- Timestamps (created, modified, accessed)
+- Pointers to the data blocks on disk
+
+A directory entry maps a filename to an inode number. This is why hard links work: two directory entries can point to the same inode. The file's data is only deleted when the inode's link count drops to zero — no name remains pointing at it.
+
+### File Descriptors
+
+When a process opens a file, the kernel returns a *file descriptor* — a small integer that represents that open file for the lifetime of the process. The process uses this number in subsequent `read()`, `write()`, and `close()` calls.
+
+Three file descriptors are open by default in every process:
+
+- `0` — standard input (stdin)
+- `1` — standard output (stdout)
+- `2` — standard error (stderr)
+
+Shell redirection works by replacing these before a process starts. `command > file.txt` opens `file.txt` and assigns it file descriptor 1. The process writes to stdout as usual and never knows its output is going to a file.
+
+### Everything Is a File
+
+Unix extends the file abstraction to almost everything: devices, sockets, pipes, and kernel state (exposed under `/proc` and `/sys`). This uniformity means the same `read()`/`write()` interface works for files, network connections, inter-process communication, and hardware devices.
+
+A pipe between two processes — `ls | grep foo` — is just two file descriptors: one process writes to the write end, the other reads from the read end. No disk involved.
+
+### The Buffer Cache
+
+The kernel does not read from and write to disk on every file operation. It maintains a *buffer cache* — a pool of RAM holding recently used disk blocks. Reads are served from the cache when possible; writes go to the cache first and are flushed to disk later (write-back caching).
+
+This is why `sync` and `fsync` exist: to force cached writes to disk before a crash can discard them. It is also why reads from a cold file are slow the first time and fast on subsequent reads — the data is in the cache.

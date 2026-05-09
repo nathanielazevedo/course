@@ -23,3 +23,11 @@ Connects the parts. Carries data between them over buses.
 ### I/O (Input / Output)
 
 Keyboard, mouse, display, network card, USB. The interface between the machine and the outside world.
+
+### Why Multi-Core
+
+For decades, CPU performance improved by raising the clock speed. That stopped around 2004: higher clock speeds require more voltage, which generates exponentially more heat. A 10 GHz chip would destroy itself.
+
+The industry's answer was to put multiple independent cores on one chip rather than make one core faster. A 4-core CPU at 3 GHz can do more total work than a 1-core CPU at 3 GHz — but only if the software can run tasks in parallel. This is the hardware reason concurrency matters.
+
+Cores on the same chip share the L3 cache and the memory bus. They do not automatically share work; software must split it.

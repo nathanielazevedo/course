@@ -1,0 +1,31 @@
+Most programs are not compiled as a single file. Code is split across many source files, and much of it comes from external libraries. Linking is the step that assembles these pieces into a runnable program.
+
+### Object Files
+
+When a source file is compiled, it produces an *object file* — binary machine code with unresolved references. A function defined in one file and called from another is left as a placeholder. The linker resolves these placeholders by matching definitions to references across all object files.
+
+### Static Linking
+
+A static linker runs at build time. It takes all object files and static libraries (`.a` on Linux, `.lib` on Windows), resolves every symbol reference, and produces a single self-contained executable.
+
+The binary contains all the code it needs. It starts up fast and has no external dependencies at runtime. The downside: if many programs use the same library, each binary carries its own copy.
+
+### Dynamic Linking
+
+A dynamic linker runs at load time. Instead of copying library code into the executable, it records a dependency on a *shared library* (`.so` on Linux, `.dll` on Windows, `.dylib` on macOS).
+
+When the OS loads the program, the dynamic linker finds the shared library, maps it into memory, and patches the program's references to point at it. Multiple programs using the same shared library share a single copy in memory — which is why `libc` is loaded by almost every process on a Linux system.
+
+### What Can Go Wrong
+
+Dynamic linking can fail at startup if a required library is missing or the wrong version is installed. This is the origin of errors like:
+
+```
+error while loading shared libraries: libssl.so.1.1: cannot open shared object file
+```
+
+The linker found the dependency at build time but cannot locate it at runtime. Containers exist partly to solve this problem — they bundle the exact library versions the program was built against.
+
+### Higher-Level Package Managers
+
+Languages like Node.js, Python, and Ruby handle dependencies at the package manager level (`npm`, `pip`, `gem`) rather than the linker level. Their packages are source or bytecode loaded by the runtime at startup. The underlying mechanism is still dynamic loading — just abstracted several layers up.

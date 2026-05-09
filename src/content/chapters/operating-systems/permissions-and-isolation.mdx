@@ -1,0 +1,40 @@
+The OS enforces who can do what. This is the foundation of multi-user security — and the mechanism that containers are built on.
+
+### Users and Groups
+
+Every process runs as a *user*, identified by a numeric UID. Every file has an owner (a UID) and a group (a GID). The kernel checks these on every file access and every privileged operation.
+
+The superuser (`root`, UID 0) bypasses most permission checks. Running a server as root means a bug in that server can affect the entire system — which is why production processes should run as unprivileged users.
+
+### File Permissions
+
+Unix file permissions are three sets of three bits, shown like this:
+
+```
+-rwxr-xr--
+```
+
+- The first character is the file type (`-` = regular file, `d` = directory, `l` = symlink).
+- The next nine characters are three groups of `rwx`: permissions for the **owner**, the **group**, and **everyone else**.
+- `r` = read, `w` = write, `x` = execute (or enter, for directories).
+
+The numeric form encodes the same thing: `755` means `rwxr-xr-x`. `chmod` changes permissions; `chown` changes ownership.
+
+### Process Isolation
+
+Each process has its own virtual address space and cannot directly read or write another process's memory. The MMU enforces this — any access to an unmapped address triggers a fault, and the OS terminates the offending process.
+
+Processes are also isolated from hardware. A process cannot issue arbitrary I/O commands or modify kernel memory. All hardware access goes through system calls, which the kernel validates. A buggy or malicious process cannot take down the system — only its own process.
+
+### Namespaces and cgroups
+
+Linux adds two mechanisms that extend isolation further:
+
+- **Namespaces** — hide parts of the system from a process. A process inside a PID namespace sees only its own subtree of processes. A process inside a network namespace has its own network interfaces and routing table, invisible to and from the rest of the system. Mount, user, and UTS namespaces work similarly.
+- **cgroups** (control groups) — limit how much CPU, memory, and I/O a process or group of processes can consume. A cgroup can cap a process at 512 MB of RAM or 50% of one CPU core.
+
+### How Containers Work
+
+Docker containers are ordinary Linux processes running with namespaces and cgroups configured to provide the appearance of an isolated machine. There is no separate OS kernel inside a container — the container shares the host kernel. What is isolated is the container's view of processes, networking, the file system, and resource limits.
+
+This is why containers start in milliseconds (no kernel to boot) and why a kernel vulnerability can potentially escape container isolation — the boundary is enforced by the kernel, not by a separate hypervisor.
