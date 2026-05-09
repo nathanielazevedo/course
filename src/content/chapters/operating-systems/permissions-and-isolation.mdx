@@ -33,8 +33,4 @@ Linux adds two mechanisms that extend isolation further:
 - **Namespaces** — hide parts of the system from a process. A process inside a PID namespace sees only its own subtree of processes. A process inside a network namespace has its own network interfaces and routing table, invisible to and from the rest of the system. Mount, user, and UTS namespaces work similarly.
 - **cgroups** (control groups) — limit how much CPU, memory, and I/O a process or group of processes can consume. A cgroup can cap a process at 512 MB of RAM or 50% of one CPU core.
 
-### How Containers Work
-
-Docker containers are ordinary Linux processes running with namespaces and cgroups configured to provide the appearance of an isolated machine. There is no separate OS kernel inside a container — the container shares the host kernel. What is isolated is the container's view of processes, networking, the file system, and resource limits.
-
-This is why containers start in milliseconds (no kernel to boot) and why a kernel vulnerability can potentially escape container isolation — the boundary is enforced by the kernel, not by a separate hypervisor.
+These two primitives are the kernel mechanism that containers are built on. Chapter 9 covers what gets layered on top — images, runtimes, and how they combine into a deployable artifact.

@@ -61,3 +61,5 @@ It breaks down when the workload becomes CPU-bound. A long synchronous JSON pars
 - **Both** — event loop for I/O, worker pool for CPU work. This is what most modern runtimes converge on.
 
 Threads were the answer to "how do we use multiple cores?" Event loops were the answer to "how do we handle ten thousand idle clients without ten thousand threads?" Real systems use both.
+
+The file descriptors being managed by these event loops are overwhelmingly network sockets — connections to clients, to databases, to other services. The next chapter covers how those connections are established and what travels over them.
