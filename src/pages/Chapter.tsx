@@ -7,26 +7,20 @@ import {
   Button,
   List,
   ListItemButton,
-  Checkbox,
-  FormControlLabel,
 } from "@mui/material";
 import { Link as RouterLink, useParams, Navigate } from "react-router-dom";
 import { chapters, getChapterBySlug } from "../data/chapters";
-import { useCourseStore } from "../store/useCourseStore";
 import ChapterVideo from "../components/ChapterVideo";
 
 export default function Chapter() {
   const { slug = "" } = useParams();
   const chapter = getChapterBySlug(slug);
-  const completed = useCourseStore((s) => s.completed);
-  const toggleCompleted = useCourseStore((s) => s.toggleCompleted);
 
   if (!chapter) return <Navigate to="/" replace />;
 
   const idx = chapters.findIndex((c) => c.slug === chapter.slug);
   const prev = chapters[idx - 1];
   const next = chapters[idx + 1];
-  const isDone = completed.includes(chapter.title);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -114,24 +108,6 @@ export default function Chapter() {
               </List>
             )}
           </Stack>
-
-          <Divider />
-
-          <FormControlLabel
-            sx={{ alignSelf: "flex-start" }}
-            control={
-              <Checkbox
-                checked={isDone}
-                onChange={() => toggleCompleted(chapter.title)}
-                disableRipple
-                sx={{
-                  color: "text.primary",
-                  "&.Mui-checked": { color: "text.primary" },
-                }}
-              />
-            }
-            label={isDone ? "Chapter completed" : "Mark chapter complete"}
-          />
 
           <Divider />
 

@@ -1,0 +1,95 @@
+"The cloud" is a name for a few related things: a fleet of physical machines someone else owns, a set of services they expose over an API, and a billing model that charges by what you consume. AWS, GCP, Azure, and the smaller providers all sell the same kinds of things in slightly different shapes. This section is the vocabulary.
+
+### The Service Model
+
+The conventional layering of cloud services, from "the most you do yourself" to "the least":
+
+- **IaaS (Infrastructure as a Service).** You rent virtual machines, virtual disks, virtual networks. You install your OS, your runtime, your application. You patch the OS. You pick the instance size. EC2, GCE, Azure VMs.
+- **PaaS (Platform as a Service).** You hand over your application code; the platform runs it. The OS, the runtime, the load balancer, the autoscaling — all theirs. Examples: Heroku, App Engine, Elastic Beanstalk, Render, Fly.io.
+- **SaaS (Software as a Service).** You use a finished application over the internet. The provider owns everything. Gmail, Stripe, Salesforce, Datadog.
+- **FaaS (Functions as a Service) / Serverless.** You hand over individual functions; the platform invokes them in response to events (HTTP requests, queue messages, schedules). You pay per invocation and per millisecond of runtime. Lambda, Cloud Functions, Cloud Run, Vercel Functions.
+
+These are not exclusive — most production systems use several. A typical setup might run application code on Lambda (FaaS), store data in RDS (managed PaaS-ish database), send emails via SES (SaaS), and run a few EC2 instances for a long-running daemon (IaaS).
+
+### The Real Trade-Off
+
+The lower layer you operate at, the more control you have and the more work you do. The higher you go, the less control and the less work — but you also pay a multiplier on the underlying compute.
+
+A rough heuristic:
+
+- **Bursty, unpredictable, low-volume** — FaaS. You pay zero when idle.
+- **Predictable, steady, high-volume** — IaaS or container-based PaaS. FaaS billing per invocation gets expensive at scale.
+- **Standard application shapes (web app, queue worker, scheduled job)** — PaaS. You stop solving solved problems.
+- **Specialized infrastructure (database, queue, search index)** — managed services from the cloud provider, almost always. Operating these yourself is rarely worth the headcount.
+
+### Region, Availability Zone, Edge
+
+Geography is the single biggest source of operational concepts in the cloud.
+
+- **Region.** A physical area — a metro region or a country — containing multiple isolated data centers. `us-east-1`, `eu-west-2`, `ap-southeast-1`. Latency between regions is measured in tens to hundreds of milliseconds.
+- **Availability Zone (AZ).** One or a small group of physically separate data centers within a region, with independent power, cooling, and network. Connected by low-latency private links. Designed to fail independently — a flood, fire, or power loss in one AZ should not affect the others.
+- **Edge / Point of Presence (PoP).** Locations close to users, used for CDN, DNS, and edge functions. Hundreds to thousands of these globally per major provider, distinct from the (much smaller) set of regions.
+
+A *highly available* deployment runs across multiple AZs in one region. A *disaster-tolerant* deployment runs across multiple regions. The cost goes up, the operational complexity goes up, and most things should start in one region and span multiple AZs.
+
+### What "Managed" Means
+
+A "managed service" is one where the provider runs the operational layer for you. Managed RDS Postgres means: the provider runs the server, applies patches, handles failover, takes backups. You connect to a hostname, run queries, and pay a per-hour fee plus storage and IOPS.
+
+What you *still* own:
+
+- Schema design, indexes, query optimization.
+- Application-level connection pooling.
+- The size of the instance — too small and you bottleneck; too large and you burn money.
+- Security groups, network access, IAM.
+- Cost visibility — managed services have a multiplier vs raw compute, sometimes large.
+
+What you do not own:
+
+- The kernel and the OS.
+- The database binaries and patches.
+- Daily backups, point-in-time recovery (configured, but executed for you).
+- Failover orchestration on instance failure.
+
+The market reality: most non-trivial systems use managed services for stateful infrastructure (databases, queues, object stores) and either containers or FaaS for stateless workloads. Running your own Kafka cluster on EC2 to save money has cost more teams more time than it has saved them in invoices.
+
+### The Shared Responsibility Model
+
+Cloud providers explicitly publish this. AWS calls it the *Shared Responsibility Model*; GCP and Azure have equivalents. The split:
+
+- **Provider's responsibility.** Physical security of the data centers, the hypervisor, the host network, hardware lifecycle, the management plane.
+- **Your responsibility.** Operating systems on VMs you run, applications you deploy, network ACLs and security groups, IAM policies, encryption choices, the data you put in the system.
+
+A common misunderstanding: "the cloud is secure, so I am secure." The provider has secured the layer below the API. Above the API is yours. Misconfigured S3 buckets, leaked IAM keys, public databases, and over-broad security groups have caused the majority of cloud security incidents — and all of them are on the customer side of the line.
+
+### What You Are Actually Buying
+
+Underneath the marketing, the cloud sells:
+
+- **Compute.** VMs, containers, functions, billed by instance-hour or invocation.
+- **Storage.** Block storage (EBS-style virtual disks), object storage (S3-style), file storage (NFS-style).
+- **Networking.** Virtual networks (VPCs), load balancers, DNS, CDN, IP addresses.
+- **Databases and queues.** Managed instances of common open-source systems plus the providers' own (DynamoDB, Spanner, BigQuery).
+- **Identity and access.** IAM — who can do what to which resource. The most consequential and most error-prone surface area.
+- **Observability and security.** Logs, metrics, tracing, security analysis, compliance auditing.
+
+Each is a category with dozens of services from each provider. The depth of the catalog is where complexity comes from. The ones you will actually use day-to-day are a much smaller set.
+
+### A Cost Model Worth Internalizing
+
+The bill is not just for compute. The categories that surprise people:
+
+- **Egress.** Data leaving the cloud (or moving between regions) is billed per GB. Within an AZ is free; between AZs is cheaper than between regions; out to the internet is the most expensive. A high-traffic CDN-fronted service can have egress as the dominant line item.
+- **API requests.** Object stores, queues, and functions charge per request. Millions of small requests can cost more than the underlying storage.
+- **Idle managed services.** A managed database is billed even when idle — there is a server running for it. This is different from FaaS, which is billed per invocation.
+- **NAT, load balancer, IP, log ingest.** Each is a small fee that adds up at scale.
+
+Cost-aware design is not premature optimization at scale. The architectural choice (FaaS vs container, single-region vs multi-region, polling vs push, fanout pattern) shapes the bill more than micro-optimizations to the application code.
+
+### Why This Layer Exists
+
+The cloud exists because most companies are not in the data center business. The fixed costs of running data centers — capital expenditure on hardware, network, power, real estate, security, compliance — are amortized across the cloud provider's millions of tenants. You pay a margin on top of the underlying cost in exchange for capacity on demand, geographic reach, and not running facilities engineering as a department.
+
+For some workloads — at large enough scale, with steady enough demand, with the operational competence to do it well — the math tips back to running your own hardware. Dropbox famously moved off S3, then partially back. Most companies are not at that scale, and the cloud is the right answer until they are.
+
+The next section is how all this infrastructure gets created, modified, and reproduced — because clicking through cloud consoles does not scale.

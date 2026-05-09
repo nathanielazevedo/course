@@ -1,0 +1,92 @@
+A single server has limits. Past a certain traffic volume, you run multiple identical servers behind a **load balancer** — a piece of software that accepts client connections and forwards them to one of the backend servers. This is the primitive that makes horizontal scaling work.
+
+The same component, configured differently, is also called a **reverse proxy** — a proxy that sits in front of servers (as opposed to a forward proxy that sits in front of clients). nginx, HAProxy, Envoy, Cloud-provider load balancers, AWS ALB, GCP Cloud Load Balancer — they are all variations on this idea.
+
+### What It Does
+
+A load balancer takes one logical endpoint (`api.example.com:443`) and fans it out to many backend instances. To clients, the system looks like a single endpoint. To operators, the system is a fleet. The load balancer mediates between them.
+
+The minimum responsibilities:
+
+- **Distribute connections** across backends according to some algorithm.
+- **Detect dead backends** via health checks and stop sending traffic to them.
+- **Terminate TLS** so backends do not each need a certificate or do the crypto.
+- **Re-encrypt or pass through** to backends if needed.
+- **Connection pooling** to backends — reuse TCP connections instead of opening one per request.
+
+Beyond that, modern load balancers do far more — request routing, rate limiting, retries, header manipulation, observability, mTLS between services, traffic shifting for deploys.
+
+### L4 vs L7
+
+The biggest architectural split is which protocol layer the load balancer operates on.
+
+**Layer 4 (transport)** load balancers route TCP connections. They see source/destination IP and port, but not the bytes inside the connection. They do not parse HTTP. Once a connection is assigned to a backend, every byte in that connection goes to the same backend.
+
+- Fast — minimal per-packet processing.
+- Protocol agnostic — works for any TCP protocol (databases, custom RPC, HTTP).
+- Cannot route based on URL path, headers, or method.
+- Cannot retry a request that is in flight; if the backend dies mid-request, the connection is broken end-to-end.
+
+Examples: HAProxy in TCP mode, AWS NLB, Linux IPVS.
+
+**Layer 7 (application)** load balancers parse HTTP (or gRPC, or whatever protocol they understand). They see methods, paths, headers, status codes, and can route on any of them.
+
+- Slower per request — parsing has cost.
+- Can route `GET /api/*` to one backend pool and `GET /static/*` to another.
+- Can retry idempotent requests that failed.
+- Can rewrite headers, terminate TLS, do compression, inject tracing.
+- Multiplexes many client connections onto a smaller pool of backend connections.
+
+Examples: nginx, Envoy, HAProxy in HTTP mode, AWS ALB.
+
+L7 is the default for HTTP services. L4 is the right choice for protocols the load balancer cannot parse, and for raw throughput.
+
+### Balancing Algorithms
+
+Given N healthy backends, which one gets the next request?
+
+- **Round-robin.** Each request goes to the next backend in order. Simple, fair when requests are uniform. Bad when requests vary in cost — long requests pile up on whichever backend got them.
+- **Least connections.** Send to the backend with the fewest in-flight connections. Better when request durations vary. Default in many L7 proxies.
+- **Random.** Send to a uniformly random backend. Surprisingly competitive — close to round-robin in practice and resilient against synchronized misbehavior.
+- **Power of two choices.** Pick two backends at random, send to whichever has fewer in-flight requests. Almost as good as least-connections without the global state.
+- **Hash-based / consistent hashing.** Hash some property of the request (client IP, session ID, cache key) to a backend. Used when stickiness or cache locality matters. Adding or removing a backend reshuffles only `1/N` of the traffic.
+
+The right choice depends on the workload. Most modern proxies default to least-connections or power-of-two-choices.
+
+### Health Checks
+
+A load balancer has to know which backends are healthy. The two flavors:
+
+- **Active** — the load balancer periodically pings a `/healthz` endpoint on each backend and removes the ones that fail. Simple, predictable.
+- **Passive** — observe real request traffic; if a backend's error rate or latency exceeds thresholds, eject it. Catches problems active checks miss (a backend that returns 200 to `/healthz` while failing real requests).
+
+Both are usually combined. The right active probe checks something the request actually depends on (a database connection, for example), but not so much that one slow downstream causes a healthy server to be marked dead.
+
+A subtle failure mode: if every backend fails the health check at once (maybe because the database they all share is down), the load balancer has nothing left to send traffic to. Some load balancers handle this with *panic mode* — when fewer than a threshold of backends are healthy, route to all backends and let them fail rather than treating none as healthy.
+
+### TLS Termination
+
+The load balancer holds the TLS certificate; clients establish HTTPS to it; the load balancer either:
+
+- **Terminates** TLS — decrypts the request and forwards plaintext (or re-encrypts to backends with their own internal certs).
+- **Passes through** TLS — forwards the encrypted bytes to the backend untouched. The backend has the cert and does the crypto.
+
+Termination is the default. It centralizes certificate management, lets the load balancer make L7 routing decisions, and offloads CPU from backends. Pass-through is used when the load balancer must not see request contents (compliance), or when the backend must see the original client TLS info (mTLS).
+
+### Sticky Sessions
+
+By default, two requests from the same client may land on different backends. Sometimes that is fine (statelessness — chapter 6). Sometimes the application has session state in process memory and a request needs to land on the same backend that holds it. **Sticky sessions** (session affinity) tell the load balancer to route the same client to the same backend, typically via a cookie set by the load balancer.
+
+Sticky sessions are usually a workaround for not externalizing session state. They make capacity planning harder (uneven load), failover painful (loss of state when a backend dies), and deploys disruptive. The cleaner answer is to push session state to a shared store (Redis, the database) so any backend can serve any request.
+
+### Where Load Balancers Sit
+
+A typical architecture has multiple layers:
+
+1. **DNS** — geographic routing or simple round-robin across regions.
+2. **Edge / CDN** — terminates client TLS, serves cached responses, forwards to the origin.
+3. **L7 load balancer** — at the front of each region, doing routing and TLS termination.
+4. **L4 load balancer** — sometimes between the L7 and individual instances, for raw connection load.
+5. **Service mesh sidecars** (Envoy in Istio, Linkerd) — a tiny proxy alongside each instance, handling retries, mTLS, and traces between services.
+
+Each layer adds latency in the order of microseconds to milliseconds, and removes a class of problem the layer above has to think about. The load balancer is one of the most leveraged pieces of infrastructure you operate; it is also one of the most opinionated, because where you put it shapes how the rest of the system can fail.

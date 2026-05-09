@@ -1,0 +1,76 @@
+A container is a process — sometimes a small group of processes — running on the host kernel with a restricted view of the system. There is no second OS, no hypervisor, no boot. From the host's perspective it is just another process. From inside the container, it looks like a complete machine with its own filesystem, network, and process table.
+
+This chapter started in Chapter 3, when we covered namespaces and cgroups. This section is what gets built on top.
+
+### Containers Are Just Processes
+
+The kernel that runs your container is the host's kernel. The container process is started from a normal `execve()` call. What makes it a container is that the kernel applies a few isolation features to it:
+
+- **Namespaces** restrict what the process can see — its own process tree, network stack, mount points, hostname, user IDs.
+- **cgroups** restrict what the process can use — CPU, memory, I/O, number of processes.
+- **Capabilities** restrict what the process can do — drop the ability to load kernel modules, mount filesystems, change the system clock.
+- **seccomp filters** restrict which system calls the process can make.
+
+This is *kernel-mediated* isolation. The container shares the host kernel, the host's CPU scheduler, the host's memory management. There is no hypervisor between them.
+
+The trade-off vs VMs is direct: containers start in milliseconds, take kilobytes to megabytes of overhead, and let dozens or hundreds run on a host that could fit only a handful of VMs. They share the kernel, so the security boundary is thinner — a kernel exploit can escape a container in a way it cannot escape a VM.
+
+### Container Images
+
+A container image is a tarball plus metadata. The tarball contains a Linux root filesystem — the binaries, libraries, and config the container will see at `/`. The metadata says which command to run, which environment variables to set, which user to run as.
+
+When you `docker run nginx`, the runtime:
+
+1. Pulls the image (if not local).
+2. Unpacks its layers into a directory.
+3. Creates new namespaces and cgroups for the container.
+4. Mounts the unpacked filesystem as the container's root via `pivot_root` or `chroot`.
+5. Executes the configured command inside the new namespaces.
+
+The image format is **OCI** (Open Container Initiative), the standard Docker started and the rest of the industry adopted. Images are content-addressed: each layer is identified by the SHA-256 of its contents, and a registry (Docker Hub, ECR, GHCR) is a content-addressable store.
+
+### Layers
+
+Image layers are how container images stay small and fast to deploy.
+
+A `Dockerfile` produces one layer per instruction. Each layer is a diff: "starting from the layer below, here are the files I added, modified, or deleted." Layers are stacked at runtime using a *union filesystem* (OverlayFS on modern Linux), which presents the merged view as a single filesystem to the container.
+
+The implication: layers shared between images are stored once and downloaded once. Many images on a host built on `node:20-alpine` share that base layer. A 500MB image whose changes from the base are 30MB only transfers 30MB on a deploy. This is what makes container deployments fast at scale.
+
+Layers also enforce a discipline: secrets baked into a layer stay in the image even if a later layer "deletes" them — the deletion is just a tombstone in a higher layer; the original bytes are still in the lower one. Build secrets and tokens have to be passed via mechanisms that do not bake them into a layer.
+
+### What a Container Cannot Do (Easily)
+
+- **Run a different kernel.** The container shares the host's kernel. A Linux container needs a Linux host. A Linux container running on macOS or Windows is actually running inside a tiny Linux VM (Docker Desktop runs a Linux VM and runs containers inside it).
+- **Have its own kernel modules.** It uses the host's.
+- **Run privileged operations.** By default a container drops most capabilities — it can't `mount`, can't change the clock, can't open raw sockets. Running `--privileged` removes the protection, which is what most security incidents involving containers are about.
+- **Survive a host failure.** A container is a process on a host. If the host dies, the container dies. The orchestrator (next section) handles the restart elsewhere.
+
+### Why Containers Won
+
+Before containers, deploying an application meant:
+
+- Make sure the target machine has the right OS version, the right libraries, the right runtime.
+- Install the application's dependencies, possibly conflicting with the dependencies of other applications on the same machine.
+- Ship a tarball or a system package, install it, restart it.
+
+The contract was implicit and constantly broken. "Works on my machine" was the canonical bug.
+
+Containers made the contract explicit: the application ships *with* its dependencies and its filesystem layout, frozen as an image. Everything outside the container — the kernel, the host's libc, the host's package versions — is irrelevant. The same image runs on a developer laptop, in CI, in staging, and in production, byte-for-byte identical.
+
+This is the leverage. Not the isolation, not the resource limits — the *immutable, reproducible deployment artifact*. Everything else (orchestration, microservices, CI/CD pipelines) is built on top of having that artifact.
+
+### Containers vs VMs
+
+| | VM | Container |
+| --- | --- | --- |
+| Isolation | Hypervisor | Kernel |
+| Boot time | seconds–minutes | milliseconds |
+| Overhead | hundreds of MB | KB–MB |
+| Density per host | tens | hundreds |
+| Different OS than host | yes | no |
+| Security boundary | strong | weaker |
+
+The right answer is rarely "one or the other." Most cloud platforms run containers *inside* VMs, getting the deployment ergonomics of containers and the security boundary of VMs. EKS, GKE, and ECS all do this.
+
+The next section is what runs containers in production — because once you have hundreds of them across many hosts, you need something to schedule, restart, and route traffic to them.

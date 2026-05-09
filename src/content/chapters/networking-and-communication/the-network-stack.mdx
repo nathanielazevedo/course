@@ -1,0 +1,40 @@
+A network is not one thing. It is a stack of protocols, each layer giving the layer above it a slightly more useful abstraction. The bottom moves voltages on a wire. The top moves a JSON response between two programs. Every layer in between exists because the one below it is not yet quite enough.
+
+### Why Layering
+
+The same network has to carry video calls and email and database queries. The same physical link has to work over copper, fiber, and radio. Layering lets each problem be solved once, in isolation, and reused everywhere above it.
+
+A program writing to a TCP socket does not know whether the bytes will leave the machine over Ethernet, Wi-Fi, or a cellular modem. A router forwarding an IP packet does not know whether it carries HTTP, SSH, or a video stream. Each layer hides the layer below.
+
+### The Layers
+
+The model used in practice has four working layers (the original OSI model has seven, but several are theoretical):
+
+- **Link layer** — moves frames between two directly connected devices. Ethernet, Wi-Fi. Uses MAC addresses, which are unique per network interface.
+- **Network layer (IP)** — moves packets between any two hosts on the internet, possibly across many links and routers. Uses IP addresses.
+- **Transport layer (TCP, UDP)** — moves data between two *programs* on two hosts. Adds port numbers; TCP also adds reliability, ordering, and flow control.
+- **Application layer** — the protocol your program speaks. HTTP, DNS, SSH, SMTP. These are the formats the bytes inside a TCP or UDP payload follow.
+
+### Encapsulation
+
+When your program calls `send()` on a TCP socket, the data gets wrapped from the inside out:
+
+1. The application produces a payload — say, an HTTP request.
+2. The OS prepends a **TCP header** (source port, destination port, sequence number, flags, checksum).
+3. The OS prepends an **IP header** (source IP, destination IP, TTL, protocol number).
+4. The network interface prepends a **link-layer header** (source MAC, destination MAC, type) and trailer.
+
+The result is a frame on the wire. At each router along the way, the link-layer header is stripped, the IP header is examined to decide where to forward the packet, a fresh link-layer header is added, and the frame goes out the next interface. The TCP and application data are not touched in transit.
+
+The receiving machine reverses the process: the network card hands a frame to the kernel, the kernel strips link, IP, and TCP headers, and delivers the payload to whichever socket is listening on the right port.
+
+### Why This Is Worth Knowing
+
+Almost every networking problem you will hit lives at one specific layer:
+
+- "Can the machines reach each other at all?" — link or IP layer.
+- "The connection works but data arrives garbled or out of order" — TCP layer.
+- "The right port is open but the wrong service is answering" — application layer.
+- "DNS resolves but TLS fails" — application layer above TCP, below HTTP.
+
+Knowing which layer a symptom belongs to is most of the diagnosis. The rest of this chapter walks up the stack one layer at a time.

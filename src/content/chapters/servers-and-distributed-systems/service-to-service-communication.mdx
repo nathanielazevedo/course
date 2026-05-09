@@ -1,0 +1,94 @@
+Once you have more than one service, they have to talk to each other. The choice of *how* — synchronous or asynchronous, REST or RPC, request-response or message queue — is one of the most consequential architectural decisions you make. It shapes coupling, failure modes, and how the system behaves under load.
+
+### Synchronous: Request-Response
+
+The default. Service A makes a request to service B and waits for the response. The interaction is point-to-point and tied to a single user request.
+
+The two dominant flavors over HTTP:
+
+**REST (and JSON over HTTP).** Resources at URLs, manipulated with HTTP methods. Self-describing, debuggable with `curl`, language-agnostic. The trade-off is that "REST" in practice covers a wide range from carefully designed hypermedia APIs to ad-hoc JSON endpoints, and serialization through JSON is slower than binary alternatives.
+
+**gRPC.** RPC over HTTP/2 with Protocol Buffers as the schema and wire format. Strongly typed, code-generated clients and servers, streaming support, much faster serialization. The trade-off is that it is harder to inspect on the wire (binary), and it requires HTTP/2 end-to-end (which not every load balancer or browser handles well).
+
+There are others — GraphQL when the client wants to control which fields are returned, JSON-RPC for simpler RPC needs, raw TCP protocols for specific cases. The pattern is the same: caller waits for callee.
+
+### What Synchronous Calls Cost
+
+The caller's request latency is the sum of every service in the chain plus the network between them. If service A calls service B which calls C which calls D, A's response time is bounded below by `latency(A→B) + latency(B→C) + latency(C→D)`, plus the work each does.
+
+This is fine when the chain is short. It becomes a problem when:
+
+- The chain is long (each hop adds latency).
+- Any service in the chain is slow or down (the whole call fails or hangs).
+- Calls fan out (A calls B, C, and D in parallel; A waits for the slowest).
+- Retries amplify load (if A retries on B's failure, and B was slow because it was overloaded, the retry makes it worse).
+
+Two services that synchronously call each other are coupled at the availability level. If B is down, A is also effectively down. This is the central reason large systems eventually move toward asynchronous patterns for non-critical paths.
+
+### Asynchronous: Message Queues and Event Streams
+
+Service A puts a message on a queue. Service B reads it from the queue and processes it. A does not wait. A does not even know who B is — it might be one consumer, it might be many.
+
+This is the second major pattern, and it changes the failure model.
+
+**Queues** (RabbitMQ, AWS SQS, ActiveMQ): a message is delivered to one consumer. After the consumer acknowledges, the message is removed. A worker pool drains the queue at whatever rate it can. If consumers fail, the message redelivers. If the queue has no consumers, the messages pile up and wait.
+
+**Event streams** (Kafka, Pulsar, Kinesis): messages are appended to a durable log. Consumers read at their own pace, tracking their position in the log. Multiple unrelated consumers can read the same log independently. Data is retained for a configured time, regardless of whether anyone has read it.
+
+The split: queues are about *work distribution* — get this task done by some worker. Streams are about *event distribution* — broadcast this fact, anyone who cares can consume.
+
+### What Asynchronous Buys You
+
+- **Decoupling availability.** If the consumer is down, messages queue up and process when it recovers. The producer is unaffected.
+- **Smoothing load.** A spike in production gets absorbed by the queue; the consumer drains at a steady rate.
+- **Multiple consumers.** With a stream, the same event can drive many independent reactions — billing, search indexing, notifications — added without changing the producer.
+- **Retries without coupling.** A failed message is redelivered (or re-read) from the broker, not by the producer.
+
+What it costs:
+
+- **Latency.** End-to-end time is not bounded by the network — it is bounded by how long it takes the consumer to get to your message in the queue.
+- **Operational complexity.** You now run a queue or stream as critical infrastructure.
+- **Eventual consistency.** Side effects driven by events are eventually applied. The system has to tolerate the gap.
+- **Ordering.** Most queues do not preserve global order. Streams within a partition do.
+
+### When to Use Which
+
+A reasonable starting heuristic:
+
+- **User-facing read/write of the immediate request** — synchronous. The user is waiting; you need a response.
+- **Side effects of a user request that can be slow or eventually consistent** — asynchronous. Send the welcome email, update the search index, generate the thumbnail.
+- **Cross-service updates** — events. The order service emits `OrderPlaced`; billing, fulfillment, and analytics each react in their own way without the order service knowing about them.
+- **Workflows with steps over time** — events or workflow systems (Temporal, Step Functions). State is persisted between steps; the system can resume after failures.
+
+### Idempotency
+
+Networks fail. A request that "failed" may have actually succeeded — the server processed it but the response was lost. The retry creates the same effect twice unless the operation is **idempotent**: running it twice has the same effect as running it once.
+
+Some operations are naturally idempotent (`PUT /users/42` with a complete user object, `DELETE /users/42`). Some are not (`POST /payments` to charge a card). For the non-idempotent ones, you make them idempotent by attaching a client-supplied **idempotency key** — Stripe and most modern APIs do this. The server records the key and the result; a retry with the same key returns the same result without re-running the operation.
+
+This applies to message queues too. A consumer must assume any message can be delivered more than once. The standard remedy is the same: every message carries an ID, the consumer records what it has processed, duplicates are dropped.
+
+### Retries and Backoff
+
+When a synchronous call fails, the caller's options are: fail immediately, retry, or queue for later. If you retry:
+
+- **Only retry idempotent operations.** Otherwise you can double-charge, double-create, double-anything.
+- **Use exponential backoff.** Wait a little, then double the wait, with a cap. Linear or constant retry intervals overwhelm a struggling backend instead of letting it recover.
+- **Add jitter.** Randomize the backoff so that thousands of clients failing at the same moment do not retry in synchronized waves.
+- **Put a budget on retries.** A request that has been retrying for thirty seconds is no longer a useful request; fail it and free the resources.
+
+### Backpressure
+
+When a consumer cannot keep up with the producer, *something* has to give. The good options:
+
+- **Block the producer** until the consumer catches up (TCP-style flow control, `await` in async code).
+- **Drop messages** — keep the newest, drop the rest. Right when stale data is worthless (live metrics, video frames).
+- **Queue with a bounded depth** — accept up to a limit, then start rejecting. Bounds the worst case.
+
+The bad option is unbounded buffering. An in-memory queue with no limit will eventually exhaust memory and crash the process, often after the system has been silently degraded for a while. Every queue, every channel, every internal buffer should have a bound.
+
+### What This Means for the System
+
+Service architecture is largely the question of which calls are synchronous and which are asynchronous. Synchronous chains give you simplicity and correctness at the cost of coupled availability. Asynchronous patterns give you decoupling and resilience at the cost of consistency and operational weight. Real systems mix them — synchronous on the immediate request path, asynchronous for everything that does not have to be done before the response goes out.
+
+The networks underneath do not care about the distinction. Both are sockets. Both are bytes on the wire. The difference is entirely in what your code does while waiting.

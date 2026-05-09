@@ -1,0 +1,109 @@
+"It's slow" is not a measurement. To improve performance you have to measure it, and the measurements that matter are not always the ones you instinctively reach for. This section is the vocabulary — what to measure, how to summarize it, and the small set of laws that govern systems under load.
+
+### Latency vs Throughput
+
+Two different things people often confuse:
+
+- **Latency** — how long one request takes. Measured per request, in time units. "The p95 latency of the checkout endpoint is 180ms."
+- **Throughput** — how many requests the system handles per unit time. Measured at the system level, in requests per second. "The order service handles 12,000 RPS."
+
+They trade off but they are not the same. A system can have low latency at low throughput and high latency at high throughput. Optimizing for one without watching the other is a common way to ship a regression.
+
+### Why Averages Lie
+
+The average response time of an endpoint is almost always misleading. Web request times follow long-tailed distributions: most requests are fast, a small fraction are very slow, and the slow ones determine the user experience.
+
+Consider 1000 requests where 990 take 50ms and 10 take 5000ms. The average is 99.5ms — sounds fine. But 1% of users waited five seconds. The average hid the experience of the people you most need to know about.
+
+Use **percentiles** instead.
+
+- **p50** (median) — typical request.
+- **p90** — 90% of requests are faster than this.
+- **p95** — 95% are faster.
+- **p99** — 99% are faster.
+- **p99.9** — three-nines.
+
+The right percentile depends on stakes. A typical user-facing latency target is p95 or p99. For a service called many times per page (or per request, fanning out), tail latency dominates and p99.9 is the right target — because if a page makes 100 calls and any one tail latency stalls the page, you hit a tail on roughly every page load.
+
+### Tail Latency Amplification
+
+A request that fans out to 100 backend calls in parallel has its overall latency bounded below by the *slowest* of those 100. Even if each backend has p99 = 100ms, the combined p99 is much higher — the math works out to roughly 1 minus 0.99 to the 100, around 63% of requests will hit at least one tail.
+
+This is the central reason **microservices architectures stress tail latency**. The number of network hops is multiplied; tails compound. Every retry, every slow GC, every brief overload on one node shows up as a slow user request.
+
+The defenses are explicit:
+
+- **Hedged requests.** Send the request to two replicas; use the first response. Costs 2x in load, halves the tail.
+- **Tight timeouts** on each backend call, with retries to alternate replicas.
+- **Circuit breakers** to stop calling a slow backend.
+- **Stable scheduling** so unrelated workloads do not interfere on the same machine.
+
+### Throughput, Concurrency, and Latency: Little's Law
+
+A simple, exact relationship that governs almost every queueing system:
+
+**L = λ × W**
+
+- L = average number of items in the system.
+- λ = arrival rate (throughput in steady state).
+- W = average time an item spends in the system (latency).
+
+Re-arranging: latency = concurrency / throughput.
+
+This is why a service with a thread pool of size 200 cannot do better than `200 / latency_per_request` requests per second. If average request latency is 200ms, max throughput is 1000 RPS regardless of how many cores the box has. To increase throughput, either lower latency, raise concurrency, or both.
+
+It is also why **a slow downstream slows the whole service**. If a downstream call goes from 50ms to 200ms, the in-flight count rises by 4x for the same arrival rate. If the in-flight count exceeds your concurrency limit, you start queueing requests. The queue fills, latency explodes, and the system degrades sharply.
+
+### Saturation
+
+A resource is **saturated** when it is fully utilized and any additional work has to wait. CPU at 100%, disk at queue-depth limit, network at link capacity, thread pool at max size, connection pool empty.
+
+Saturation is the regime where Little's Law bites hardest. Below saturation, latency scales gracefully. Above saturation, latency rises sharply with load — queueing delay dominates, throughput plateaus or drops.
+
+The classic system-under-load curve: latency stays flat as throughput grows, then knees up sharply at the saturation point. Production systems should be sized to operate well below the knee, with enough headroom that a traffic spike does not push them past it.
+
+### Utilization Is Not What You Think
+
+A common goal is to "drive utilization up" to make infrastructure cheaper. The math says be careful.
+
+For an M/M/1 queue (Poisson arrivals, exponential service times), **average wait time = (utilization / (1 − utilization)) × service time**.
+
+At 50% utilization, average wait equals service time. At 80%, wait is 4x service time. At 90%, 9x. At 95%, 19x. At 99%, 99x.
+
+Real systems are not exactly M/M/1, but the shape is the same: pushing utilization toward 100% causes latency to blow up nonlinearly. There is a strong reason most production systems target 50–70% peak CPU utilization, not 95%. The headroom is what lets the system absorb bursts and stay responsive.
+
+### What to Measure
+
+For every endpoint or service, the **golden signals**:
+
+- **Latency.** p50, p95, p99 distributions, separately for success and error responses.
+- **Traffic.** Requests per second, broken down by endpoint and status.
+- **Errors.** 5xx rate, retries, exceptions, distinct from "expected" 4xx.
+- **Saturation.** How full the most-constrained resource is — CPU, memory, thread pool, connection pool, queue depth.
+
+These are what Google's SRE book named the "four golden signals," and they are the right starting point for any service. Add specifics — cache hit rate, database query time, external API latency — as the system warrants.
+
+For every shared resource, the **utilization, saturation, errors** triplet (USE method):
+
+- **Utilization** — % busy.
+- **Saturation** — extent of queued work waiting for the resource.
+- **Errors** — error events from the resource.
+
+A service that looks healthy in latency and error rate but has saturated database connections is one bad burst away from collapse. Saturation is the leading indicator.
+
+### Histograms vs Summary Statistics
+
+When you store percentiles, store the histogram, not pre-computed percentiles. Pre-computed percentiles cannot be aggregated across hosts — the p95 of `host A` plus the p95 of `host B` is not the p95 of the union. Histograms can be merged correctly.
+
+Most modern observability systems (Prometheus, Datadog, OpenTelemetry) store latency as histograms with configurable buckets, and compute percentiles at query time over the merged distribution. This is the correct shape.
+
+### The Discipline
+
+Performance work is hypothesis-driven:
+
+1. Form a hypothesis about where time is going (next section is the catalog).
+2. Measure to confirm or refute.
+3. Change one thing.
+4. Re-measure.
+
+The most expensive bug is the one fixed without a measurement, because you do not know if your fix worked or just changed the apparent symptom. The most expensive optimization is the one for a hot spot that wasn't actually hot. Every change is a hypothesis; every commit is an experiment. Measure first.

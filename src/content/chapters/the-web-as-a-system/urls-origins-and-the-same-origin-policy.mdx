@@ -1,0 +1,69 @@
+A URL is the address of a resource on the web. An origin is the unit the browser uses to decide what is allowed to interact with what. The same-origin policy is the rule that holds the open web together — without it, every page you visited could read every other page you had open.
+
+### URL Anatomy
+
+A URL has a fixed structure:
+
+```
+https://api.example.com:443/users/42?fields=name,email#section
+└─┬─┘   └────────┬───────┘ └┬┘ └───┬───┘ └──────┬─────┘ └──┬──┘
+scheme       host         port  path         query     fragment
+```
+
+- **Scheme** — the protocol. `http`, `https`, `ws`, `file`, `data`.
+- **Host** — a hostname (DNS-resolvable) or an IP. Optionally a userinfo prefix (`user:pass@`), which browsers strip from display.
+- **Port** — the TCP/UDP port. Defaults: 80 for `http`, 443 for `https`.
+- **Path** — the resource on the host. Hierarchical; `/` separates segments.
+- **Query** — `?key=value&key2=value2`. Conventionally key-value pairs but the protocol is just text.
+- **Fragment** — `#section`. Never sent to the server. Used by browsers for in-page navigation and by client-side routers.
+
+Each part has its own escaping rules. `%20` is a space, `%2F` is a slash. A URL that mixes encoded and decoded forms is a common source of bugs.
+
+### What an Origin Is
+
+An **origin** is the triple `(scheme, host, port)`. Two URLs share an origin if and only if all three match exactly:
+
+- `https://example.com/a` and `https://example.com/b` — same origin.
+- `https://example.com` and `http://example.com` — different (scheme).
+- `https://example.com` and `https://api.example.com` — different (host).
+- `https://example.com` and `https://example.com:8443` — different (port).
+
+The path, query, and fragment do *not* affect origin. Anything served from the same scheme + host + port is one origin and trusts itself.
+
+### The Same-Origin Policy
+
+The same-origin policy is the browser's default rule: code running on origin A may not read responses or interact with state belonging to origin B. Specifically:
+
+- JS on `a.com` can fetch `b.com`, but cannot read the response unless `b.com` opts in via CORS.
+- An `<iframe>` from `b.com` embedded in `a.com` is a separate window; the parent cannot read its DOM.
+- Cookies set by `b.com` are not sent on requests to `a.com`.
+- `localStorage`, `IndexedDB`, and the cache are partitioned by origin.
+
+Without this rule, a page on `evil.com` could open an `<iframe>` to your bank, read the rendered DOM, and exfiltrate your account number. The same-origin policy is the single most important security property of the web.
+
+### What Crosses Origins by Default
+
+Some things were already allowed by the time browsers locked the policy down, and removing them would have broken the web. The legacy holes:
+
+- **`<img>`, `<script>`, `<link>`, `<iframe>` `src`** — can load from any origin. The bytes load, but the embedding page cannot inspect them as data (it can only render or execute them).
+- **Form submissions** — a form on `a.com` can `POST` to `b.com`. The browser sends cookies for `b.com` along with it. This is the basis for CSRF, defended against with same-site cookies and CSRF tokens.
+- **Top-level navigation** — clicking a link to another origin works. The destination origin opens; the source origin does not get to read it.
+
+The trick attackers exploit and defenders patch is the gap between "the request was sent" and "the response was readable." The browser will happily send the request; what same-origin policy controls is who gets to *see* the response.
+
+### CORS
+
+**Cross-Origin Resource Sharing** (CORS) is the controlled escape hatch. It is the mechanism by which a server says "yes, this other origin is allowed to read my responses."
+
+For a *simple* request — `GET`, `POST`, `HEAD` with a small allowlist of headers — the browser sends it normally and then checks the response for the header `Access-Control-Allow-Origin`. If that header includes the requesting origin (or `*`), JS gets to read the response. If not, the browser hides the response and rejects the `fetch` promise — even though the server already saw and processed the request.
+
+For *complex* requests — anything else, including any `Content-Type` outside a small list, custom headers, or methods like `PUT`/`DELETE` — the browser sends a **preflight**: an `OPTIONS` request that asks the server "would you allow the real request?" The server replies with `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, etc. Only if the answer is yes does the real request go.
+
+Two things that confuse people:
+
+- **CORS is a browser-enforced rule.** Servers do not "block CORS"; they just fail to send the headers that opt in to it. Tools like `curl` ignore CORS entirely because they are not browsers.
+- **CORS is not authentication.** Allowing an origin is not the same as authorizing a user. The server still has to check who is making the request.
+
+### Why This Layer Exists
+
+The web is the only widely deployed environment where you routinely run code from servers you have never met. Every other runtime — your phone OS, your terminal — assumes the code you run is trusted. The browser assumes the opposite. The same-origin policy and CORS are how it gives that code enough power to be useful while keeping origins from interfering with each other.

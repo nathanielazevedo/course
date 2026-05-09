@@ -1,0 +1,92 @@
+A relational database is a general-purpose tool. It handles transactions, joins, ad-hoc queries, and arbitrary schemas. It is also the wrong shape for some workloads — the overhead of being general is real. *Non-relational* (or *NoSQL*) databases drop one or more of those features in exchange for being faster, simpler, or more scalable for a specific access pattern.
+
+There are several distinct shapes, often grouped under "NoSQL" but solving different problems.
+
+### Key-Value Stores
+
+The simplest possible database: a key (a string or bytes) maps to a value (more bytes). The API is `GET key`, `PUT key value`, `DELETE key`. No schema, no queries beyond the key lookup.
+
+**Examples:** Redis, Memcached, RocksDB, DynamoDB (at the bottom layer), etcd.
+
+KV stores are fast because they are doing almost nothing. Lookups are typically a single hash table or B-tree probe, often in memory. They scale horizontally trivially because each key can live on any machine — the only operation is "look up by key," which is a function of the key alone.
+
+The trade-off is that everything more complex — querying by anything other than the key, joining, aggregating — is the application's job. If you want "all users created today," you have to maintain a secondary index yourself.
+
+KV stores are right for caches, session stores, feature flags, leaderboards (Redis sorted sets), distributed locks, and any access pattern that genuinely is a key lookup. They are wrong as the primary database for anything that needs ad-hoc queries.
+
+### Document Stores
+
+A document store holds **documents** — typically JSON or BSON — keyed by an ID. Each document is self-contained and can have a different shape from its neighbors. The store typically supports indexing fields inside the document and querying by them.
+
+**Examples:** MongoDB, Couchbase, DynamoDB (one of its modes), Firestore.
+
+A document store is roughly "a KV store with a schema-flexible value and indexes on inner fields." The appeal is shape: an entity that would live across multiple tables in SQL (a user, their addresses, their preferences) can live as one document, fetched in one read.
+
+The trade-off is duplication and consistency. If the user's email address is embedded in every document that references the user, updating it means updating every copy. Strong cross-document transactions are limited or expensive (they have improved a lot — modern MongoDB supports them — but were absent for years).
+
+Document stores fit well when the access pattern is "fetch this entity and everything it owns" — a product page, a CRM record, an event payload. They fit poorly when the same data has to be queried from many directions, which is exactly where SQL shines.
+
+### Wide-Column Stores
+
+A wide-column store looks superficially like a relational database — there are tables, rows, and columns — but the storage and query model are different. Rows are partitioned by a key across many machines, and columns within a row can be sparse: a row can have one column or a million.
+
+**Examples:** Cassandra, HBase, Bigtable, ScyllaDB.
+
+These are designed for *very* large datasets and high write throughput. They give up most of the relational features — no joins, limited transactions, queries primarily by partition key — in exchange for nearly linear horizontal scaling and predictable per-node performance.
+
+You design the schema around the queries you intend to run. There is no "ad-hoc query" path; there is "the access pattern this table is built for, plus indexes you defined up front."
+
+Wide-column stores are the right answer for time-series data, write-heavy event streams, telemetry, and anything that needs to scale to many petabytes. They are the wrong answer when you do not yet know what queries you will run.
+
+### Columnar / Analytical Stores
+
+A *columnar* database stores data column-by-column instead of row-by-row. Reading a single column across a billion rows touches only the bytes of that one column, not the whole row.
+
+**Examples:** ClickHouse, DuckDB, BigQuery, Redshift, Snowflake.
+
+This is the right shape for **analytics** — aggregations and scans across huge datasets. `SELECT AVG(price) FROM sales WHERE country = 'US'` reads the country column to filter and the price column to aggregate. A row-store would have to read every column of every matching row.
+
+Columnar formats also compress extremely well — adjacent values in the same column are usually similar — and benefit from CPU vectorization (SIMD operations on packed columns).
+
+The trade-off is writes: updating a single row touches every column file. Columnar stores are designed for *append-mostly* workloads — you load batches, you query them, you rarely update individual rows.
+
+This is the OLTP vs OLAP split: relational/document/KV stores are *transactional* (OLTP, many small reads and writes); columnar stores are *analytical* (OLAP, few large queries). Most architectures end up with both — a transactional database for the live application, a columnar warehouse for analytics, with periodic ETL between them.
+
+### Graph Databases
+
+A graph database represents data as nodes and edges, with properties on both. Queries traverse the graph: "friends of friends," "shortest path between A and B," "everyone within three hops of X."
+
+**Examples:** Neo4j, JanusGraph, Amazon Neptune, TigerGraph.
+
+The same data could live in a relational database, but expressing a multi-hop traversal in SQL becomes a chain of self-joins that is awkward to write and slow to execute. A graph database treats traversal as the native operation.
+
+Graph databases fit when the *relationships* between entities are the primary query — social networks, fraud detection, supply chain, knowledge graphs. They are usually the wrong default for anything else.
+
+### Redis
+
+Redis deserves a separate mention. It is a KV store, but the values can be data structures: strings, lists, sets, sorted sets, hashes, streams, bitmaps. Operations on these are atomic and fast — typically microseconds.
+
+Redis is mostly used as:
+
+- A **cache** in front of a slower database.
+- A **session store**.
+- A **rate limiter** (atomic counters).
+- A **distributed lock** (with care; the Redlock paper is required reading if this is load-bearing).
+- A **leaderboard** (sorted sets).
+- A **queue** (lists, or streams for more sophisticated consumers).
+
+Redis is durable if you configure it to be — it can append to a log (AOF) and snapshot periodically (RDB). But it is much more often deployed as a fast in-memory accelerator for a "real" database that holds the source of truth.
+
+### How to Choose
+
+Most production systems use more than one of these — a relational database as the system of record, Redis as a cache, a columnar warehouse for analytics, sometimes a search index on top. The rough decision tree:
+
+- **Need transactions, joins, ad-hoc queries** — relational. Default.
+- **Pure key lookups, very high read or write rate** — KV.
+- **Document-shaped entities, "fetch the whole thing"** — document.
+- **Scales beyond what one relational machine can hold, you know your access patterns** — wide-column.
+- **Aggregations across huge datasets** — columnar.
+- **Multi-hop relationships are the workload** — graph.
+- **Need a fast cache, queue, or atomic primitive** — Redis.
+
+The mistake is picking a NoSQL store because relational sounds old-fashioned, and the inverse mistake is picking relational by default and finding out later it does not fit. The fit is between the database's strengths and your access pattern, not the database's marketing.

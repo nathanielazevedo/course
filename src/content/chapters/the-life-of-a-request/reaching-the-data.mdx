@@ -1,0 +1,120 @@
+The handler has called `users.findById(42)`. From the application's perspective this is one line of code. From the system's perspective it is a chain of network calls, lookups, locks, and disk reads — most of the latency in the request lives here.
+
+This section follows the call from the application process down to where the bytes for user 42 actually live, and back.
+
+### The Connection Pool
+
+The first thing the data access layer does is *not* connect to the database. Connecting to a database is expensive — TCP, TLS, authentication, server-side session setup, often tens of milliseconds. Doing this once per request would dominate latency and exhaust the database's connection limit.
+
+Instead, the application keeps a **connection pool**: a small set of pre-established connections to the database, reused across requests. The handler asks the pool for a connection; the pool either hands one over or, if none is free, blocks the handler until one is.
+
+Pool sizing is deceptively important. Too small, and requests queue waiting for a connection — Little's Law (chapter 10) bites and latency rises. Too large, and the database is overwhelmed by concurrent connections, each consuming memory and contending for shared resources. Most production systems run with pools of a few dozen connections per process, and accept that most requests will see an immediate hand-off.
+
+In serverless environments (Lambda, Cloud Functions), pooling is harder — each invocation is a separate process. Solutions include connection proxies (RDS Proxy, PgBouncer, Cloud SQL Auth Proxy) that maintain pools the functions share, or HTTP-protocol databases (Neon, PlanetScale's Vitess) that do not require persistent connections.
+
+### The Cache, Maybe
+
+Many handlers do not go to the database first. They check a cache.
+
+```
+const cached = await redis.get(`user:${id}`);
+if (cached) return JSON.parse(cached);
+const user = await db.users.findById(id);
+await redis.set(`user:${id}`, JSON.stringify(user), 'EX', 60);
+return user;
+```
+
+The cache (Redis, Memcached, or even in-process) is microseconds, the database is milliseconds. A 90% cache hit rate cuts the average database load by 10x.
+
+The price is everything in chapter 6's caching section: invalidation when the user updates, staleness windows, the consistency between the cache and the source of truth. Each cache line is a bug surface that has to be reasoned about.
+
+For this walkthrough, assume the cache misses. The query proceeds.
+
+### The Query
+
+The ORM (or query builder, or raw SQL) produces a query like:
+
+```sql
+SELECT id, email, name, created_at FROM users WHERE id = 42 LIMIT 1
+```
+
+The connection pool hands the application a connection. The driver:
+
+1. Serializes the query (often as a *prepared statement* — the SQL was registered earlier, the driver now sends just the parameter values, which is faster and prevents injection).
+2. Writes the bytes to the connection's TCP socket.
+3. Reads the response.
+
+The bytes leave the application's container, go through the cluster network, possibly through a service mesh sidecar, possibly to a database proxy, and finally to the database server.
+
+### The Database Receives It
+
+The database server's connection thread (or process, in Postgres's case) receives the query. It walks roughly:
+
+1. **Parse** the SQL into an AST.
+2. **Plan** the query (chapter 7) — choose an index, decide the access path. For a primary-key lookup like this one, the plan is trivial: index seek on the primary key.
+3. **Execute** the plan.
+
+For `SELECT ... WHERE id = 42`:
+
+1. Walk the primary-key B+ tree from the root to a leaf — a few page reads.
+2. Each page is checked first in the **buffer pool** (the database's in-memory cache of recently used pages). If the page is in memory: tens of microseconds. If not: a disk read, hundreds of microseconds to milliseconds.
+3. The leaf page contains the row pointer; the database reads the row from the heap (or, in some engines, the row is in the leaf page itself).
+4. The row's columns are projected, the tuple is constructed.
+
+The lookup goes through the database's MVCC layer (chapter 7). The query is reading at a snapshot — it sees the version of row 42 that was committed at the start of this query (or this transaction), regardless of concurrent writes by other transactions.
+
+### Replication Routing
+
+If the database is single-node, the query stays on that node. In any production system, the database is replicated.
+
+A typical setup: one primary handles writes, several replicas handle reads. The application's data access layer routes:
+
+- **Reads of the most recent data, or reads-after-writes** to the primary.
+- **Most other reads** to a replica.
+
+`GET /users/42` is a read; it goes to a replica. The replica is following the primary asynchronously (chapter 7), so its data may be milliseconds-to-seconds behind. For most reads this is fine; for "I just changed my email and need to see the new value" it is not, and the application either forces those reads to the primary or sets a session flag that does.
+
+### The Response Returns
+
+The database serializes the result row, sends it back over the connection. The driver parses the wire format, exposes the row to the application as a record. The ORM maps it to a `User` object.
+
+Total time for the round trip:
+
+- Cache hit: 0.5–2ms.
+- Database hit on a hot index, buffer-pool warm: 1–5ms.
+- Database hit, page read from SSD: 5–20ms.
+- Cross-region read replica: add the cross-region RTT (50–200ms).
+
+Multiply this by the number of queries the handler makes. The classic N+1 query bug — fetching a user, then in a loop fetching each of their orders, then for each order fetching its line items — turns one user request into hundreds of round trips, each with its own latency.
+
+### Writes Are Different
+
+This walkthrough is a read. A write — `POST /users` to create a new user — has more to do:
+
+1. Open a **transaction** (chapter 7).
+2. Insert the row.
+3. Update any indexes the row needs to be in.
+4. Optionally call other operations within the same transaction (insert an audit row, increment a counter).
+5. Commit. The database flushes the WAL through `fsync` (chapter 7); only after that confirmation does it acknowledge the commit.
+6. Replicate the WAL records to read replicas — synchronously to a quorum if the system is configured for it, asynchronously otherwise.
+
+Each step has its own cost. The single biggest one is the WAL fsync — hundreds of microseconds to milliseconds, the floor on commit latency. This is why grouping multiple changes into one transaction is faster than committing each separately.
+
+### Cross-Service Calls
+
+A real handler often does more than database calls. To assemble its response, it might:
+
+- Hit a feature-flag service (Redis-backed, microseconds).
+- Call an authentication service to enrich the user with permissions.
+- Call a recommendations service for a personalized list.
+- Call an analytics service to log the view (asynchronously, fire-and-forget).
+
+Each call is a chapter-8 service-to-service interaction. Each has its own timeout, its own retry policy, its own circuit breaker. Each adds latency. Tail latency amplification (chapter 10) means the slowest of these calls dominates the response time.
+
+The discipline is to keep the synchronous call graph small and put non-essential work on async paths (events, queues, fire-and-forget). The user's request should depend on the minimum number of upstream calls.
+
+### What the Handler Has
+
+Once the data layer has returned, the handler has everything it needs to construct the response. The user object has been fetched from the replica, possibly enriched from a cache or another service, validated against the requesting user's permissions, and assembled in memory.
+
+Now the response has to go back. The next section is the return trip.

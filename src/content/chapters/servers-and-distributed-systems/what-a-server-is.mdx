@@ -1,0 +1,67 @@
+A server is a long-running program that waits for connections from clients and does something with them. Mechanically, every server in existence is built on the same core sequence: open a socket, bind it to a port, listen, accept connections in a loop. Everything else — frameworks, middleware, observability — is wrapped around that sequence.
+
+### The Listen-Accept Loop
+
+In Unix, the steps are exactly:
+
+```
+fd = socket(AF_INET, SOCK_STREAM, 0)
+bind(fd, address, port)
+listen(fd, backlog)
+while true:
+   conn = accept(fd)
+   handle(conn)
+```
+
+`socket` allocates a file descriptor for a TCP endpoint. `bind` claims a port. `listen` tells the kernel to start queuing incoming TCP connections — the backlog parameter is the size of that queue. `accept` blocks until a connection completes the TCP handshake, then returns a new file descriptor for that one connection.
+
+The original file descriptor stays open, accepting more connections. Each `conn` is independent — its own TCP state, its own request and response. The server's job is to read from it, do work, write back, and close it (or keep it open for HTTP keep-alive).
+
+Every web framework — Express, FastAPI, Spring, Rails — is wrapped around exactly this loop. The framework handles parsing HTTP, routing, and serialization. The kernel handles the TCP and the file descriptors.
+
+### How Connections Become Concurrent
+
+A naive server handles one connection at a time. While `handle(conn)` is running, no new connections are being accepted. This is fine for a demo and untenable in production.
+
+The three concurrency models you will see, all introduced in Chapter 4, applied here:
+
+**Thread per connection.** Spawn a thread for each accepted connection. The accept loop returns immediately to wait for the next. Simple and works — Java servlet containers (Tomcat, Jetty), classic CGI-style servers, Apache's worker MPM. The cost is a thread per connection: memory for stacks, context switches, and a hard cap on concurrency once you exhaust threads (typically a few thousand).
+
+**Event loop.** A single thread (or one per CPU core) using `epoll`/`kqueue` to multiplex thousands of sockets. Each request is a series of non-blocking reads and writes. Node.js, nginx, Redis, Envoy work this way. Memory per connection is tiny — kilobytes — and one process can hold hundreds of thousands of idle connections cheaply. The cost is that any synchronous CPU work blocks every other connection on that thread.
+
+**Worker pool.** A small fixed pool of threads pulls connections (or requests) from a queue. Bounds memory and concurrency explicitly. Used by Go's HTTP server (under the hood, sort of — goroutines are essentially userspace threads), Python WSGI servers (gunicorn workers), and most thread-pool-backed frameworks.
+
+Modern servers often combine these: an event-loop-based front-end that accepts connections, plus a thread pool for handling CPU-bound work without blocking the loop. This is what Node.js does internally for filesystem operations, what Envoy does for filters, what most language runtimes converge on.
+
+### A Request's Lifecycle
+
+For a typical HTTP request, inside `handle(conn)`:
+
+1. **Read the request bytes** — the client's TCP send buffer arrives in chunks; the server reads until it has parsed enough to know what was requested.
+2. **Parse** — method, path, headers, body. HTTP/1.1 is text-framed; HTTP/2 is binary; HTTP/3 is binary over QUIC. The parser produces a structured request.
+3. **Route** — match the path and method to a handler. Frameworks usually represent this as a tree or a list of regexes.
+4. **Run middleware** — authentication, logging, rate limiting, request-ID propagation, anything that wraps every request.
+5. **Execute the handler** — the application code. May call databases, other services, the file system.
+6. **Serialize the response** — produce headers and body bytes.
+7. **Write the response** — push bytes to the socket. The kernel buffers and TCP-frames them.
+8. **Decide on the connection** — close it, or keep it alive for the next request on the same TCP connection.
+
+Each of these steps is a place where things can go wrong. A robust server has timeouts on each stage — read timeout, write timeout, idle timeout, total request deadline — because a slow or malicious client can otherwise tie up resources indefinitely.
+
+### What Makes It a Production Server
+
+The accept loop is twenty lines. A production server has the loop plus everything around it:
+
+- **Graceful shutdown.** On SIGTERM, stop accepting new connections, drain in-flight requests with a deadline, then exit. Without this, deploys drop requests.
+- **Backpressure.** When the system is overloaded, reject excess requests with a 503 or queue them with bounded depth. Without this, an overload spirals into total collapse.
+- **Timeouts everywhere.** No request without an upper bound on how long it can take.
+- **Connection limits.** Cap concurrent connections per IP and total. Without this, a single client can exhaust your file descriptors.
+- **Observability.** Every request emits a log line, a metric, and (often) a trace span. Latency histograms per endpoint. Error rates. Without this, you cannot tell what is wrong when something is.
+- **Health and readiness probes.** A `/healthz` endpoint that says "I am alive" and a `/readyz` that says "I am ready to serve traffic." The orchestrator (see chapter 9) uses these to route traffic and restart broken instances.
+- **Configuration.** Limits, timeouts, feature flags, secrets — externalized, not hardcoded.
+
+These are not features you add when scale demands it. They are the difference between a script that listens on a port and a server that survives contact with real traffic.
+
+### What Servers Hide
+
+The framework you use likely hides the entire accept loop. You write a route handler; it gets called with a parsed request and returns a response. This is the right abstraction for ninety percent of the code you write — the remaining ten percent is when something is wrong (a connection hangs, a deploy drops requests, latency spikes under load) and you need to look beneath the framework at the loop, the kernel, and the network. Most production debugging is exactly this: peeling back layers until you find the one where the abstraction broke.

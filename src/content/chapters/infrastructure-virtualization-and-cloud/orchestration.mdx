@@ -1,0 +1,101 @@
+A container running on one machine is not very interesting. A fleet of containers across many machines, automatically scheduled, restarted on failure, load-balanced, and updated without downtime, is. That is what an **orchestrator** does. Kubernetes is the dominant one; the principles apply to its alternatives (Nomad, ECS, Docker Swarm) too.
+
+### What Orchestration Is For
+
+You have:
+
+- A pool of machines (the **cluster**).
+- A bunch of containerized workloads, each with a desired number of replicas, resource requirements, and dependencies.
+- Workloads that come and go, scale up and down, get updated.
+- Hardware that occasionally fails.
+
+The orchestrator's job is: keep the actual state of the cluster matching the *declared* desired state, despite all of the above. You write a YAML file that says "I want three replicas of this image, with these resource limits, exposed on port 80." The orchestrator figures out where to put them, starts them, restarts them when they crash, and replaces them when the host they were on dies.
+
+This is the **control loop**. It is the central mental model of Kubernetes and the reason everything in it is shaped the way it is.
+
+### The Reconciliation Loop
+
+Kubernetes operates on a simple principle:
+
+1. The user declares desired state via API objects.
+2. The system observes actual state.
+3. Controllers continuously try to reduce the gap.
+
+Every Kubernetes controller is some variant of:
+
+```
+forever:
+   desired = read(api_server)
+   actual = observe(cluster)
+   if desired != actual:
+       take_action_to_reduce_diff()
+   sleep(small_amount)
+```
+
+If you delete a Pod by hand, the controller that owns it notices and creates a new one. If a node dies, the controller notices its Pods are gone and reschedules them elsewhere. There is no "update" operation in the imperative sense — there is only the desired state and the loop pulling actual state toward it.
+
+This is why Kubernetes is described as **declarative**: you do not tell it what to *do*, you tell it what should *be true*, and it figures out the actions.
+
+### The Core Objects
+
+The vocabulary you will run into:
+
+- **Pod.** The smallest scheduling unit. Usually one container, sometimes a tightly coupled group of containers that share a network namespace and storage. Pods are *ephemeral* — they have no stable identity; if one dies, the replacement is a new Pod with a new IP.
+- **ReplicaSet.** Maintains N copies of a Pod template. If a Pod dies, it creates another. Rarely used directly.
+- **Deployment.** A higher-level wrapper around ReplicaSets that manages rolling updates. When you change the Pod template, the Deployment gradually replaces old Pods with new ones, watching for failures and rolling back if needed.
+- **Service.** A stable network endpoint pointing to a set of Pods, identified by labels. Pods come and go; the Service stays. Inside the cluster, `my-service.my-namespace` resolves to a virtual IP that load-balances to current Pods.
+- **Ingress.** External HTTP routing — maps hostnames and paths to Services. Backed by an ingress controller (nginx, Traefik, cloud load balancer).
+- **ConfigMap and Secret.** Configuration and sensitive data, mounted into Pods as files or environment variables. Secrets are base64-encoded by default — encryption requires additional configuration.
+- **PersistentVolume and PersistentVolumeClaim.** Storage that outlives a Pod. The Claim says "I need 10GB"; the Volume is the backing storage; the cluster binds them.
+- **StatefulSet.** Like a Deployment but with stable Pod identities and stable storage. Used for databases, message brokers, anything where each replica has identity that matters.
+- **DaemonSet.** One Pod per node. For log shippers, metric collectors, anything that has to run alongside each host.
+- **Job and CronJob.** Run-to-completion workloads, optionally on a schedule.
+- **Namespace.** A logical partition of cluster resources. Used for environments, tenants, or teams.
+
+A typical web application running on Kubernetes uses a Deployment + Service + Ingress, plus ConfigMaps and Secrets. That is most of what you need.
+
+### The Control Plane
+
+The cluster is split into two:
+
+- **Control plane.** A small set of components that hold cluster state and make decisions. Runs on dedicated nodes (or as managed services in EKS/GKE/AKS).
+- **Worker nodes.** Where Pods actually run.
+
+The control plane components:
+
+- **API server.** The single entry point. Reads and writes are all REST against it. Authentication, authorization, validation, and admission control live here.
+- **etcd.** The cluster's source-of-truth state store. Strongly consistent, Raft-backed (chapter 8). Every desired state, every actual state observation, every secret — it is all in etcd.
+- **Scheduler.** Decides which node should run each pending Pod. Considers resource availability, affinity rules, taints/tolerations, and existing Pod placement.
+- **Controller manager.** Hosts the reconciliation loops for built-in controllers (Deployment, ReplicaSet, Node, etc.).
+
+On each worker node:
+
+- **kubelet.** The agent. Receives Pod specs from the API server, talks to the container runtime to start/stop containers, reports back on Pod and node status.
+- **Container runtime.** containerd or CRI-O. Pulls images, runs containers.
+- **kube-proxy.** Programs the node's iptables/IPVS rules so traffic to a Service IP gets load-balanced to the right Pods.
+
+### Why You Run Containers in Kubernetes
+
+The same arguments that made containers attractive made orchestrators inevitable. Once you have many containers, you need:
+
+- **Scheduling.** Where does each container run? Match resource requirements to available capacity.
+- **Self-healing.** Restart crashed containers, reschedule when a host fails.
+- **Service discovery.** Containers come and go; their addresses change. Services give other workloads a stable name to reach them.
+- **Load balancing.** Traffic to a service distributed across its current replicas.
+- **Rolling updates and rollback.** Replace old replicas with new ones gradually; revert if health degrades.
+- **Configuration and secrets.** Distribute config to the right containers without baking it into images.
+- **Resource isolation and limits.** Pod A's memory leak should not OOM Pod B.
+
+Kubernetes does all of this. It is also famously complex — the abstraction is powerful, the surface area is huge, and the operational burden is real. The trend is to consume it as a managed service (EKS, GKE, AKS) rather than run the control plane yourself.
+
+### The Generalization
+
+The pattern Kubernetes formalized — declarative API, controllers that reconcile toward desired state, an extensible object model — has spread well beyond container orchestration. **Custom Resource Definitions** let you add your own object types and write controllers for them. The same control-loop pattern manages databases (Postgres operators), certificates (cert-manager), service meshes (Istio CRDs), CI/CD systems (Argo, Flux).
+
+This is what people mean by "Kubernetes is a platform for building platforms." The container scheduling is the original use case; the API + controller pattern is what people actually use.
+
+### What You Do Not Get
+
+Kubernetes does not run your code well by accident. It will run a misconfigured Pod with no liveness probe forever in a crash loop. It will route traffic to a Pod that has just started before its application is ready. It will exhaust node memory if you do not set limits. It will let a misconfigured rollback wedge a Deployment.
+
+The orchestrator is a powerful set of primitives. Using them well is its own skill — and the things you have to know (resource limits, probes, deploy strategies, network policies, RBAC) are most of what production Kubernetes operations is.

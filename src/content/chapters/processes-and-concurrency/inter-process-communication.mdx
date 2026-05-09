@@ -1,0 +1,48 @@
+Threads share memory directly. Processes do not — each lives in its own address space. To cooperate, processes need IPC: mechanisms the kernel provides for moving data and signals between them.
+
+The OS offers several, each with different trade-offs in speed, structure, and the relationship it implies between participants.
+
+### Pipes
+
+A pipe is a unidirectional byte stream. One end is a write file descriptor; the other is a read file descriptor. Whatever is written to one end can be read from the other, in order. Pipes have a kernel-managed buffer; writers block when it fills, readers block when it empties.
+
+An anonymous pipe is created by `pipe()` and passed to children via `fork()` — this is what the shell sets up when you write `producer | consumer`.
+
+A **named pipe** (FIFO) appears in the file system and lets unrelated processes connect by opening the same path.
+
+### Sockets
+
+A socket is a bidirectional byte stream or message endpoint. Unix domain sockets connect processes on the same machine; TCP and UDP sockets connect processes across a network — though the API is the same.
+
+Sockets are richer than pipes. They support bidirectional traffic, multiple clients connecting to one server, and out-of-band metadata like passing file descriptors between processes.
+
+A pipe is a special case of socket-like communication, optimized for the simple parent-child case. A socket is what you reach for when the participants are independent or when you might later want them on different machines.
+
+### Shared Memory
+
+Shared memory maps the same physical pages into multiple processes' address spaces. Once mapped, reading and writing is just memory access — no system call per transfer, no copying through kernel buffers.
+
+This makes shared memory the fastest IPC mechanism, but it gives back none of the synchronization. Two processes touching the same region need their own locks, semaphores, or atomic operations — usually placed inside the shared region itself. POSIX provides `shm_open` and `mmap`; on Linux, `memfd_create` is now the common choice.
+
+Shared memory is used for high-volume data exchange: databases sharing a buffer pool, video pipelines passing frames, browsers passing rendered tiles between processes.
+
+### Signals
+
+A signal is a small, asynchronous notification — not a data channel. The kernel interrupts the target process and runs a registered handler, or applies a default action.
+
+Signals are how `Ctrl-C` (SIGINT), `kill` (SIGTERM, SIGKILL), and segmentation faults (SIGSEGV) reach a process. They are also how the OS tells a process its child has exited (SIGCHLD) or that a pipe it was writing to has no readers (SIGPIPE).
+
+Signal handlers run in a constrained environment — only "async-signal-safe" functions are legal — so signals are reserved for control, not communication.
+
+### Message Queues
+
+POSIX message queues let processes exchange discrete messages with priorities. Less common than pipes or sockets in modern code; most systems use a sockets-plus-protocol approach instead.
+
+### How to Choose
+
+- **Parent-child, one-way stream** — pipe.
+- **Independent processes, possibly remote** — socket.
+- **High-bandwidth data on the same machine** — shared memory + a synchronization primitive.
+- **Control or notification, not data** — signal.
+
+The same primitives appear over and over up the stack. A web request is a TCP socket. A database client is a Unix socket. A logging daemon listens on a Unix socket and writes a file. The kernel does not care whether the processes are on one machine or many — and that is what makes the network the natural extension of IPC, which is the next chapter.

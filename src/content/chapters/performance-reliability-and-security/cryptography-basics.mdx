@@ -1,0 +1,127 @@
+Cryptography is the math that lets you protect data even when it travels through, or sits on, infrastructure you do not trust. You will rarely write a cryptographic primitive yourself — the rule "do not roll your own crypto" is the rule because the failure modes are non-obvious and the consequences are total. But you will use cryptographic libraries constantly, and using them correctly requires understanding what each piece does.
+
+This section is the working vocabulary, building on the TLS introduction in chapter 5.
+
+### Three Useful Categories
+
+Most cryptographic operations fall into one of three categories, with different goals and different primitives.
+
+**Hashing.** Take input of any size, produce a fixed-size output. Same input always produces same output; small change in input produces a wildly different output. *One-way* — given the output, you cannot reasonably recover the input.
+
+**Symmetric encryption.** Use a single shared key to encrypt and decrypt. Fast. Requires both parties to already share the key.
+
+**Asymmetric (public-key) encryption.** Use a key *pair*: encrypt with the public key, decrypt with the private key. Slow but solves the problem of agreeing on a key over an untrusted network. Also lets the private-key holder *sign* data — produce something only they could have produced, anyone can verify.
+
+Real protocols (TLS, SSH, code signing, JWT) compose these three.
+
+### Hash Functions
+
+A cryptographic hash function (SHA-256, SHA-512, BLAKE2, BLAKE3) maps arbitrary input to a fixed-size digest, with three properties:
+
+- **Pre-image resistance.** Given a digest, you cannot find an input that produces it.
+- **Second pre-image resistance.** Given an input, you cannot find a different input with the same digest.
+- **Collision resistance.** You cannot find any two different inputs with the same digest.
+
+When any of these is broken, the function is *deprecated* — MD5 and SHA-1 are broken for collision resistance and should not be used for anything where collisions matter.
+
+Hash functions are used for:
+
+- **Integrity checks.** Compare digests to detect modification (Git uses SHA-1 then SHA-256, package managers use hashes to verify downloads).
+- **Content addressing.** Files identified by their hash (Docker layers, IPFS, Git objects).
+- **Fingerprinting and deduplication.**
+- **Password storage** — but with critical caveats below.
+- **Inputs to MACs and signatures.**
+
+### Password Storage
+
+A password sent to your server is not stored. A *hash* of the password is stored, so a database breach does not hand the attacker the passwords themselves. But plain SHA-256 of a password is also wrong:
+
+- Identical passwords produce identical hashes — a stolen database reveals which users share passwords.
+- Modern hardware can compute billions of SHA-256 hashes per second, making rainbow tables and brute-force attacks effective.
+
+The right primitives are *password hashing functions* designed to be slow:
+
+- **Argon2id** — modern, the OWASP recommendation for new systems.
+- **bcrypt** — older, still acceptable.
+- **scrypt** — memory-hard, also acceptable.
+
+Each takes a *salt* (a random per-password value, stored alongside) and a *cost parameter* that controls how slow the hash is. The cost is tuned to take a tenth of a second on your hardware — fast enough for legitimate logins, slow enough that an attacker brute-forcing a leaked database has to spend years.
+
+Do not use SHA-256, MD5, or any general-purpose hash for password storage. They are too fast.
+
+### MACs
+
+A **MAC** (Message Authentication Code) lets a sender produce a tag over a message such that anyone with the shared key can verify the tag, but cannot produce a valid tag without the key. The standard construction is **HMAC** (HMAC-SHA-256, HMAC-SHA-512).
+
+MACs are how you detect tampering: append the MAC to a message, the receiver recomputes it and rejects the message if it doesn't match. Used in TLS for record integrity, in API request signing (AWS SigV4, Stripe webhooks), in JWTs with `HS256`, and anywhere you need to verify "this message has not been altered and was produced by someone with the key."
+
+A MAC is *not* a signature — both sides have the same key, so either can produce valid tags. A MAC proves "someone with the key produced this," not "specifically Alice produced this."
+
+### Symmetric Encryption
+
+The standard symmetric cipher is **AES** (Advanced Encryption Standard). Modern uses combine it with an authenticated mode — typically **AES-GCM** (Galois/Counter Mode) — which provides both confidentiality and integrity in one primitive.
+
+The primitive is fast. CPUs since 2010 have hardware AES instructions; encrypting a gigabyte of data takes milliseconds. The challenges are not speed but correct usage:
+
+- **Never reuse a nonce / IV with the same key.** Catastrophic in GCM — repeating a nonce reveals the key stream. Generate a fresh random nonce per message, or use a counter that is guaranteed unique.
+- **Authenticate, don't just encrypt.** Use AES-GCM, ChaCha20-Poly1305, or a comparable AEAD (Authenticated Encryption with Associated Data) construction. Plain AES-CBC without a MAC is exploitable in ways that are non-obvious.
+- **Use a vetted library.** libsodium, Tink, your language's standard AEAD wrapper. Do not assemble primitives yourself.
+
+### Asymmetric Encryption and Signatures
+
+Public-key cryptography uses key pairs. Two operations:
+
+- **Encrypt with public key, decrypt with private key.** Used to send a secret to the holder of a private key (in modern TLS, this is mostly replaced by Diffie-Hellman key agreement).
+- **Sign with private key, verify with public key.** The private key produces a value over a message that anyone with the public key can verify, and that no one without the private key could produce.
+
+The classic algorithm is **RSA**. The modern preference is **elliptic curve cryptography (ECC)** — Ed25519 for signatures, X25519 for key agreement. ECC keys are much smaller (256 bits is plenty) and operations are faster than equivalent-strength RSA.
+
+Asymmetric crypto is slow compared to symmetric — milliseconds per operation, not microseconds. So real protocols do not use it for bulk data. They use it once at the start of a session to either establish a symmetric key (TLS handshake) or sign a message (code signing, JWT-RS256), and use symmetric primitives for the actual data.
+
+### Key Agreement (Diffie-Hellman)
+
+A protocol that lets two parties, communicating only over an untrusted channel, agree on a shared secret that neither one chose alone, with no eavesdropper able to compute the same secret.
+
+The modern variant is **ECDHE** (elliptic-curve Diffie-Hellman, ephemeral). Each party generates a fresh keypair per connection, exchanges public keys, and combines its private key with the other's public key to compute a shared secret. The same secret falls out on both sides; an eavesdropper sees only the public keys and cannot derive the secret.
+
+The "ephemeral" part is the source of **forward secrecy** — even if a long-term key is later stolen, past sessions cannot be decrypted because the ephemeral keys are gone. This is the property TLS 1.3 makes the default.
+
+### Random Numbers
+
+Almost every cryptographic operation requires randomness — keys, nonces, salts, ephemeral key pairs, session IDs. The randomness must be cryptographically strong: unpredictable to an attacker who knows everything else about the system.
+
+Sources:
+
+- **Use the OS random source.** `getrandom()` on Linux, `arc4random()` on macOS/BSD, the standard library's secure random in your runtime (`crypto.randomBytes` in Node, `secrets` in Python, `crypto/rand` in Go).
+- **Do not use `Math.random()`** or any function described as "random" without "secure" or "cryptographic." Most generic random functions are fast and predictable; they are fine for shuffling cards, fatal for generating session tokens.
+
+The random number bug is one of the most common and worst cryptographic mistakes. A predictable random source compromises every primitive that uses it.
+
+### TLS, Recapped
+
+Every primitive in this section composes into TLS:
+
+- **Asymmetric** crypto for the handshake (certificate signature for authentication, ECDHE for key agreement).
+- **Symmetric** crypto for the bulk of the session (AES-GCM or ChaCha20-Poly1305 for the records).
+- **MAC** (built into the AEAD) for record integrity.
+- **Hash** for the certificate signatures, transcript hashing, and key derivation.
+- **Random** for nonces, key shares, and session IDs.
+
+Every TLS connection uses the whole toolkit. Once you see the pieces, the protocol is much less mysterious.
+
+### What You Actually Need
+
+For an application developer, the practical advice is short:
+
+- Use TLS for everything in transit. Modern frameworks make this the default.
+- Use authenticated encryption (libsodium's `crypto_secretbox`, AWS KMS, your language's standard AEAD wrapper) for data at rest where you cannot rely on disk encryption.
+- Use Argon2id, bcrypt, or scrypt for password storage, with per-password salts.
+- Use Ed25519 for signatures, X25519 for key agreement, when you have to choose primitives.
+- Use the OS's secure random source for any value that needs to be unpredictable.
+- Use a vetted library at the highest reasonable level. Do not assemble primitives.
+- Rotate keys. Have a way to do it.
+- Audit which keys exist, where they live, and who has access.
+
+These cover most application uses of cryptography. The cases not covered — designing a new protocol, building a key management system, implementing a primitive — are the cases where you should bring in someone who specializes in cryptography. The boring advice is the right advice.
+
+This concludes the catalog of how systems get measured, kept up, and protected. The final chapter walks one ordinary HTTP request through everything we have covered.

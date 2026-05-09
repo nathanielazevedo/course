@@ -1,0 +1,63 @@
+A different way to handle concurrency is not to add threads at all. One thread, one process, but never blocking — when an operation cannot complete immediately, the program records what it was waiting for and moves on to other work. This is the model behind Node.js, modern Python `asyncio`, Rust's `tokio`, and most network servers written in the last twenty years.
+
+### Blocking vs Non-Blocking I/O
+
+By default, a system call like `read()` *blocks*: if no data is available, the kernel removes the calling thread from the run queue until data arrives. A thread waiting on the network is doing nothing — it is asleep, holding its stack and its kernel resources, scheduled out of the CPU entirely.
+
+A socket can also be set non-blocking. A `read()` on an empty non-blocking socket returns immediately with `EAGAIN` instead of sleeping. The thread keeps running. The cost is that the program is now responsible for finding out when data eventually arrives.
+
+### Event Notification: epoll, kqueue, io_uring
+
+This is what `epoll` (Linux), `kqueue` (BSD/macOS), and IOCP (Windows) provide. The program registers thousands of file descriptors with the kernel: "tell me when any of these become readable or writable." Then it calls `epoll_wait`, which blocks until at least one descriptor is ready and returns the list of ready ones.
+
+This inverts the relationship. Instead of one thread per connection, each blocking on its own `read()`, a single thread asks the kernel for the next ready event and handles it.
+
+`io_uring` (Linux 5.1+) goes further — the program queues both the I/O request *and* its callback into a shared ring buffer with the kernel, eliminating most syscall overhead.
+
+### The Event Loop
+
+Wrap that pattern and you have an event loop:
+
+```
+while running:
+    events = wait_for_ready_fds()
+    for event in events:
+        handler = lookup(event.fd)
+        handler(event)
+```
+
+The handlers are short, non-blocking pieces of logic. They might read available data, parse it, write a response, or register a new file descriptor and return. They never block — if they need to wait, they register a callback and yield back to the loop.
+
+This is exactly the architecture of `nginx`, `redis`, and Node.js. A single event-loop thread can manage tens or hundreds of thousands of concurrent connections, because most of them are idle most of the time and the cost of an idle connection is just a kernel-tracked file descriptor.
+
+### Coroutines and async/await
+
+Writing programs as a chain of callbacks is awkward. `async/await` is syntactic sugar that lets you write code that *looks* sequential, while the compiler transforms it into a state machine that yields back to the event loop at every `await` point.
+
+```
+async def fetch(url):
+    socket = await connect(url)
+    await socket.write(request)
+    response = await socket.read()
+    return response
+```
+
+Each `await` is a place where the function may pause. The runtime saves the function's state, returns to the event loop to run other tasks, and resumes when the awaited operation completes.
+
+This is sometimes called a *coroutine* or a *green thread* — a unit of execution scheduled by the language runtime, not the OS. They are far cheaper than OS threads (kilobytes of memory each instead of megabytes) and millions can run inside a single process.
+
+### Why Node.js Is Single-Threaded
+
+JavaScript on the server runs one event-loop thread executing JavaScript. All I/O goes through `libuv`, which uses `epoll`/`kqueue` for sockets and a thread pool for file system calls (which lack good non-blocking APIs on most systems).
+
+This works because the workload most servers handle is I/O bound — the program spends almost all of its time waiting for the network or disk. One thread is plenty if it is never waiting.
+
+It breaks down when the workload becomes CPU-bound. A long synchronous JSON parse, a regex over a megabyte of text, a loop crunching numbers — all of these block the event loop and stall every other connection. The fix is to push CPU-bound work to worker threads or another process.
+
+### When to Use Which Model
+
+- **CPU-bound, parallel** — threads, one per core.
+- **I/O-bound, many concurrent connections** — event loop with async I/O.
+- **Both** — event loop for I/O, worker pool for CPU work. This is what most modern runtimes converge on.
+
+Threads were the answer to "how do we use multiple cores?" Event loops were the answer to "how do we handle ten thousand idle clients without ten thousand threads?" Real systems use both.

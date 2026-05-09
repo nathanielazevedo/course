@@ -1,0 +1,72 @@
+The TCP+TLS connection is open to a CDN edge somewhere near the user. The browser's request bytes — `GET /users/42`, headers, an `Authorization: Bearer ...` token, the cookie jar — arrive there. Whether the request ever reaches the origin server depends on what the edge decides to do with it.
+
+This section walks the request through the layers of infrastructure between the user and the application: CDN, edge logic, load balancer, internal routing.
+
+### The CDN Edge
+
+The CDN edge is a reverse proxy with a global network behind it. It is the first piece of *your* infrastructure to see the request (everything before it — DNS, the user's ISP, the public internet — is outside your control).
+
+Its first decision: is this a cacheable request, and is the response in cache?
+
+For a `GET` to an API endpoint, the answer is usually no — API responses are typically marked `Cache-Control: private, no-store` or have `Vary` headers that prevent shared caching. For a static asset (`/static/app.7f3a2c.js`), the answer is almost always yes, with a year-long TTL and an immutable directive.
+
+If cached and fresh: the edge serves the response directly. The request never crosses the public network beyond the edge. The user gets a response in 10–50ms regardless of where the origin lives. This is the single biggest performance lever a CDN provides.
+
+If cached but stale, with `stale-while-revalidate`: the edge serves the stale response immediately and asynchronously fetches a fresh one in the background. The next user gets the updated version.
+
+If not in cache: the edge makes a connection to the origin (likely already pooled and warm), forwards the request, receives the response, optionally stores it, and forwards it back to the user.
+
+### Edge Functions
+
+Many CDNs run code at the edge — Cloudflare Workers, Lambda@Edge, Fastly Compute, Vercel Edge Functions. The request can be inspected, modified, redirected, or fully served at the edge before any origin sees it.
+
+Common edge tasks:
+
+- **A/B test routing.** Hash the user ID, send some fraction to the new origin pool.
+- **Personalization.** Inject a user-specific banner without invalidating the cached HTML.
+- **Auth checks.** Reject requests with missing or expired tokens before they reach the origin.
+- **Bot mitigation.** Rate limiting, CAPTCHA challenges, signature checks.
+- **Geo restrictions.** Serve a different version (or a 451) based on the user's country.
+- **TLS termination is here.** The CDN holds the certificate; the connection from the edge to the origin is a separate TLS connection (or an HTTP one over a private link).
+
+The bytes leave the edge re-encrypted (or in plaintext over a private network) toward whatever the CDN's origin is configured to be — usually the public hostname of your load balancer.
+
+### The Public Load Balancer
+
+Behind your CDN, on the boundary of your infrastructure, sits a public-facing load balancer (chapter 8). On AWS this is an ALB or NLB; on GCP a Cloud Load Balancer; on a self-managed setup an nginx or Envoy fleet.
+
+This load balancer:
+
+- **Terminates the connection from the CDN.** TLS is again terminated; the bytes inside are now plaintext within your private network.
+- **Inspects the request at L7.** The Host header, the path, the method, sometimes specific headers.
+- **Routes to a backend pool.** `api.example.com` to the API service; `app.example.com` to the web service; `/admin/*` perhaps to a dedicated admin pool.
+- **Applies rate limits and WAF rules.** Reject known-bad patterns; rate-limit by IP or token.
+- **Picks a healthy backend.** Among the registered backends in the matching pool, picks one according to its algorithm (least connections, power-of-two-choices) and forwards.
+
+If no backends are healthy, the load balancer returns a 503. If all backends are slow, it queues requests up to its capacity and then starts returning 503s. The load balancer is what stops a cascading failure from being visible as a connection refusal.
+
+### Inside the Cluster
+
+The "backend" the load balancer picked is, on a Kubernetes cluster, a Pod IP — the IP of one container instance running the API service somewhere in the cluster.
+
+To get there:
+
+1. The connection is opened to the Pod's IP and port. On Kubernetes, this address is dynamically assigned and changes every time the Pod restarts.
+2. The cluster network (CNI plugin: Calico, Cilium, AWS VPC CNI) routes the packets across nodes if the Pod is on a different host than the load balancer.
+3. The packets arrive at the right node, the kernel routes them to the container's network namespace, the application's listening socket accepts the connection.
+
+In a service-mesh setup (Istio, Linkerd), there is one more layer: each Pod has a sidecar proxy (Envoy, linkerd-proxy) that intercepts traffic in and out of the Pod. The sidecar handles mTLS between services, retries, circuit breaking, and per-request observability. The application sees the request as if from the sidecar; the sidecar saw it as if from the previous service's sidecar.
+
+### What the Edge Has Done
+
+By the time the request reaches the application code, it has passed through:
+
+- The CDN edge — possibly served entirely from cache, possibly modified.
+- An edge function — possibly auth-rejected, possibly enriched.
+- The public load balancer — TLS terminated, route decided, rate limited.
+- The cluster network — routed to the right Pod.
+- The service-mesh sidecar — mTLS terminated, request stamped with trace headers.
+
+Each layer has added latency in the order of microseconds to milliseconds, and made a decision the application no longer has to make. Each layer has potentially observed and logged the request; each can reject it before the application sees it.
+
+This is the depth that a single GET request crosses *before* any of the application code has run. Most of this is invisible to a developer reading the application's request handler — but every layer is real, every layer can fail, and every layer is part of the system's reliability and security boundary. The next section is what happens once the request finally lands inside the application process.

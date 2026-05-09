@@ -1,0 +1,33 @@
+When two threads share memory, the hardware does not guarantee that what one thread writes is what another thread reads. To understand why, you have to look below the language level — at the CPU, its caches, and how it executes instructions.
+
+### What "Shared Memory" Actually Means
+
+The threads in a process see the same virtual addresses. But each CPU core has its own L1 and L2 caches. When core 0 writes to address `0x1000`, the new value sits in core 0's cache. Core 1, reading the same address, may read its own cached copy — possibly stale.
+
+Hardware *cache coherence protocols* (MESI and its variants) keep caches consistent across cores, but they do not eliminate the problem. They make it observable in subtler ways: writes become visible to other cores eventually, but not necessarily in the order they were issued.
+
+### Instruction Reordering
+
+Modern CPUs execute instructions out of order. The compiler also reorders code during optimization. Both are allowed to reorder operations as long as a *single thread* sees results consistent with the original program.
+
+This guarantee breaks the moment another thread is involved. A thread can write `data = 42` and then `ready = true`, but a second thread on another core can see `ready == true` while still reading `data == 0`. From the second thread's perspective, the writes appeared in the wrong order.
+
+### What a Race Condition Is
+
+A race condition is any situation where the result of a program depends on the unpredictable interleaving of operations between threads.
+
+The textbook example is the increment:
+
+```
+counter = counter + 1
+```
+
+This is not one operation. It is three: load `counter` into a register, add 1, store the register back to `counter`. If two threads execute this sequence concurrently, both can load the same value, both add 1, and both store the same result — one increment is lost.
+
+The window between the load and the store is where the race lives. It is microscopic — nanoseconds — but on a busy system it is hit constantly.
+
+### Why This Is Hard
+
+Race conditions are non-deterministic. A program can run correctly a million times and fail on the million-and-first because the scheduler interleaved operations differently. They are also invisible in single-threaded testing.
+
+The hardware does provide tools — atomic instructions, memory barriers, and the synchronization primitives in the next section are built on them — but the language and the compiler will not protect you by default. Shared mutable state is a debugging tax that you pay every time you choose threads over isolation.

@@ -1,0 +1,87 @@
+HTTP is stateless. The server is not required to remember anything between requests. But almost every useful web application has state — a logged-in user, a shopping cart, preferences. This section is about how that state is layered on top of a protocol that does not natively support it.
+
+The pattern is always the same: the server sends a piece of identifying data with the response; the client sends it back on subsequent requests; the server uses it to look up state somewhere it does keep.
+
+### Cookies
+
+A cookie is a small key-value pair the server tells the browser to store and resend.
+
+The server sends a `Set-Cookie` header:
+
+```
+Set-Cookie: session_id=abc123; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600
+```
+
+The browser stores it, indexed by origin (and optionally a path), and includes it on every subsequent request to that origin:
+
+```
+Cookie: session_id=abc123
+```
+
+Cookies have important attributes:
+
+- **`HttpOnly`** — JavaScript on the page cannot read this cookie. Mitigates XSS exfiltration.
+- **`Secure`** — only sent over HTTPS.
+- **`SameSite`** — `Strict`, `Lax`, or `None`. Controls whether the cookie is sent on cross-site requests. `Lax` is the modern default; it sends the cookie on top-level navigations to your site but not on cross-site requests originating from another site. This is the main browser-level defense against CSRF.
+- **`Domain` and `Path`** — scope the cookie to a hostname (and optionally subdomains) and a URL path.
+- **`Max-Age` / `Expires`** — when the cookie expires. Without these, it is a *session cookie* — kept until the browser closes.
+
+A cookie is just a string. Anything mechanical about authentication or state lookup is the server's job, using that string as a key.
+
+### Sessions
+
+The classical pattern: the server generates a random opaque ID, stores the user's session state in a database (or Redis, or memory) keyed by that ID, and sets the ID as a cookie.
+
+```
+Set-Cookie: session_id=eyJhbGc...random...; HttpOnly; Secure; SameSite=Lax
+```
+
+On every subsequent request the server reads the session ID, looks up the session, and now it knows who the user is and what context they are in. The actual state lives server-side; the cookie carries only a pointer.
+
+Properties of this design:
+
+- **Revocable.** Delete the session row in the database and the user is logged out, immediately, everywhere.
+- **Cheap to inspect.** The cookie is meaningless on its own — useless to an attacker who steals only the cookie value's *meaning*, though stealing the cookie itself is enough to impersonate the user.
+- **Stateful on the server.** Every web server in your fleet needs to be able to look up the session, so the session store is shared infrastructure (Redis, the main database, a sticky load balancer).
+
+### Tokens (and JWTs)
+
+The alternative is to put the state *into* the token itself, signed by the server so the client cannot tamper with it.
+
+A **JWT** (JSON Web Token) is the most common form. It is three base64-encoded segments separated by dots:
+
+```
+<header>.<payload>.<signature>
+```
+
+The header says how it is signed, the payload contains JSON claims (`sub: user-42, exp: ...`, anything you want), and the signature is the server's MAC or RSA signature over the first two segments.
+
+The client sends the JWT back, typically in the `Authorization: Bearer <jwt>` header. The server verifies the signature, decodes the claims, and trusts them.
+
+Properties of this design:
+
+- **Stateless on the server.** No database lookup is required to know who the user is — the token contains the answer, and the signature proves it is genuine.
+- **Self-contained.** A request can be authenticated and authorized using only what is in the token.
+- **Hard to revoke.** Until the token expires, it is valid. There is no "row" to delete. Real systems work around this with short-lived access tokens (5–15 minutes) plus longer-lived refresh tokens that can be revoked, or with a small "revocation list" cache the verifier consults.
+
+JWTs are appropriate when the cost of a centralized session lookup is real — distributed systems, microservices, third-party API access. They are inappropriate (or at least over-engineered) for a single web app talking to its own database. A session ID is simpler, more revocable, and reveals nothing.
+
+### Where Tokens Live in the Browser
+
+This is where the trade-offs show up most clearly. There are two reasonable places to store a token in the browser:
+
+- **HttpOnly cookie.** Sent automatically. JavaScript cannot read it, so XSS cannot steal it directly. Susceptible to CSRF, defended by `SameSite` and CSRF tokens.
+- **`localStorage` or memory.** JavaScript-readable, so XSS *can* steal it. Not sent automatically — you have to attach it to each fetch as an `Authorization` header. Immune to CSRF.
+
+There is no third option that gets you both XSS-resistance and CSRF-immunity automatically. The community has gone back and forth; the modern consensus for first-party apps is HttpOnly cookies plus CSRF protection plus a strong CSP.
+
+### Beyond Authentication
+
+The same pattern — opaque or signed identifier on the client, state lookup or verification on the server — covers everything else:
+
+- **Shopping carts** — cookie or local storage, sometimes synced to a server-side cart.
+- **Feature flags / experiments** — cookie or token claim, evaluated on each request.
+- **CSRF tokens** — server-issued nonce, embedded in forms or returned via header, checked on submit.
+- **OAuth flows** — short-lived tokens passed via redirects and headers, exchanged for access and refresh tokens.
+
+Statelessness at the protocol level is a feature, not a limitation. It means every request can be served by any server, the load balancer can send your next request anywhere, and the application can scale horizontally by adding more identical instances. The state still exists somewhere — but you decide where, in a way HTTP itself stays out of.

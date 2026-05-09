@@ -21,7 +21,6 @@ const data: {
 }[] = [
   {
     title: "The Machine",
-    videoId: "dQw4w9WgXcQ",
     description:
       "What a computer is at the hardware level — the parts, how data is encoded, and how the CPU executes code.",
     sections: [
@@ -56,14 +55,102 @@ const data: {
       "Permissions and Isolation",
     ],
   },
-  { title: "Processes and Concurrency" },
-  { title: "Networking and Communication" },
-  { title: "The Web as a System" },
-  { title: "Data and Persistence" },
-  { title: "Servers and Distributed Systems" },
-  { title: "Infrastructure, Virtualization, and Cloud" },
-  { title: "Performance, Reliability, and Security" },
-  { title: "The Life of a Request" },
+  {
+    title: "Processes and Concurrency",
+    description:
+      "How a system runs many things at once — processes vs threads, shared memory and race conditions, synchronization, IPC, and event-driven I/O.",
+    sections: [
+      "Processes vs Threads",
+      "Shared Memory and Race Conditions",
+      "Synchronization Primitives",
+      "Inter-Process Communication",
+      "Asynchronous and Event-Driven Concurrency",
+    ],
+  },
+  {
+    title: "Networking and Communication",
+    description:
+      "How bytes move between machines — the network stack, IP and routing, TCP and UDP, DNS, and TLS.",
+    sections: [
+      "The Network Stack",
+      "IP and Routing",
+      "TCP and UDP",
+      "DNS",
+      "TLS",
+    ],
+  },
+  {
+    title: "The Web as a System",
+    description:
+      "How the web works mechanically — HTTP, the browser as a runtime, origins and CORS, caching and CDNs, and how state is layered onto a stateless protocol.",
+    sections: [
+      "HTTP",
+      "The Browser as a Runtime",
+      "URLs, Origins, and the Same-Origin Policy",
+      "Caching and CDNs",
+      "State on a Stateless Protocol",
+    ],
+  },
+  {
+    title: "Data and Persistence",
+    description:
+      "How data is stored and retrieved durably — block devices, relational databases, transactions, non-relational stores, and how data scales across machines.",
+    sections: [
+      "How Storage Works",
+      "Relational Databases",
+      "Transactions and ACID",
+      "Non-Relational Stores",
+      "Replication, Sharding, and CAP",
+    ],
+  },
+  {
+    title: "Servers and Distributed Systems",
+    description:
+      "How services run and coordinate — what a server actually is, load balancers, service-to-service communication, the failure modes of distributed systems, and consensus.",
+    sections: [
+      "What a Server Is",
+      "Load Balancers and Reverse Proxies",
+      "Service-to-Service Communication",
+      "Distributed Systems Failure Modes",
+      "Consensus and Coordination",
+    ],
+  },
+  {
+    title: "Infrastructure, Virtualization, and Cloud",
+    description:
+      "What runs everything else — virtual machines, containers, orchestration, the cloud service model, and infrastructure as code.",
+    sections: [
+      "Virtual Machines and Hypervisors",
+      "Containers",
+      "Orchestration",
+      "The Cloud Service Model",
+      "Infrastructure as Code",
+    ],
+  },
+  {
+    title: "Performance, Reliability, and Security",
+    description:
+      "How systems are measured, kept up, and protected — latency and percentiles, where time goes, reliability engineering, threat models, and the cryptography you actually rely on.",
+    sections: [
+      "Measuring Performance",
+      "Where Time Goes",
+      "Reliability",
+      "Threat Model and Defenses",
+      "Cryptography Basics",
+    ],
+  },
+  {
+    title: "The Life of a Request",
+    description:
+      "A single HTTP request walked end-to-end through every layer in the course — DNS to TCP to TLS, through the edge, into the server, down to the data layer, and back.",
+    sections: [
+      "From Click to Resolution",
+      "Through the Edge",
+      "Inside the Server",
+      "Reaching the Data",
+      "The Response Path",
+    ],
+  },
 ];
 
 const slugify = (s: string) =>

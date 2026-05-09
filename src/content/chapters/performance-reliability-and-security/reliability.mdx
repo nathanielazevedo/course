@@ -1,0 +1,115 @@
+Reliability is the property that the system does what it is supposed to, when it is supposed to, despite the world not cooperating. It is not the absence of bugs — software has bugs. It is not 100% uptime — that target is impossible at any non-trivial scale. It is the discipline of making outages rare, small, and recoverable, while shipping changes constantly.
+
+### Why "100% uptime" Is the Wrong Target
+
+Every system has *some* failure rate. Even if your code were perfect, the hardware, the network, the cloud provider, the upstream services, and the data center power grid all have failure rates. The composition of these failure rates puts a hard floor on what is achievable.
+
+Five nines — 99.999% — is roughly five minutes of downtime per year. That is the floor for systems that are essentially infrastructure: BGP routes, DNS roots, the power grid. Most application systems target 99.9% (about 8 hours per year) or 99.95% (about 4 hours).
+
+The right target is set by what users will tolerate, not what looks best on a slide. A system targeting four nines that is *actually* at three nines is failing. A system targeting two nines and consistently meeting them is succeeding.
+
+### SLI, SLO, SLA
+
+A vocabulary developed at Google and adopted broadly:
+
+- **SLI (Service Level Indicator).** A measurement of some user-visible property. "Fraction of HTTP requests in the last 5 minutes that returned a 2xx within 200ms."
+- **SLO (Service Level Objective).** A target for an SLI. "99.9% of requests over the last 30 days returned 2xx within 200ms."
+- **SLA (Service Level Agreement).** A contractual SLO with consequences if missed (refunds, credits, contractual penalties).
+
+You write SLOs for your team. You sign SLAs with customers. The SLO is internal and aspirational; the SLA is external and accountable.
+
+### The Error Budget
+
+If your SLO is 99.9% over 30 days, the *error budget* is 0.1% — about 43 minutes of allowed badness per month. This budget is not an idle metric. It is what funds change.
+
+The framing: every deploy, every migration, every infrastructure change is a risk that consumes part of the budget. If the budget is healthy, you can take risks — ship the new feature, run the chaos experiment, do the migration. If the budget is exhausted, you stop taking risks until it recovers.
+
+This converts reliability from a feeling ("we should be more careful") into a number with a constraint. It also converts the perpetual tension between "ship faster" and "be more reliable" from a values argument into a budget question.
+
+### Redundancy and Blast Radius
+
+The single biggest reliability lever is **redundancy** — having more than one of anything that can fail. Two replicas instead of one, two availability zones instead of one, two regions for disaster recovery.
+
+The other side of the same lever is **blast radius** — when a component fails, what is affected? A monolithic database with all customers on it has a blast radius of "all customers." A sharded database with each customer on a separate shard has a blast radius of "the customers on the failing shard."
+
+Reliability work largely consists of:
+
+- Making sure there is enough redundancy that single failures are transparent.
+- Making sure blast radius is bounded enough that bigger failures are *contained*.
+- Making sure the system can detect failures and route around them automatically.
+
+### Failure Containment Patterns
+
+The toolkit for containing failures, layered from chapter 8 onward:
+
+- **Timeouts** on every dependency call. The default is sometimes "never," and a hung dependency hangs everything that called it.
+- **Retries** with exponential backoff and jitter, only on idempotent calls.
+- **Circuit breakers** that stop calling a failing dependency after a threshold of failures, then probe periodically to see if it has recovered.
+- **Bulkheads** that isolate resource pools per dependency. A slow database does not exhaust the connection pool used for the cache.
+- **Rate limits** at the entry point. Reject excess load explicitly rather than absorbing it and degrading.
+- **Graceful degradation.** A non-critical dependency being down should reduce functionality, not break the whole service. The product page works without recommendations.
+- **Load shedding.** When overloaded, return 503 to a controlled fraction of requests rather than slowing every request below the satisfaction threshold.
+- **Cells / shards.** Partition the system so a failure in one cell affects only that cell's customers.
+
+These are mechanisms. The discipline is using them by default, not retrofitting them after an outage.
+
+### Failover
+
+When a primary fails, traffic moves to a backup. The mechanics depend on the layer:
+
+- **DNS failover** — change the DNS record to point at the standby. Slow (TTL bound), but cross-region.
+- **Load balancer failover** — the LB notices the backend is unhealthy and stops sending traffic. Fast, but constrained to a single LB.
+- **Database failover** — the standby replica is promoted to primary. Usually involves a small data-loss window in async replication, none in synchronous.
+
+Failover is one of the most error-prone operations a system performs. The standby has been idle; you do not know if it really works. Production-grade systems exercise failover regularly so it is not a leap of faith when needed.
+
+### Backups and Disaster Recovery
+
+Replication protects against host failure. **Backups** protect against logical failure — a bad migration, a buggy delete, a malicious wipe. Replicas faithfully copy the bug; backups are point-in-time snapshots that pre-date it.
+
+A backup strategy you have not tested by *restoring* is not a backup strategy. The most common backup failure mode is "we had backups, but no one ever restored from them, and when we tried during the incident the restore was broken." Run restore drills.
+
+**RPO** (Recovery Point Objective) is the maximum acceptable data loss — "we can lose at most 5 minutes of data." **RTO** (Recovery Time Objective) is the maximum acceptable downtime to recover. RPO drives backup frequency; RTO drives recovery procedure investment.
+
+### Monitoring and Alerting
+
+A reliable system you cannot see is not reliable. The minimum:
+
+- **Metrics** — time-series numerical data (latency, error rate, throughput, saturation). Prometheus, Datadog, CloudWatch, etc.
+- **Logs** — discrete events with structured fields. Querying for specific incidents.
+- **Traces** — per-request waterfalls across services. Useful for latency and dependency questions.
+
+The three are sometimes called the "three pillars of observability." Each answers a different question; reliability work usually touches all three.
+
+**Alerting** is the subset of monitoring that wakes someone up. Alerts should be:
+
+- **Actionable.** A page should always have a thing to do.
+- **Aligned with SLOs.** Page on user-visible badness, not on internal symptoms that may or may not affect users.
+- **Symptom-based, not cause-based.** "p99 latency exceeded SLO" is symptom-based; "CPU is high on host X" is cause-based and is a metric to dashboard, not page on.
+
+A team flooded with non-actionable alerts stops responding to alerts. This is the failure mode that ends every paging system that has too many.
+
+### Chaos Engineering
+
+A reliability technique: deliberately inject failures into production-like environments to discover hidden dependencies and weaknesses. Netflix's Chaos Monkey randomly kills instances; later tools (Gremlin, Litmus, Chaos Mesh) extend to network partitions, latency injection, resource exhaustion.
+
+The point is not to break things for fun. It is to discover the failure modes you have implicit dependencies on, *before* a real failure exposes them. A service you assumed was non-critical that turns out to take down checkout when it goes down. A retry storm that takes down a downstream when one upstream fails.
+
+Chaos engineering is the experimental version of "what would happen if?" — answered by running the experiment instead of guessing.
+
+### Postmortems
+
+Every significant incident produces a **postmortem** — a written analysis of what happened, why, and what to change. The hallmarks of a useful one:
+
+- **Blameless.** People made decisions with the information they had. The system allowed the failure; the system is what changes.
+- **Rooted in mechanism.** Not "X was careless"; "the deploy system had no canary stage, so the bad config reached every host in 90 seconds."
+- **Actionable.** Specific, owned, dated changes that would prevent or contain a recurrence.
+- **Shared.** Across the team, sometimes the company. Other teams have related risks they can fix preemptively.
+
+Most large engineering organizations are run by reading and acting on each other's postmortems. The cost of a single outage is at least the cost of the outage itself; if you do not learn from it, you also pay for the next one.
+
+### What This Means in Practice
+
+Reliability is unglamorous. It is the bulk of the work in operating a real system, and it is mostly the discipline of doing the small things consistently — having the timeout, having the retry, having the bulkhead, having the alert, running the drill, writing the postmortem. None of those is interesting in isolation. Together they are the difference between a system users trust and one they do not.
+
+The next two sections are about a specific class of "things going wrong" — the deliberate kind, where someone is trying to make your system do something it should not.

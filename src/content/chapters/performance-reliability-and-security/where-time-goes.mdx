@@ -1,0 +1,105 @@
+When something is slow, the question is: slow at what layer? An operation that takes 100ms could be CPU, memory, disk, network, or any combination. Each layer of the stack you have walked through in this course has a characteristic time scale, and knowing the orders of magnitude is the first step toward locating any latency problem.
+
+### The Latency Hierarchy
+
+Approximate, modern hardware:
+
+| Operation | Time | Distance, if 1ns = 1ft |
+| --- | --- | --- |
+| L1 cache hit | 1 ns | 1 ft |
+| Branch misprediction | 5 ns | 5 ft |
+| L2 cache hit | 4 ns | 4 ft |
+| L3 cache hit | 12 ns | 12 ft |
+| Main memory access | 100 ns | 100 ft |
+| Compress 1KB with Snappy | 2 μs | 0.4 mi |
+| Send 1KB over 10 Gbps network | 1 μs | 0.2 mi |
+| Read 1MB sequential from memory | 100 μs | 19 mi |
+| SSD random read | 100 μs | 19 mi |
+| Round trip within a data center | 500 μs | 95 mi |
+| Read 1MB sequential from SSD | 1 ms | 190 mi |
+| Disk seek (HDD) | 10 ms | 1,900 mi |
+| Read 1MB from disk | 20 ms | 3,800 mi |
+| Round trip US east → west coast | 70 ms | 13,000 mi |
+| Round trip US → Europe | 150 ms | 28,000 mi |
+
+Two takeaways:
+
+- **The hierarchy spans seven orders of magnitude.** A cache hit and a cross-region round trip are roughly as different as a second and a year.
+- **Where the data lives matters more than how fast you compute on it.** A loop running over data already in L1 is hundreds of times faster than the same loop on data the CPU has to fetch from memory, which is itself hundreds of times faster than data on disk, which is millions of times faster than data over a long-haul network.
+
+When something feels slow, pinpoint *which* of these you are paying for, and fix that, before optimizing anything else.
+
+### Common Time Sinks
+
+Where time actually goes in real applications, in rough order of frequency:
+
+**1. Network round trips.** A loop that calls a database 100 times per request — even if each call is 2ms — is 200ms of latency. The same data fetched in one query is 5ms. The fix is batching, not faster individual queries.
+
+**2. Database queries without an index.** A scan of a million rows is slow no matter how fast your CPU is. The fix is the right index, not the right code.
+
+**3. Serialization.** Converting an object to JSON and back is not free. For a few KB it is microseconds; for megabytes it can be tens of milliseconds. Hot paths that re-serialize on every request leave performance on the table.
+
+**4. Lock contention.** Threads queueing for a single mutex serialize on it. A 32-core machine running heavily contended code may perform like a 1-core machine, plus locking overhead. The fix is finer-grained locks, lock-free structures, or designs that avoid sharing.
+
+**5. GC pauses.** Garbage-collected runtimes (Java, Go, Node, Python, Ruby) periodically pause the application to clean up. Modern GCs are concurrent and incremental, but tail latency still feels them.
+
+**6. Synchronous I/O on the wrong thread.** Blocking the event loop in Node.js, or doing disk I/O on a UI thread, is the same bug pattern in different runtimes. Each one stalls the whole loop until it returns.
+
+**7. Cold caches.** First request after a deploy is slow because nothing is cached — the JIT has not warmed up, the database buffer pool is empty, the page cache is cold. Steady-state behavior and post-deploy behavior are different regimes.
+
+**8. TLS and connection setup.** A TLS handshake is one or two round trips before any application data flows. If you are creating a new connection per request, you pay this every time. Connection pooling is the standard answer.
+
+**9. DNS.** A surprising amount of "the network is slow" is "the DNS resolver is slow." Caching, connection reuse, and pre-resolution help.
+
+**10. Excessive logging or instrumentation.** Synchronous logging that fsyncs, debug logging in a tight loop, expensive serialization for traces — these can dominate hot paths. The instrumentation should never be more expensive than what it instruments.
+
+### Profiling: Finding the Hot Path
+
+Profilers tell you where time is actually going. The two flavors:
+
+**Sampling profilers.** Periodically pause the process and record what each thread is doing. Cheap (low overhead, can run in production), gives a statistical picture of where CPU time is spent. Linux `perf`, Java Flight Recorder, Go's pprof, py-spy.
+
+**Tracing profilers.** Instrument every function entry and exit. More precise, much more overhead, usually only run in development. Useful for understanding control flow, less useful for production performance work.
+
+The output is usually a **flame graph** — a visualization where width represents time spent. Tall narrow stacks are deep call chains; wide bars are functions where the program spent a lot of cycles. The eye finds hot spots quickly.
+
+The first profiling lesson: real bottlenecks are almost never where you assumed. The intuition that says "this complicated function must be slow" is wrong about as often as it is right. Measure before optimizing.
+
+### Distributed Tracing
+
+A single request flowing through ten services is impossible to debug from per-service logs alone. **Distributed tracing** propagates a request ID across service boundaries, recording **spans** — start time and duration — at each hop. The result is a per-request waterfall showing where time was spent.
+
+OpenTelemetry, Jaeger, Zipkin, Tempo, Datadog APM all do this. The protocol (W3C Trace Context) is standardized; vendors compete on storage, query, and visualization.
+
+Tracing is the answer to "this request is slow, but which service is the cause?" — the tail of one service downstream pulls the whole chain. Without traces, you correlate logs by timestamp and hostname and hope.
+
+### Caching as a Latency Tool
+
+Caching converts the latency hierarchy from absolute to amortized. A 100ms database query, cached in Redis (1ms) or in process memory (100ns), pays the 100ms cost only on a miss. Cache hit rate becomes the leverage point.
+
+The standard layers, recapped from chapter 6:
+
+- CPU caches (transparent).
+- Process memory (most-recent results, computation cache).
+- Local Redis or Memcached (shared cache, microseconds).
+- CDN / edge cache (10s of milliseconds, very large hit rate).
+- Database query cache and buffer pool (transparent, but warmable).
+
+Each layer adds a hit rate and reduces the latency contribution of the layer below. Multiplied across layers, the steady-state latency can be a small fraction of the cost of always going to the slowest layer.
+
+The cost is the things from chapter 6 — invalidation, staleness, coherence. Caching is a force multiplier and a source of subtle correctness bugs. Use it intentionally.
+
+### CPU-Bound vs I/O-Bound
+
+A coarse but useful split:
+
+- **CPU-bound** workloads spend most of their time computing. Adding cores helps; faster I/O does not.
+- **I/O-bound** workloads spend most of their time waiting for the network or disk. Adding cores does not help; lowering I/O latency or doing more I/O in parallel does.
+
+The same service can be CPU-bound on some endpoints and I/O-bound on others. Knowing which is which determines what to optimize and what to throw hardware at.
+
+### When You Find the Bottleneck
+
+Improving the bottleneck always reveals the next bottleneck. If you fix the database, the next slowest thing becomes the bottleneck. This is normal — performance work is iterative. Each round of optimization moves the constraint somewhere else, and you keep going until the dominant cost is something you cannot reasonably improve, or the system is fast enough that further work is not worth it.
+
+The discipline is to stop optimizing when the user no longer cares, not when you run out of ideas. Performance is a feature with diminishing returns; the right amount is the amount the product needs.

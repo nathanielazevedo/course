@@ -1,0 +1,87 @@
+A user clicks a link. By the time the page paints, hundreds of pieces of infrastructure have done specific jobs. This chapter walks one HTTP request — `GET https://api.example.com/users/42` — end-to-end through every layer the course has built up. Each section follows the request a little further down the stack and back.
+
+This first one covers what happens before any byte of the request itself leaves the user's machine: figuring out *where* the server is, opening a connection to it, and proving it is who it claims to be.
+
+### The Browser Builds the Request
+
+The user has clicked a link or the application has called `fetch("https://api.example.com/users/42")`. The browser's networking layer takes over. It needs:
+
+- An IP address for `api.example.com`.
+- An open TCP connection to that IP on port 443.
+- A TLS session over that connection.
+
+If any of these already exist (the browser opened a connection to the same origin earlier, the DNS result is cached, the TLS session is resumable), they are reused. Connection reuse is one of the largest single optimizations in the entire stack.
+
+If not, the work has to happen now, in roughly this order: DNS, TCP, TLS, request.
+
+### DNS Resolution
+
+The browser does not know the IP address of `api.example.com`. It asks a DNS resolver — typically the OS's, which forwards to whichever resolver the network is configured to use (the home router, the corporate DNS, a public resolver like 1.1.1.1).
+
+The resolver may have the answer cached. If not, it walks the tree (chapter 5):
+
+1. Ask a root server for `.com` name servers.
+2. Ask a `.com` name server for `example.com` name servers.
+3. Ask `example.com`'s name server for the A or AAAA record of `api.example.com`.
+
+The result is one or more IPs — likely several, because `example.com` is fronted by a CDN that operates many points of presence and the DNS answer points at the closest one. The resolver caches the result for the record's TTL (chapter 5 again — most stale-data debugging eventually leads here).
+
+A useful subtlety: the IP the browser ends up with depends on *which* resolver it asked. A resolver in Frankfurt gets directed to a CDN edge in Frankfurt; a resolver in Singapore to one in Singapore. This is **anycast** routing combined with geo-aware DNS — the same hostname resolves to different IPs in different places. It is how "the server is near you" becomes a low-level property of the network.
+
+### Establishing TCP
+
+With an IP in hand, the browser opens a TCP connection. The three-way handshake (chapter 5):
+
+1. Browser → server: `SYN` with an initial sequence number.
+2. Server → browser: `SYN-ACK` with its own sequence number.
+3. Browser → server: `ACK`.
+
+One round trip. Within a region, that is a handful of milliseconds. Cross-continent, 100ms or more.
+
+This connection is not opened to your origin server directly. It is opened to a CDN edge — the IP DNS handed back. The CDN holds the connection. Whether your origin server is reached at all is a decision the CDN will make in a moment, based on whether it has a cached response.
+
+### Establishing TLS
+
+Now TLS (chapter 5). The browser's `ClientHello` carries:
+
+- The TLS versions and cipher suites it supports.
+- A randomly generated value (used in key derivation).
+- A Diffie-Hellman key share (in TLS 1.3).
+- The hostname it intends to talk to, in the **SNI** (Server Name Indication) field — needed because one IP can host many domains and the server has to know which certificate to send.
+
+The server picks a cipher suite, generates its own DH key share, sends its certificate chain (its leaf cert plus the intermediate CA certs that lead back to a trusted root), and signs the handshake with its private key. The browser verifies:
+
+- The certificate chain leads to a root CA in its trust store.
+- The leaf certificate's name matches `api.example.com`.
+- The certificate has not expired and has not been revoked (via OCSP stapling or similar).
+- The server's signature over the handshake is valid — proving the server holds the private key for the certificate.
+
+From the exchanged DH shares, both sides derive the same symmetric session key. Subsequent application data flows encrypted with AES-GCM or ChaCha20-Poly1305.
+
+In TLS 1.3 the handshake takes one round trip. If this is a returning client, **0-RTT resumption** can let the browser send the application data with the very first packet — at the cost of replay safety for that initial data.
+
+### The Cumulative Cost of "Connecting"
+
+Counting round trips before any application data:
+
+- 1 RTT for DNS (often cached, free).
+- 1 RTT for TCP handshake.
+- 1 RTT for TLS handshake (TLS 1.3).
+
+Two round trips of pure setup, before the request itself can flow. To a CDN edge that is 10ms away, that is 20ms. To a server across the ocean, it could be 300ms.
+
+This is why connection reuse is so important. An HTTP/2 connection that is already open and TLS-established carries every subsequent request with no setup overhead. A `Connection: close` after every response throws this away.
+
+It is also why HTTP/3 over QUIC (chapter 6) folds TCP and TLS handshakes into a single round trip — and 0-RTT into none, in the resumption case. The savings compound across the many requests a typical page makes.
+
+### What Has Happened So Far
+
+The browser has:
+
+- Resolved a name to an IP, with the help of a resolver that consulted caches and possibly the DNS hierarchy.
+- Established a TCP connection to a CDN edge near the user.
+- Established a TLS session, verified the server's identity, and derived a symmetric encryption key.
+
+It has not yet sent the application request. The server has not yet learned the path, the headers, or anything about what the user wants.
+
+The first byte of `GET /users/42 HTTP/2` is about to go on the wire — into the encrypted TLS records, framed by HTTP/2, sent over the TCP connection, sent through the network — and the next layer of infrastructure begins making decisions about it.

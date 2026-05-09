@@ -1,0 +1,63 @@
+Synchronization primitives are the tools that turn unsafe shared memory into safe coordination between threads. They are all built, ultimately, on a small set of atomic CPU instructions — operations the hardware guarantees will execute without interleaving with another core.
+
+### Atomic Operations
+
+An atomic operation is one the hardware completes indivisibly. The most important is **compare-and-swap** (CAS): "if the value at this address is X, set it to Y, and tell me whether the swap happened." A single instruction, with a memory barrier, executed without interruption.
+
+Higher-level primitives are built on CAS. So are *lock-free* data structures, which avoid blocking entirely by using CAS in a retry loop.
+
+### Mutex
+
+A mutex (mutual exclusion lock) protects a *critical section* — a region of code only one thread may execute at a time. The pattern:
+
+```
+lock(m)
+   // critical section: shared state is safe to touch
+unlock(m)
+```
+
+Internally, `lock` uses an atomic instruction to claim the mutex. If another thread already holds it, the caller blocks — the OS removes the thread from the run queue and only wakes it when the lock is released.
+
+Mutexes solve the lost-update race. They also serialize access, which is the cost — only one thread can be in the critical section at a time.
+
+### Semaphore
+
+A semaphore is a counter with two atomic operations: `wait` (decrement, block if zero) and `signal` (increment, wake a waiter). It generalizes the mutex.
+
+A semaphore initialized to N lets up to N threads enter at once — useful for capping concurrency, like limiting how many threads are reading a file or hitting a database. Initialized to 1, it behaves like a mutex.
+
+### Condition Variable
+
+A condition variable lets a thread sleep until another thread signals that some condition has become true. Always paired with a mutex:
+
+```
+lock(m)
+while (!condition) wait(cv, m)   // releases m, sleeps, reacquires m on wake
+// condition is now true and m is held
+unlock(m)
+```
+
+Condition variables are how producers and consumers coordinate. The producer signals when it adds an item; the consumer waits until there is something to consume.
+
+### Read-Write Lock
+
+A read-write lock allows many concurrent readers but only one writer. Useful when reads vastly outnumber writes — a configuration cache, a routing table. Readers do not block each other; a writer blocks everyone.
+
+### Deadlock
+
+Deadlock is the failure mode where two or more threads each hold a lock the other needs and none can proceed:
+
+- Thread A holds lock 1, wants lock 2.
+- Thread B holds lock 2, wants lock 1.
+- Both wait forever.
+
+The standard prevention is **lock ordering**: every thread acquires locks in a globally agreed order. If everyone takes lock 1 before lock 2, the cycle cannot form.
+
+Other failure modes:
+- **Livelock** — threads keep retrying and yielding, doing no useful work.
+- **Starvation** — one thread is repeatedly passed over by the scheduler or by lock fairness rules.
+- **Priority inversion** — a low-priority thread holds a lock a high-priority thread needs, blocking it.
+
+### What This Costs
+
+Every lock is a coordination point. Threads serialize on it. A heavily contended lock turns a 32-core machine into a 1-core machine, plus overhead. The art is reducing contention: smaller critical sections, finer-grained locks, lock-free data structures, or designs that avoid sharing in the first place.

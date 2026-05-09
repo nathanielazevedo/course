@@ -1,0 +1,72 @@
+IP delivers packets between hosts. The transport layer delivers data between *programs* on those hosts. There are two transport protocols you actually use: TCP and UDP.
+
+### Ports
+
+An IP address identifies a machine. A **port** identifies a program on that machine. A port is a 16-bit number; combined with an IP address it forms an *endpoint*: `192.0.2.17:443`.
+
+A TCP or UDP packet header carries a source port and a destination port. The kernel uses these to route incoming bytes to the right socket — the one a program has bound to the destination port and connected from the source endpoint.
+
+Well-known services use conventional ports: 22 for SSH, 53 for DNS, 80 for HTTP, 443 for HTTPS. Above 1024 the convention is loose.
+
+### UDP
+
+UDP is barely a protocol. It adds two things to IP: ports, and an optional checksum. That is it.
+
+A UDP packet — a *datagram* — is a single message. The sender writes it; if it arrives, the receiver reads the whole thing. If it does not arrive, no one finds out. There is no connection, no acknowledgment, no retry, no ordering guarantee.
+
+This is exactly the right shape for some workloads:
+
+- **DNS queries** — a single small request and a single small response, where retrying at the application is cheaper than maintaining a connection.
+- **Video and voice** — losing a frame is better than waiting for it to be retransmitted.
+- **Game state** — the next position update will arrive in 16ms anyway; old state is worthless.
+
+UDP gives you the network's actual behavior. Anything more — reliability, ordering, congestion control — you build on top, or use TCP.
+
+### TCP
+
+TCP gives you a **reliable, ordered, byte-stream connection** between two endpoints. The bytes you write into one end come out the other, in order, exactly once, or the connection fails and you find out.
+
+Behind that simple promise is a substantial machine.
+
+### The Three-Way Handshake
+
+A TCP connection starts with three packets:
+
+1. The client sends **SYN** (synchronize) with an initial sequence number.
+2. The server replies with **SYN-ACK**: its own sequence number, acknowledging the client's.
+3. The client replies with **ACK**, acknowledging the server's.
+
+After this exchange, both sides know the other is reachable and have agreed on starting sequence numbers. The connection is *established*.
+
+Closing is symmetric: each side sends **FIN** and waits for an **ACK** from the other. A connection can be half-closed — one direction shut down while the other still flows.
+
+### Sequence Numbers and Reliability
+
+Every byte sent over a TCP connection has a sequence number. The receiver acknowledges what it has received by sending back the next sequence number it expects.
+
+If an ACK does not arrive within a timeout, the sender retransmits. If packets arrive out of order, the receiver buffers them until the gap fills. Duplicates are detected and discarded. The result is a clean ordered stream, despite the network underneath dropping, reordering, and duplicating packets.
+
+### Flow Control
+
+The receiver advertises a **window** — how many bytes it currently has buffer space to accept. The sender will not send more than the window allows. As the receiving application reads from its socket, the window opens; as the buffer fills up, it closes.
+
+This stops a fast sender from overwhelming a slow receiver. It is per-connection, end-to-end.
+
+### Congestion Control
+
+Flow control protects the receiver. *Congestion control* protects the network. TCP infers congestion from packet loss: when an ACK does not arrive, it assumes a router somewhere dropped the packet because it was overloaded.
+
+The standard response is **AIMD**: additive increase, multiplicative decrease. The sender's allowed in-flight data slowly grows when packets get through, and is cut sharply (often in half) when loss occurs. This is what stops the internet from collapsing under its own weight — every TCP sender backs off voluntarily.
+
+Modern algorithms (CUBIC, BBR) are more sophisticated, but the principle is the same: probe for available bandwidth, retreat when the network pushes back.
+
+### Head-of-Line Blocking
+
+Because TCP guarantees in-order delivery, a single dropped packet stalls everything behind it until it is retransmitted, even if the bytes that follow are independent. This is fine for a file transfer; it is painful for protocols multiplexing many independent streams over one connection. HTTP/2 hit this problem on the modern web. HTTP/3 addresses it by running over QUIC, which uses UDP and multiplexes streams at a layer where one stream's loss does not block the others.
+
+### When to Choose Which
+
+- Default: **TCP**. Almost everything you write — HTTP, SSH, databases, RPC — runs over it.
+- **UDP** when you need lower latency than TCP can give, you can tolerate loss, or you are building your own protocol on top (DNS, QUIC, video, games, custom telemetry).
+
+The choice between them is the choice between "I want a reliable byte stream" and "I want a network packet."

@@ -1,0 +1,37 @@
+A process is an isolated container around a running program. A thread is a unit of execution inside a process. A program with multiple threads is one process with several streams of execution running through the same code and memory.
+
+### What a Process Owns
+
+Each process has its own:
+
+- **Virtual address space** — code, heap, stacks, mapped files. No other process can touch these addresses directly.
+- **File descriptor table** — its own numbered references to open files, sockets, and pipes.
+- **PID, UID, working directory, environment variables** — the OS-level identity and context.
+
+Two processes communicate only through mechanisms the kernel mediates: pipes, sockets, shared memory regions, signals.
+
+### What a Thread Owns
+
+A thread inside a process has its own:
+
+- **Stack** — for function calls and local variables.
+- **Registers and program counter** — its execution state.
+- **Thread-local storage** — small per-thread slots, if requested.
+
+Everything else is shared with the other threads in the process: the heap, the code, global variables, file descriptors, and the address space itself. A pointer in one thread refers to the same byte of memory as the same pointer in another thread.
+
+### Cost
+
+Creating a process is expensive. The kernel allocates a new address space, copies or maps page tables, sets up new file descriptors. On Linux, `fork()` uses copy-on-write to make this cheaper, but it still takes hundreds of microseconds to milliseconds.
+
+Creating a thread is much cheaper — typically tens of microseconds. No new address space, no new descriptor table; the kernel allocates a stack and a thread control block and adds it to the scheduler's run queue.
+
+Context switching between threads in the same process is also faster than switching between processes, because the page tables and TLB do not need to change.
+
+### When to Use Which
+
+Threads when you want shared state and tight coordination — a web server handing each request to a worker thread, a game loop with a render thread and a physics thread, parallel computation over a shared array.
+
+Processes when you want isolation — a crash, memory leak, or security flaw in one should not affect the others. Browsers run each tab in a separate process. Database servers fork a process per connection. Container runtimes run each workload as its own process tree.
+
+A single threaded crash takes down the whole process. A single process crash leaves the rest of the system untouched. That asymmetry is the main reason to choose one over the other.

@@ -1,0 +1,57 @@
+The previous chapter ended with state — sessions, tokens, shopping carts — being something the server reconstructs from data carried in each request. Reconstructs from *where*? Somewhere durable. Every web application is, underneath, a thin shell over a database, and a database is a thin shell over the file system, and the file system is a thin shell over a block device. This chapter is what those layers actually do.
+
+Start at the bottom: "saved" is more complicated than it looks. Between your program calling `write()` and the bytes surviving a power loss are several layers of caching, each of which can lose data if it is not asked to flush. Persistence is not free, and "I wrote it to disk" is not the same as "it is durable."
+
+### Block Devices
+
+Storage hardware does not work in bytes. It works in **blocks** — fixed-size chunks the device reads and writes as a unit. Traditional disks use 512-byte sectors; modern SSDs use 4 KB pages internally. The OS exposes the device as a stream of numbered blocks; the file system organizes blocks into files.
+
+You cannot rewrite one byte in the middle of a block. You read the whole block into memory, modify the byte, and write the whole block back. This is why small random writes are expensive on every storage technology — they read-modify-write whole blocks.
+
+**HDDs** (spinning disks) are mechanical. Reaching a block requires moving an arm and waiting for the platter to rotate under the head. Sequential access is fast (hundreds of MB/s); random access is slow (a handful of milliseconds per seek, ~100 IOPS).
+
+**SSDs** (flash) have no moving parts. Random access is comparable to sequential access (microseconds, hundreds of thousands of IOPS). But flash cells wear out — each page can be erased only thousands to tens of thousands of times — and you cannot overwrite a page in place; you write to a new page and the controller eventually erases and reuses the old one. The SSD's *flash translation layer* hides this from the OS.
+
+**NVMe** is the modern interface SSDs use, talking directly over PCIe. It eliminates the SATA bottleneck and exposes deep parallelism — many request queues, many entries per queue.
+
+### The File System
+
+A file system organizes blocks into named, hierarchical files. It tracks for each file:
+
+- **Metadata** — permissions, owner, timestamps, size.
+- **Data block locations** — which blocks on the device hold the file's contents.
+
+The metadata is stored in **inodes** (on Unix file systems). The directory structure is itself a file containing name → inode mappings.
+
+Modern file systems (ext4, XFS, APFS, NTFS, Btrfs, ZFS) all do roughly the same thing, with different trade-offs around journaling, snapshots, and integrity checking.
+
+### The Write Cache Problem
+
+When your program calls `write()`, the bytes do not go to the disk. They go to the **page cache** — a region of RAM the kernel uses to cache file data. The system call returns as soon as the bytes are in the cache.
+
+This is great for performance — the kernel batches and reorders writes, merges them, and flushes them to disk in the background — and a disaster for durability. If the machine loses power between the `write()` returning and the kernel flushing, the data is gone, even though your program saw a successful write.
+
+To make data durable, you have to call **`fsync()`** on the file descriptor (or `fdatasync()`, which skips metadata-only flushes). `fsync` blocks until the kernel has confirmed the data has reached the storage device.
+
+But the storage device has its own write cache. By default, the OS asks the device to flush its cache as part of `fsync` — issuing a *write barrier*. If write barriers are disabled (some cloud configurations do this for performance), `fsync` returns before the bytes are physically durable.
+
+The chain that actually has to happen for "durable":
+
+1. Application: `write()` → kernel page cache.
+2. `fsync()` → kernel issues writes to the device, then a flush command.
+3. Device: data leaves its volatile cache and lands in non-volatile media (flash, magnetic platter, or battery-backed cache).
+4. `fsync()` returns.
+
+A power loss between steps 1 and 4 can lose the data. After step 4, the data survives.
+
+### What This Costs
+
+`fsync` is expensive — milliseconds, even on fast SSDs. A naive design that fsyncs after every write becomes IOPS-bound quickly. This is why every database batches writes through a *write-ahead log*: many small logical changes get serialized into one sequential append, and a single fsync makes the whole batch durable. We will see exactly this in the transactions section.
+
+It is also why the wrong abstraction layer can quietly cost you durability. A logging library that buffers in user space, written to a file the OS buffers in page cache, on a disk with write cache enabled, can lose multiple seconds of "successful" writes if the machine power-cycles. Knowing where the buffers are is most of building a durable system.
+
+### Files Are an Abstraction
+
+The file system gives a uniform interface — open, read, write, seek, close — over hugely different hardware: a local SSD, a network file system, a virtual block device backed by a cloud object store, a temporary tmpfs in RAM. Code written against the file system is portable across all of these, but the cost and durability of `write()` and `fsync()` vary by orders of magnitude depending on the backing storage.
+
+The abstraction lets you ignore the hardware until performance forces you to look. Then the answer is almost always at the layer you were ignoring.

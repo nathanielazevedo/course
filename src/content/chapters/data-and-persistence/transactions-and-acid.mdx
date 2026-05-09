@@ -1,0 +1,81 @@
+A transaction is a group of database operations the system treats as a single unit: either all of them happen, or none of them does, even in the face of crashes, concurrent access, and partial failures. Transactions are why databases are trusted to hold your money, your inventory, and your audit trail.
+
+The guarantees a relational database makes for a transaction are summarized as **ACID**.
+
+### A: Atomicity
+
+Either every operation in the transaction commits, or none of them does. There is no partial result.
+
+If a transaction debits one account and credits another, atomicity is what guarantees you never lose money to a crash between the two writes. The database either persists both, or neither — there is no in-between state visible to anyone after the crash recovers.
+
+The mechanism is the *write-ahead log* (WAL): before changing the data files, the database writes a record of the intended change to a log file and `fsync`s it. On crash recovery, the database replays committed log records and rolls back the rest.
+
+### C: Consistency
+
+The database moves from one valid state to another. Constraints — primary keys, foreign keys, NOT NULL, CHECK — hold both before and after the transaction.
+
+This is the weakest of the four properties to formalize. It is partly a property of the database (it enforces the constraints) and partly a property of the application (it has to define what "valid" means with the right constraints).
+
+### I: Isolation
+
+Concurrent transactions do not see each other's intermediate state. A transaction reading a row sees a consistent value, not a half-finished update from another in-flight transaction.
+
+The strongest form is **serializable** isolation — concurrent transactions produce the same result as if they had run one at a time in some order. It is also the most expensive. Real databases offer weaker isolation levels with documented anomalies, and you choose the level you can tolerate.
+
+### D: Durability
+
+Once the database confirms a transaction committed, the data survives a crash, power loss, or process kill. This is what `fsync` on the WAL buys you, on every commit.
+
+Durability does not mean "survives any failure" — a meteorite hitting the data center destroys durably-stored data too. Replication (next section) is the answer to that.
+
+### The Write-Ahead Log
+
+The WAL is the mechanism behind A and D. The rule:
+
+> Every change must be recorded in the log, and the log must be flushed to durable storage, *before* the data files are updated.
+
+A commit requires:
+
+1. Write the transaction's records to the WAL buffer.
+2. `fsync` the WAL up to and including the commit record.
+3. Tell the client: committed.
+
+The data files themselves are updated lazily, in the background. Pages get dirty in memory, get flushed to disk eventually, and the WAL is what lets the database reconstruct the right state on crash recovery.
+
+This is why a single sequential append (the WAL write) plus one fsync is the minimum cost of a commit. It is also why grouping many small operations into one transaction is faster than one transaction per operation — the fsync amortizes across all of them.
+
+### Isolation Levels
+
+The SQL standard defines four:
+
+- **READ UNCOMMITTED** — a transaction can see another transaction's uncommitted changes. Almost no real database actually offers this; it is mostly historical.
+- **READ COMMITTED** — a transaction only sees data committed before its current statement started. The default in most databases (Postgres, SQL Server, Oracle).
+- **REPEATABLE READ** — a transaction sees a consistent snapshot for its entire duration. Reading the same row twice in one transaction returns the same value.
+- **SERIALIZABLE** — the strongest. The result is equivalent to some serial execution of the transactions.
+
+Each level allows specific anomalies:
+
+- **Dirty read** — reading uncommitted data. Disallowed at READ COMMITTED and above.
+- **Non-repeatable read** — re-reading a row in the same transaction sees a new value. Disallowed at REPEATABLE READ and above.
+- **Phantom read** — re-running a range query in the same transaction sees rows that were not there before. Disallowed at SERIALIZABLE.
+- **Write skew** — two transactions each read a set of rows, decide independently based on what they read, and write a result that is consistent for each individually but invalid together. Disallowed at SERIALIZABLE.
+
+Most applications run at READ COMMITTED. Banking, inventory, and any system where two clients might race to take the last seat usually need SERIALIZABLE — or careful application-level locking.
+
+### MVCC
+
+Modern databases (Postgres, MySQL/InnoDB, Oracle) implement isolation via **multi-version concurrency control**. Each row has multiple versions, each tagged with the transaction that wrote it. A reader sees the version that was committed when its snapshot started; writers create new versions without blocking readers.
+
+This is why readers in Postgres do not block writers and writers do not block readers. The cost is *bloat* — old row versions accumulate until the database can prove no transaction still needs them, and a vacuum/cleanup process reclaims the space.
+
+### Distributed Transactions
+
+The above is everything a transaction needs on a single machine. Distributed transactions — where a single transaction spans multiple databases or services — are much harder. The classical solution is **two-phase commit**: a coordinator asks all participants if they can commit, and only commits if all say yes. It works, but it blocks if the coordinator fails between phases.
+
+Most modern systems avoid distributed transactions entirely, using patterns like **sagas** (a sequence of local transactions with explicit compensating actions on failure) or designing the data model so a single logical transaction lands on a single shard. We pick this thread up in the next section.
+
+### What Transactions Buy You
+
+Transactions are the database giving you a small island of sanity in a system that is otherwise fundamentally concurrent and prone to failure. Inside a transaction you can write straightforward code: read, decide, write, commit. The database handles the concurrency control, the crash recovery, the durability. Outside the transaction boundary, you are back to thinking carefully about ordering, retries, and consistency yourself.
+
+This is one of the most leveraged abstractions in computing. Use it.

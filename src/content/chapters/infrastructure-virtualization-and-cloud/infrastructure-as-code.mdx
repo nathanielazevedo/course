@@ -1,0 +1,83 @@
+Infrastructure as Code (IaC) means describing your infrastructure — VMs, networks, databases, IAM policies, DNS, the whole stack — as text files in a repository, and using tools to apply those files to make the cloud match. The text is the source of truth; the cloud catches up.
+
+The alternative is the console — clicking through the AWS UI, configuring things by hand, hoping you remember what you did. That works for one developer on one project. It does not scale to teams, environments, or the lifetime of a system.
+
+### The Two Models
+
+IaC tools fall into two camps based on how they describe state.
+
+**Imperative.** A series of steps. "Create this VM. Then attach this disk. Then assign this IP." Shell scripts, Ansible (mostly), early CloudFormation. The script captures *how* to reach the desired state.
+
+**Declarative.** A description of the end state. "There is a VM with this configuration, this disk, this IP." Terraform, modern CloudFormation, Pulumi, Crossplane. The tool figures out what changes are needed to reach the described state from whatever the current state is.
+
+The declarative model has won for the same reason it won in Kubernetes: a description of desired state is robust to retries, partial failures, and gradual change. An imperative script that has been half-applied has no way to safely resume; a declarative tool computes the diff between current and desired and applies just what is missing.
+
+### How Terraform Works
+
+Terraform is the most common IaC tool. The workflow:
+
+1. You write `.tf` files describing resources — VMs, security groups, S3 buckets, DNS records, IAM roles, anything the provider's API supports.
+2. You run `terraform plan`. Terraform reads the current state of those resources from the cloud (via API) and compares it to your files. It prints the diff: what would be created, modified, or destroyed.
+3. You run `terraform apply`. Terraform makes the API calls to reach the described state.
+4. Terraform records the result in a **state file** — a snapshot of the resources it manages and their attributes.
+
+The state file is the bookkeeping that makes the next plan accurate. It tracks "this resource in your code corresponds to this resource ID in the cloud." Without it, Terraform would not know whether a `database` block in your code is meant to create a new database or update the existing one.
+
+The state file is also a source of operational concern: it must be stored somewhere durable and concurrent-access-safe, typically in S3 with DynamoDB locking. Lose the state file and you have a directory of code that no longer corresponds to any specific cloud resources.
+
+### Drift
+
+**Drift** is when the actual cloud state diverges from what your IaC says it should be. Someone clicks something in the console; an emergency patch was applied directly; a pipeline modified a resource it should not have.
+
+The next `plan` reveals the drift — Terraform sees a difference and proposes to either revert it ("you said 4 instances, there are 5") or accommodate it (depending on how the change is expressed).
+
+Drift is a sign of process failure, not a tool failure. The IaC contract is that the code is the source of truth; manual changes are out-of-band. Teams that allow drift to accumulate eventually reach a state where no one can apply Terraform safely because the diff is too big and risky.
+
+### Modules and Composition
+
+Real IaC codebases are organized into reusable units. In Terraform these are *modules* — a directory of resources parameterized by inputs and exposing outputs.
+
+A typical company has modules for "VPC," "Postgres database," "ECS service," etc., each encoding the right configuration for that team. Application teams compose them — "give me a database and an ECS service in the VPC" — without re-deriving the right security groups and IAM policies every time. This is how IaC becomes a platform abstraction, not just a deployment script.
+
+### Pulumi and the Code Approach
+
+Terraform uses HCL, a domain-specific language for configuration. Pulumi takes a different approach: write infrastructure in real programming languages (Python, TypeScript, Go), using the host language's loops, conditionals, and types.
+
+The trade-off:
+
+- **HCL** is intentionally constrained. You cannot write arbitrary logic. The reasoning is that infrastructure code should be simple, declarative, and reviewable.
+- **General-purpose languages** give you the full toolbox — abstractions, type checks, libraries — at the cost that infrastructure code can become as complex as application code, with all the bugs that implies.
+
+CDK (CloudFormation in TypeScript / Python / etc.) is AWS's flavor of the general-purpose-language approach. Crossplane goes the other direction — Kubernetes-native, all-CRDs, all-YAML.
+
+These all converge at runtime: each generates declarative resource graphs that get reconciled with the cloud.
+
+### Configuration Management vs Provisioning
+
+Two related but distinct categories of tools:
+
+- **Provisioning** — creating the underlying infrastructure (VMs, networks, databases). Terraform, CloudFormation, Pulumi.
+- **Configuration management** — bringing a server to a desired state once it exists. Ansible, Puppet, Chef, Salt.
+
+Modern container-based architectures push most configuration management into the image build (Dockerfile, packer image), reducing the need for runtime configuration management. The split that survives: Terraform creates the cluster; the cluster's content is described declaratively in Kubernetes YAML; the application image is built once and deployed by the orchestrator.
+
+### Why This Matters Beyond Convenience
+
+IaC unlocks several operational practices that are otherwise impossible:
+
+- **Code review for infrastructure.** A pull request changes a security group; a teammate sees the diff before it reaches production.
+- **Reproducible environments.** The exact same infrastructure exists in dev, staging, and production, modulo parameter differences. New environments come up by running the same code with new parameters.
+- **Disaster recovery.** If the cloud account is corrupted or destroyed, the code can recreate the infrastructure from scratch in another account or region.
+- **Change history.** Every infrastructure change is a commit. You can answer "what changed yesterday?" with `git log`.
+- **Drift detection.** A nightly `plan` catches manual changes before they accumulate.
+- **Policy as code.** Tools (OPA, Sentinel, Checkov) lint IaC for compliance — no public S3 buckets, no security groups open to the world, no databases without encryption.
+
+Without IaC, a system over a few years old becomes operationally opaque. People who set up the original infrastructure leave; the reasons for specific configurations are lost; nobody is sure what would break if a particular resource were touched. With IaC, the configuration is the documentation.
+
+### The Limits
+
+IaC handles structure well. It handles state changes (database migrations, data backfills) poorly — those need separate tooling because they are inherently imperative and irreversible. It also handles secrets carefully — the IaC code should reference secrets, not contain them, and the actual secret values should live in a secret manager.
+
+And IaC does not save you from a bad design. Code that creates a fragile architecture creates it reliably and reproducibly.
+
+This is the last layer in the infrastructure stack. The next chapter steps back and looks at the cross-cutting concerns — how performance, reliability, and security shape every layer we have walked through.

@@ -1,0 +1,120 @@
+The handler has the user object in memory. Everything from here is the reverse trip: serialize, write, traverse back through the same infrastructure that the request crossed, and finally render in the browser. Most of the layers do less on the way back than they did on the way in — but each is still a place where time goes and where things can fail.
+
+### Serialization
+
+The handler returns a JavaScript object (or a struct, or a record). The framework's response writer:
+
+1. Picks the serialization format. The default is JSON; for some APIs it is Protobuf or MessagePack.
+2. Serializes the object to bytes.
+3. Sets the `Content-Type` header (`application/json`).
+4. Sets the `Content-Length` header (or chooses chunked encoding for streaming).
+5. Sets cache headers — `Cache-Control: private, max-age=0` for personalized data, longer durations for less-volatile responses.
+6. Sets any cookies that were updated during request handling (`Set-Cookie`).
+
+For a single user, this is a few hundred bytes. For a list endpoint, it can be megabytes. JSON serialization at that scale is not free — it can be tens of milliseconds for large payloads, all of it on the request thread.
+
+### Compression
+
+If the request had `Accept-Encoding: gzip, br`, the response middleware compresses the body. Gzip is the default; Brotli is better but more CPU-expensive. The compressed body is typically 20–30% the size of the raw JSON.
+
+Compression trades CPU for bandwidth. On the application server it is several milliseconds; at the load balancer or CDN it may be cheaper because of dedicated hardware. Most modern systems push compression to the edge, leaving the application to produce uncompressed responses.
+
+### Writing to the Socket
+
+The bytes are written to the response stream. The kernel buffers them in the socket's send buffer and sends TCP segments as fast as the receiver's window allows.
+
+This is non-trivial: a slow client on a poor network may take seconds to drain the response, holding the connection (and a slot in the application's concurrency budget) the whole time. Production servers set write timeouts to bound this.
+
+For HTTP/2, the response is framed onto streams and multiplexed onto the existing connection. The application can begin the next request immediately even while bytes for this one are still flowing.
+
+### Back Through the Mesh
+
+If a service mesh sidecar is in the path, the response passes through it on the way out:
+
+- mTLS encryption to the upstream caller.
+- Trace span finalization — record the request duration and outcome on this hop's span.
+- Any per-response observability — circuit breakers update their success/failure tallies based on the response code.
+
+The response reaches the load balancer, which holds the connection back to the CDN.
+
+### Back Through the Edge
+
+The load balancer:
+
+- Removes any internal headers that should not leak (request IDs added by internal middleware, debugging headers).
+- May add observability headers — `X-Cache-Status`, `X-Server`, latency hints.
+- Forwards to the CDN edge.
+
+The CDN edge:
+
+- Inspects `Cache-Control`. If the response is cacheable, stores it under the appropriate cache key (the URL plus any `Vary`-listed headers).
+- Re-encrypts for the original client TLS session.
+- Optionally compresses (if not already done) using the algorithm the client requested.
+- Optionally rewrites HTML — injecting personalization tokens, edge analytics scripts, A/B test markers.
+- Forwards the bytes to the user's browser over the original TCP+TLS connection.
+
+The bytes leave the edge over the public network — different from the path inbound, sometimes shorter, sometimes longer, depending on the routing. For HTTP/3 over QUIC, packets travel over UDP and the edge multiplexes them onto the user's QUIC connection's existing stream.
+
+### The Browser Receives
+
+The browser's network process receives the bytes. The TLS layer decrypts them, the HTTP layer parses headers and body, and:
+
+- For an API response, it resolves the originating `fetch` promise with a `Response` object. The application JavaScript code now has the user data.
+- For an HTML page, the parser begins building the DOM as the bytes stream in (chapter 6's browser pipeline).
+- For a script or stylesheet, the resource is handed to the relevant subsystem — the JS engine compiles it, the CSS parser builds the CSSOM.
+
+For our `GET /users/42`, the response is JSON. The application code that called `fetch` resumes:
+
+```
+const res = await fetch('/users/42');
+const user = await res.json();
+displayProfile(user);
+```
+
+`res.json()` reads the body and parses it. `displayProfile(user)` mutates the DOM — sets text content, updates state, triggers a re-render.
+
+### The Rendering Pipeline
+
+The DOM has changed. The browser's render pipeline (chapter 6 again) springs back into action:
+
+1. **Style.** Recompute styles for the changed nodes.
+2. **Layout.** Recompute geometry — where each box sits, how big it is.
+3. **Paint.** Generate draw commands for the changed regions.
+4. **Composite.** Hand the layers to the GPU process; pixels appear on screen.
+
+If the JavaScript also did synchronous heavy work (parsing the JSON, transforming it, running validators), it blocked the event loop and any rendering during that time. A 100ms response that took 50ms to parse and apply has cost the user 150ms of perceived latency.
+
+The user's screen updates. The profile is visible. From the user's perspective, this is the entire transaction: clicked a link, the page updated.
+
+### What Just Happened
+
+Tracing the full path of one request, end to end:
+
+- The browser **resolved DNS** through a recursive resolver and possibly several authoritative servers (chapter 5).
+- It opened a **TCP connection** with a three-way handshake (chapter 5).
+- It established a **TLS session** with key agreement and certificate verification (chapter 5).
+- It sent an **HTTP request** framed for HTTP/2 or 3, encrypted in TLS records (chapter 6).
+- The bytes traveled the **public internet** through routers and ISPs, governed by **IP and BGP** (chapter 5).
+- They arrived at a **CDN edge** which inspected and possibly served them (chapter 6).
+- An **edge function** may have done auth, A/B routing, or personalization (chapter 9).
+- They passed through a **public load balancer** that picked a healthy backend (chapter 8).
+- They were routed through the **cluster network** to a Pod's IP (chapter 9).
+- A **service mesh sidecar** terminated mTLS and stamped traces (chapter 9).
+- The application server **accepted** the connection (chapter 8).
+- A chain of **middleware** authenticated, authorized, traced, and validated the request (chapter 8).
+- The handler ran on a **goroutine, event-loop callback, or thread** (chapter 4).
+- It checked a **Redis cache** for the result (chapter 7).
+- On miss, it acquired a **connection from the database pool** (chapter 8).
+- The query was sent to a **replica** chosen by the routing layer (chapter 7).
+- The database **walked a B+ tree** through pages in its **buffer pool**, possibly reading from disk (chapter 7).
+- The result returned through the same chain in reverse, **serialized as JSON**, possibly **compressed**.
+- It traversed the network back, the edge, the connection, the browser's network process.
+- The browser's **JS runtime** parsed it and updated the DOM.
+- The browser's **render pipeline** restyled, laid out, painted, and composited the change.
+- The user saw the new pixels.
+
+This is the system. Every component in this course participated in serving one request — the kernel, the file system, the TCP stack, the TLS library, DNS, BGP, the CDN, the load balancer, the orchestrator, the service mesh, the application runtime, the connection pool, the database, the replication system, the cache, the JSON serializer, the compression library, the browser. Each one is itself a system worth understanding deeply, and each one was hidden behind a clean abstraction that the layer above did not have to think about until it broke.
+
+That is the systems-thinking shift. A web developer asks: "what should this endpoint return?" A systems thinker asks the same question and also, simultaneously, "what is the network path, what is the cost at each hop, where does state live, what are the failure modes, what are the trust boundaries?" The first question is about behavior; the second is about reality. A complete engineer holds both at the same time.
+
+The course ends here. The next system you build is the rest of the work.

@@ -1,0 +1,68 @@
+IP addresses are how machines find each other. Names — `example.com`, `api.stripe.com` — are how humans and software refer to them. DNS, the Domain Name System, is the global distributed database that maps one to the other.
+
+Almost every connection you make starts with a DNS lookup.
+
+### The Tree
+
+DNS is organized as a tree, read right to left. `api.stripe.com.` (the trailing dot is the root) splits into:
+
+- `.` — the root.
+- `com` — a top-level domain.
+- `stripe` — a domain registered under `com`.
+- `api` — a subdomain of `stripe.com`.
+
+Each level of the tree is administered separately. The operators of `.com` do not control what records exist inside `stripe.com`; they only control which name servers are authoritative for it.
+
+### Authoritative Servers
+
+For every name, there is some server somewhere that holds the *authoritative* answer — the source of truth. The authoritative server for `stripe.com` is whatever Stripe has configured at their registrar; it is typically run by their DNS provider, not by Stripe directly.
+
+The root servers (there are 13 logical sets, replicated globally) hold the authoritative list of TLD name servers. The TLD servers hold the authoritative list of name servers for each registered domain. The domain's own name servers hold the actual records.
+
+### Records
+
+A DNS record is a name, a type, a TTL, and a value. The common types:
+
+- **A** — IPv4 address. `api.stripe.com → 192.0.2.17`.
+- **AAAA** — IPv6 address.
+- **CNAME** — alias to another name. `www.example.com → example.com`.
+- **MX** — mail server for the domain.
+- **TXT** — arbitrary text. Used for domain ownership verification, SPF, DKIM.
+- **NS** — name server for a subdomain. How delegation is expressed.
+
+### Resolution
+
+When your program calls `getaddrinfo("api.stripe.com")` (or the browser does), it asks a **resolver** — usually one your OS or ISP provides, or a public one like `1.1.1.1` or `8.8.8.8`.
+
+The resolver does the recursive walk:
+
+1. Ask a root server: "who handles `.com`?" — get the `.com` name servers.
+2. Ask a `.com` server: "who handles `stripe.com`?" — get Stripe's name servers.
+3. Ask a Stripe name server: "what is the A record for `api.stripe.com`?" — get the IP.
+
+Each hop is a separate query. To make this affordable, every result is cached.
+
+### Caching and TTLs
+
+Every record has a **TTL** — the number of seconds a resolver may cache it before re-checking. A short TTL (say, 60 seconds) means clients pick up changes quickly but the authoritative server gets more traffic. A long TTL (say, a day) means caches absorb most queries but a record change takes a day to propagate.
+
+This is the model of consistency DNS gives you: *eventually consistent, with the lag bounded by the longest TTL in the chain*. It is why DNS changes "take a while to propagate" and why operators preemptively shorten TTLs before a planned migration.
+
+The resolver caches everything it learns — TLD answers, NS records, A records. A second query for `api.stripe.com` from anywhere on the same resolver will skip most of the recursive walk.
+
+### What a Query Looks Like
+
+A classical DNS query is a single UDP packet to port 53 — a small request, a small response. UDP is the right fit: a query is one round trip, and if it is lost the resolver retries. The response includes the answer and an updated TTL.
+
+If the response would be too large for one UDP packet (over 512 bytes traditionally, more with EDNS), the resolver retries over TCP. DNSSEC and DNS-over-TLS/HTTPS push more queries to TCP-based transports as well.
+
+### Failure Modes
+
+DNS is one of the most common sources of distributed-systems pain:
+
+- **Stale caches** — a deployment changed an IP, but resolvers are still serving the old A record until the TTL expires.
+- **Negative caching** — a "no such name" response is cached too. A typo or a misconfiguration during a deploy gets remembered.
+- **Resolver failure** — if the resolver itself is down or slow, every connection in the system stalls on hostname lookup before any actual work can begin.
+- **TTL=0 is not magic** — many resolvers ignore it or apply a floor. You cannot count on instant propagation.
+
+Most production outages that look like "the network is broken" turn out to be DNS.

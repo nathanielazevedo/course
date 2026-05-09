@@ -1,0 +1,98 @@
+The request has reached the application's listening socket. From here on, the journey is inside one process, on one machine, in one container — until it has to leave again to talk to the database or another service. This section is what the application server actually does between accepting the connection and beginning to look up the user.
+
+### Accept and Read
+
+The kernel hands the request to the application via the listening socket (chapter 8). The accept loop returns a new file descriptor for this connection. Whether it lands on a thread, an event-loop callback, or a goroutine depends on the runtime — but in every case, some unit of execution is now responsible for reading the bytes off the socket.
+
+The bytes are not delivered all at once. TCP delivers a stream; the application reads it in chunks, until it has parsed enough to know the request shape. For HTTP/2 this is a frame at a time; for HTTP/1.1 it is bytes until the end-of-headers double newline.
+
+The HTTP parser produces a structured request object — method, path, headers, body stream. Frameworks then route the request to a handler.
+
+### Routing
+
+Every HTTP framework has some form of router: a structure that maps `(method, path)` to a handler function. The shapes vary:
+
+- A list of regexes (Express).
+- A trie indexed by path segments (most modern frameworks).
+- A generated dispatch table (gRPC services, OpenAPI-driven frameworks).
+
+For `GET /users/42`, the router matches a route like `GET /users/:id`, extracts `id = 42` as a path parameter, and dispatches to the registered handler.
+
+Routing is also where most frameworks attach **middleware** — functions that run before and after every handler in a chain. Middleware is where the cross-cutting concerns live, and the order matters.
+
+### The Middleware Stack
+
+A typical web framework's middleware chain, from outermost in:
+
+**1. Logging and request tracing.** Generate a request ID (or extract one from headers — `X-Request-ID`, W3C Trace Context). Stamp it on every log line for this request. Open a trace span. The request ID flows downstream, so logs across services can be correlated for the same user request.
+
+**2. Metrics.** Increment a counter for the endpoint; start a timer. On response, record the duration in a histogram and increment the appropriate status-code counter.
+
+**3. Error handling.** Wrap the handler in a recovery block. If anything panics or throws, return a controlled 500 instead of crashing the process or leaking stack traces.
+
+**4. Compression.** If the client accepts gzip or brotli (`Accept-Encoding`), compress the response body before sending it back.
+
+**5. Security headers.** Add `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`. Some frameworks add these at the application; some delegate to the load balancer.
+
+**6. CORS.** For cross-origin requests, evaluate the Origin header and add the right `Access-Control-Allow-*` headers, or reject with a 403 if the origin is not allowed (chapter 6).
+
+**7. Rate limiting.** Check the request against a per-user or per-IP limit. Return 429 if exceeded. Often delegated to a Redis-backed counter or a service-mesh policy, not done in-process.
+
+**8. Authentication.** Read the `Authorization` header (or the session cookie). Verify the token: check the signature on a JWT, look up the session in Redis, validate the OAuth token with the identity provider. Attach the authenticated user to the request context. Reject with 401 if the token is missing or invalid.
+
+**9. Authorization.** Given the authenticated user and the requested resource, decide if the user is allowed. Reject with 403 if not. This is where IDOR (insecure direct object reference) bugs live — checking that user 42 is allowed to see `/users/42`, not just that *some* authenticated user made the request.
+
+**10. Body parsing.** For methods with bodies (POST, PUT, PATCH), parse the body. Reject bodies over a size limit. Validate JSON against a schema; return 400 with a structured error on validation failure.
+
+**11. Application handler.** Finally.
+
+The handler receives a fully-validated, fully-authenticated, fully-traced request. Everything before it has rejected the requests that should not have made it this far.
+
+### What the Handler Does
+
+The application handler for `GET /users/42` is, conceptually, very small:
+
+```
+async function getUser(req, ctx) {
+  const id = req.params.id;
+  const user = await users.findById(id);
+  if (!user) return ctx.notFound();
+  return ctx.json(user);
+}
+```
+
+What this hides:
+
+- `users.findById` is a method on a repository or ORM — not a SQL query directly. It builds a query, gets a connection from the pool, executes the query, maps rows to objects.
+- The connection pool is a chapter-8 finite resource. If exhausted, this call blocks until one is free.
+- The query itself goes over the network to the database (next section).
+- The framework's `ctx.json` serializes the user object to JSON, sets `Content-Type: application/json`, sets `Content-Length` (or `Transfer-Encoding: chunked` for streaming), and prepares to write to the response stream.
+
+A handler this small has at least: one authorization check, one connection-pool acquire, one network round trip, one ORM serialize, one JSON serialize, one write. Each is a place where time goes (chapter 10) and a place where things can fail.
+
+### Concurrent Execution
+
+While this request is in flight, the same process is handling many others. Depending on the runtime:
+
+- In **Node.js**, this handler is a chain of promises on the single event-loop thread. Awaiting the database call yields back to the loop, which serves other requests until the database response arrives.
+- In **Go**, this handler runs on a goroutine. Awaiting the database call parks the goroutine; the runtime schedules other goroutines onto the available threads.
+- In **Java with virtual threads** (or kotlin coroutines, or modern Python `asyncio`), the same: lightweight units of execution, parked while waiting on I/O.
+- In **a thread-per-request system** (older Tomcat, classic Rails workers), the handler runs on a real OS thread. Other requests run on other threads. The pool size caps concurrency.
+
+This is chapter 4 again. The same primitives — event loops, async I/O, thread pools — are the substrate every web framework runs on.
+
+### Observability Adds Up
+
+Each layer in the middleware chain has stamped the request:
+
+- The trace started at the load balancer (or the edge) and continues through this service. Every outbound call from this handler will carry the trace ID, so the next service's spans hang under this one's.
+- Every log line emitted from this request includes the request ID. Searching logs for that ID reveals the full per-request narrative.
+- Metrics have recorded the timing, status, and labels for this endpoint. Aggregated, they form the latency histograms and error counters that drive alerts and SLOs (chapter 10).
+
+A request that fails three services downstream is debuggable from a single trace: the waterfall shows which call was slow, which returned 500, and the logs at each hop are queryable by the same ID. Without this, distributed debugging is matching timestamps and hoping.
+
+### The Handler Is About to Wait
+
+The handler has parsed, authenticated, authorized, and decided what data it needs. It calls the data layer. Now it waits — likely for several milliseconds, on the order of a hundred to a thousand times longer than the work the handler itself has done so far.
+
+Inside that wait is where most of the time goes, and the next section is where it goes.

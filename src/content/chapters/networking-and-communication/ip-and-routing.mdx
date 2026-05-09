@@ -1,0 +1,48 @@
+IP — the Internet Protocol — is what makes the internet a single network instead of a billion disconnected ones. Its job is to deliver a packet from any machine to any other machine, possibly across many hops, given only the destination's IP address.
+
+### IP Addresses
+
+An IPv4 address is 32 bits, written as four decimal octets: `192.0.2.17`. There are about 4.3 billion of them, which has not been enough since the early 2000s.
+
+IPv6 is 128 bits, written as eight groups of four hex digits: `2001:db8::1`. It provides 3.4 × 10³⁸ addresses — enough to never run out again.
+
+Addresses are allocated in **prefixes**, blocks of contiguous addresses. `192.0.2.0/24` means the first 24 bits are fixed; the remaining 8 bits identify hosts inside the block. Routers operate on prefixes, not individual addresses.
+
+### Packets
+
+An IP packet is a header followed by a payload. The header carries:
+
+- **Source and destination addresses.**
+- **TTL** (time-to-live) — a hop counter, decremented at each router. When it reaches zero the packet is dropped. This is what stops a misrouted packet from circulating forever.
+- **Protocol number** — what is inside the payload. 6 means TCP, 17 means UDP, 1 means ICMP.
+- **Length and checksum.**
+
+The payload is whatever the layer above produced — typically a TCP or UDP segment.
+
+### What IP Guarantees
+
+Almost nothing.
+
+IP is a **best-effort, connectionless** protocol. It does not guarantee that packets arrive. It does not guarantee they arrive in order. It does not guarantee they arrive only once. If a router is overloaded it drops packets without telling anyone. If two paths exist, packets sent in sequence may take different ones and arrive reordered.
+
+Anything stronger — reliability, ordering, deduplication — is the responsibility of the layer above. That is the entire reason TCP exists.
+
+### Routing
+
+Every router holds a **routing table**: a list of destination prefixes paired with the next hop to forward toward. When a packet arrives, the router does a *longest-prefix match* against the destination address — the most specific prefix that matches wins — and forwards the packet on the matching interface.
+
+Inside a single organization, routers exchange routes using interior protocols (OSPF, IS-IS). Between organizations — the actual fabric of the internet — they use **BGP** (Border Gateway Protocol). BGP is how an ISP announces "I can reach these prefixes" to its peers. There is no central authority deciding paths; the global routing table is the emergent result of every BGP-speaking router announcing what it knows to its neighbors.
+
+A misconfigured BGP announcement at a single ISP can hijack traffic for someone else's prefix. This has happened repeatedly, sometimes by accident, sometimes deliberately.
+
+### NAT
+
+Most home and office networks use **private** address ranges that are not routable on the public internet — `10.0.0.0/8`, `192.168.0.0/16`. When a device behind a home router contacts the outside world, the router performs **Network Address Translation**: it rewrites the source IP to its own public address, remembers the mapping, and rewrites the destination IP back on the response.
+
+NAT was a pragmatic response to IPv4 exhaustion. Its side effect is that hosts behind NAT cannot be directly reached from outside without explicit forwarding. This is why peer-to-peer connections, video calls, and game lobbies need techniques like STUN and TURN to traverse NAT.
+
+IPv6 has enough addresses that NAT is no longer needed — every device can have a globally unique address. Adoption has been slow, mostly because IPv4-plus-NAT works well enough that the pressure to switch has been weak.
+
+### What This Means in Practice
+
+A request from your browser to a server crosses anywhere from a handful to thirty IP routers. Each one is making an independent forwarding decision based on its local routing table. None of them are tracking your connection — they see one packet at a time and forward it. Connection state lives at the endpoints, in TCP. That is the next layer.

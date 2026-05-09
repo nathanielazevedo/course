@@ -1,0 +1,93 @@
+The fastest network request is the one that does not happen. Caching at every layer of the web — in the browser, in proxies, in CDNs, in the application — is what makes the modern web feel fast despite the speed of light being what it is.
+
+### Why Caching Works
+
+Most content is **read more than it is written**. A site's home page may be served a million times for every change. A JavaScript bundle may not change for weeks. An image may never change. Anything you can avoid recomputing or refetching is bandwidth, latency, and CPU you save.
+
+The cost is *staleness* — caches can serve outdated data. The whole design space of HTTP caching is about controlling that trade-off precisely.
+
+### Cache-Control
+
+`Cache-Control` is the response header that tells caches what they may do with the response. The directives that matter:
+
+- `public` / `private` — `public` means any cache (CDN, ISP, browser) may store this; `private` means only the end user's browser.
+- `max-age=N` — for the next N seconds, this response is *fresh*. Caches may serve it without checking back with the origin.
+- `no-cache` — caches may store the response but must revalidate with the origin before serving it.
+- `no-store` — do not cache at all. For sensitive responses.
+- `immutable` — this response will never change for its lifetime. Used with content-hashed URLs.
+- `s-maxage=N` — like `max-age`, but only for shared (CDN) caches.
+- `stale-while-revalidate=N` — the cache may serve a stale response for up to N seconds while it asynchronously fetches a fresh one.
+
+A typical pattern for a static asset:
+
+```
+Cache-Control: public, max-age=31536000, immutable
+```
+
+A year of caching, never revalidate. This works because the URL itself contains a content hash — `app.7f3a2c.js`. When the file changes, the URL changes, and the old URL is simply no longer referenced.
+
+### ETags and Conditional Requests
+
+For dynamic content where you cannot promise the response is good for any specific time, you use **conditional requests**.
+
+The server sends an `ETag` header — a short identifier that changes when the content changes (often a hash of the body):
+
+```
+ETag: "a1b2c3d4"
+```
+
+On its next request the client sends:
+
+```
+If-None-Match: "a1b2c3d4"
+```
+
+If the resource still has the same ETag, the server replies with `304 Not Modified` and an empty body. The client reuses the cached body. The round trip still happens, but the bytes do not. `Last-Modified` and `If-Modified-Since` work the same way with timestamps instead of opaque tags.
+
+This is the right tool for content that changes occasionally and unpredictably — an API response, a personalized page.
+
+### Proxy Caches
+
+Between your browser and the origin server can sit any number of caches: a corporate proxy, an ISP cache, a CDN edge. A response with `Cache-Control: public, max-age=...` may be stored at any of these and served to other clients without ever touching the origin.
+
+This is the multiplier that makes the web cheap. A response served once by the origin may be served thousands of times from caches close to users.
+
+The risk is that a wrongly cached response is served to the wrong user — a logged-in user's personalized page cached as if it were public. `Cache-Control: private` prevents shared caches from storing it. `Vary` tells caches that the cached response depends on a particular request header (`Vary: Cookie` keys the cache by the cookie value).
+
+### CDNs
+
+A **Content Delivery Network** is a global network of caching proxy servers. Cloudflare, Fastly, Akamai, AWS CloudFront, and others operate hundreds of *edge* locations — points of presence in major cities — each of which can serve cached responses to nearby users.
+
+The typical setup:
+
+1. Your origin server lives in one region (us-east, say).
+2. Your DNS points users to the CDN, which routes each user to a nearby edge.
+3. The edge has cached static assets and many dynamic responses. Cache hit → it serves them directly, in under 50ms.
+4. On a miss, the edge fetches from the origin, caches the response according to its `Cache-Control`, and serves it.
+
+The CDN's edge locations terminate TLS, run rules, and optionally execute small functions at the edge — Cloudflare Workers, Lambda@Edge, Fastly Compute. This pushes computation closer to users, sometimes as the entire backend for an application.
+
+### Cache Invalidation
+
+The hard part is not caching. It is invalidation — telling caches to forget something when it changes.
+
+The two robust strategies:
+
+- **Content-hashed URLs** — bake a hash of the content into the URL. The cache key changes when the content changes; nothing has to be invalidated. This is why bundlers produce filenames like `main.7f3a2c.js`.
+- **Explicit purge** — tell the CDN to drop a specific URL or tag from its cache. CDNs all expose APIs for this. It is fast (seconds) but eventually consistent across the global edge.
+
+The tempting wrong strategy is short TTLs ("just cache for 60 seconds"). It works but it leaves performance on the table and still gives you a stale window.
+
+### Layers of Cache You Will Hit
+
+A request from a browser passes through, in order:
+
+1. The browser's HTTP cache.
+2. (Sometimes) a service worker programmable cache.
+3. The CDN edge cache.
+4. The CDN regional cache.
+5. The application's own response cache.
+6. The application's data layer cache (Redis, Memcached).
+7. The database's query cache and buffer pool.
+
+A latency or staleness bug can come from any of them. Knowing the layers is the first step to debugging which one served the wrong thing.

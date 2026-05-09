@@ -1,0 +1,102 @@
+A distributed system is one in which the failure of a computer you didn't even know existed can render your own computer unusable. — Leslie Lamport
+
+A program on one machine succeeds or fails. A system across many machines does both at once. Some part is working, some part is not, and your code has to be correct in both cases. The category of "things that can go wrong" is wider than people coming from single-machine programming usually expect. This section is the catalog.
+
+### The Eight Fallacies of Distributed Computing
+
+Articulated at Sun Microsystems in the 1990s, these are assumptions distributed-system newcomers consistently make. They are all wrong:
+
+1. The network is reliable.
+2. Latency is zero.
+3. Bandwidth is infinite.
+4. The network is secure.
+5. Topology doesn't change.
+6. There is one administrator.
+7. Transport cost is zero.
+8. The network is homogeneous.
+
+Each fallacy has cost a real outage somewhere. The discipline of distributed systems is mostly about taking each one seriously.
+
+### The Network Is Unreliable
+
+Packets get dropped. Connections time out. Routes change. A request sent and never answered may have:
+
+- Never arrived at the receiver.
+- Arrived, been processed, and the response was lost.
+- Arrived, queued, and is still being processed.
+- Arrived multiple times (a retry-and-the-original both succeed).
+
+You cannot tell which from the caller's side. You cannot retry safely without idempotency. You cannot wait forever — you need timeouts. You cannot trust that "no error" means "success" — you need acknowledgments at the layer that matters.
+
+### Latency Is Not Zero
+
+A function call takes nanoseconds. An RPC takes milliseconds. A cross-region call takes tens to hundreds of milliseconds. They look the same in your code; they are not the same operation.
+
+This matters for sequencing. A loop that calls a remote service `N` times pays `N × latency`. The same data fetched in a single batched call pays one round trip. The shape of your code determines the shape of your latency.
+
+It also matters for tail latency. Median latency of a service might be 10ms; the 99th percentile might be 200ms. If your request fans out to ten downstream services in parallel and waits for all of them, your 99th percentile is dominated by the *slowest* of the ten — which is more often near each service's tail. The math (1 minus 0.99 to the 10th) means roughly 10% of requests now hit a tail somewhere.
+
+### Bandwidth Is Not Infinite
+
+Pipes have capacity. Cross-region links are expensive. The data you move shows up on someone's bill. Designs that work at low scale ("just send the whole table over") collapse when traffic grows.
+
+The practical implications: be careful with N+1 query patterns, don't ship more data than the consumer needs, page large result sets, and put bounds on the size of any payload.
+
+### Clocks Are Unreliable
+
+Every machine has its own clock. They drift. NTP keeps them roughly synchronized — typically within tens of milliseconds — but **never** assume two clocks agree on the current time to better than that. They will not.
+
+Worse, clocks can jump. A clock can be adjusted backward by NTP correction; a virtual machine paused and resumed may resume to a wall clock seconds ahead.
+
+Implications:
+
+- Timestamps from different machines are not comparable for ordering. A request stamped 12:00:00.005 on machine A may have happened after a request stamped 12:00:00.010 on machine B.
+- Token expiration based on clock comparisons across services has a fudge factor.
+- **Logical clocks** — Lamport timestamps, vector clocks, hybrid logical clocks — exist precisely because wall clocks cannot order events across machines.
+- Distributed consensus and replication systems use logical or quorum-based ordering, not wall clocks, for the same reason.
+
+The exception is Google's Spanner, which uses GPS and atomic clocks to bound clock skew tightly enough to use real time as a coordination primitive (TrueTime). Most systems do not have this option.
+
+### Partial Failure
+
+A single machine either works or doesn't. A distributed system is *partially* failed almost all the time — some component is unhealthy, restarting, slow, or unreachable, while the rest serves traffic.
+
+The failure modes that matter:
+
+- **Crash failure.** A node stops cleanly. Detectable by absence of heartbeat.
+- **Slow / stalled node.** Still alive, still responding to health checks, but slow enough that depending on it kills your latency. Worse than a clean crash, because it is not detected by basic health probes.
+- **Network partition.** Two halves of the system can each talk internally but cannot reach each other. From either side it looks like the other is down.
+- **Asymmetric partition.** A can reach B but B can't reach A. Or A can talk to B but neither can reach C. Real networks do this.
+- **Byzantine failure.** A node returns wrong answers (hardware fault, bug, or malicious actor). Most systems do not defend against this; consensus systems that do (Byzantine fault tolerance) pay a steep cost.
+
+The standard defense is *not* to prevent failures but to limit blast radius:
+
+- Timeouts on every dependency.
+- Circuit breakers that stop calling a failing service after a threshold of failures.
+- Bulkheads — isolate resource pools so one slow dependency cannot exhaust your threads or connections globally.
+- Health checks that catch slow-mode failures, not just crashes.
+- Fallback paths that degrade gracefully when a non-critical dependency is down.
+
+### Topology Changes
+
+Machines come and go. New nodes are added; old ones are decommissioned; failed ones are replaced. IP addresses change. Service discovery — DNS, Consul, Kubernetes services, service mesh — exists because the set of healthy backends is *always* changing and code that hardcodes addresses is wrong.
+
+This also applies to schemas. Two services interacting in production are never running the exact same version of the code. There is always a deploy in flight, a canary, or one service ahead of the other. APIs and message formats need to be backward and forward compatible during the rolling window when both versions are live.
+
+### There Is Not One Administrator
+
+Different teams own different services. Different companies own the dependencies you call (third-party APIs, cloud services, payment processors). You do not control when they deploy, when they have an incident, when they change behavior. Your design has to assume their availability is not yours to control.
+
+### Transport Cost Is Not Zero
+
+Cloud bills are real. Cross-region data transfer, egress out of the cloud, calls to managed services — these are billed by the byte and the request. Designs that move a lot of data across these boundaries can cost more than the rest of the infrastructure combined.
+
+### The Network Is Not Homogeneous
+
+Different links have different MTUs, different latencies, different reliability. A connection that worked in your VPC fails over a VPN. A protocol that worked over Ethernet behaves differently over LTE. Code that assumes a uniform network breaks at the boundaries.
+
+### What This All Means
+
+The single most important shift when moving from one machine to many is accepting that the failure cases are not exceptional — they are the normal mode. Every call is a place where the network can drop the request, the response, or both. Every dependency is a node that can be slow or down without you noticing. Every assumption about ordering across machines is suspect.
+
+The good news: a small set of patterns covers most of the defense. Timeouts. Retries with backoff and jitter. Idempotency. Circuit breakers. Bulkheads. Bounded queues. Logical clocks for ordering. Quorum or consensus when correctness depends on agreement. The next section is what to do when correctness *does* depend on agreement — when "eventually consistent" is not enough.

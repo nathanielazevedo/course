@@ -1,0 +1,97 @@
+Some operations cannot be eventually consistent. Two machines cannot both be the leader. Two transactions cannot both commit conflicting writes. A user cannot be both registered and not registered. When correctness requires agreement across machines, you need **consensus** — a protocol that lets a group of nodes agree on a value despite some of them failing or being unreachable.
+
+Consensus is the hardest problem in distributed systems. It also turns out to be the foundation almost every other coordination primitive is built on: leader election, distributed locks, configuration stores, transaction coordinators.
+
+### What Consensus Means
+
+Formally: a group of nodes must all agree on the same value, with the property that
+
+- **Agreement** — no two nodes decide on different values.
+- **Validity** — the agreed value is one that some node proposed.
+- **Termination** — every non-failed node eventually decides.
+
+In practice, this means something like: "given a sequence of proposed log entries, the cluster commits them in the same order on every node." Once you have that, you can build replicated state machines — every node applies the same operations in the same order and arrives at the same state. Replicated state machines are how distributed databases stay consistent across replicas.
+
+### Why It Is Hard
+
+In a synchronous network with reliable nodes, consensus is easy — pick the lowest node ID's value. The hard cases:
+
+- Messages can be delayed, dropped, or reordered.
+- Nodes can crash and recover.
+- The network can partition.
+- You cannot tell a slow node from a dead one.
+
+The **FLP impossibility result** (Fischer, Lynch, Paterson 1985) proves that in a fully asynchronous network with even one faulty node, no deterministic consensus algorithm can guarantee both termination and agreement. Real systems work around this with timeouts (a node assumed to have failed if it does not respond) and randomization, accepting that progress is probabilistic in pathological cases.
+
+### Paxos
+
+Paxos (Lamport 1989) was the first widely understood consensus algorithm. It works in two phases:
+
+- **Prepare/Promise.** A proposer asks acceptors to promise not to accept earlier proposals.
+- **Accept/Accepted.** If a quorum promises, the proposer asks acceptors to accept its value.
+
+A value is **chosen** when a quorum of acceptors has accepted it. With the right rules, it is provably impossible for two different values to be chosen.
+
+Paxos has a reputation for being subtle and hard to implement correctly. The original paper omits enough detail that "implementing Paxos" turned into a research industry. Real systems usually use multi-Paxos (a stream of Paxos instances) or one of the variants below.
+
+### Raft
+
+Raft (Ongaro, Ousterhout 2014) was designed explicitly for understandability. It splits consensus into three subproblems:
+
+- **Leader election.** One node is the leader at a time. The leader handles all client requests.
+- **Log replication.** The leader appends entries to its log and replicates them to followers. An entry is *committed* once a majority has stored it.
+- **Safety.** Rules ensure that a committed entry is never lost or overwritten by a future leader.
+
+Raft has a clearer mental model than Paxos and is the algorithm used in etcd, Consul, CockroachDB, TiKV, and many newer systems. The principle is the same as Paxos: a quorum of `(N/2)+1` nodes must agree before anything is committed. With three nodes you can tolerate one failure; with five you can tolerate two.
+
+This is why coordination clusters are almost always 3 or 5 nodes. A two-node cluster cannot have a quorum if either fails. Even numbers above two add cost without adding fault tolerance — a four-node cluster still only tolerates one failure (a quorum is three).
+
+### Why etcd, ZooKeeper, Consul Exist
+
+Most application code does not implement Raft. It uses a small, dedicated *coordination service* that already does:
+
+- **etcd** — Raft, used by Kubernetes for its entire control plane.
+- **ZooKeeper** — older, uses a Paxos-derived protocol called Zab. Used by Kafka (historically), HBase, and many older systems.
+- **Consul** — Raft, with built-in service discovery and health checking.
+
+These services give you a small, strongly consistent, replicated key-value store. On top of that, you can build:
+
+- **Leader election** — competing candidates try to atomically create a key with their identity; whoever succeeds is leader. The key has a TTL or session, so the leadership lapses if the leader dies.
+- **Distributed locks** — same primitive: create-if-not-exists with a TTL. Other holders wait or fail.
+- **Configuration storage** — a single source of truth all nodes read from.
+- **Service discovery** — services register themselves; clients watch for changes.
+- **Cluster membership** — a canonical list of who is in the cluster.
+
+The pattern is: do not implement consensus yourself. Run a small consensus cluster and use it as a coordination point.
+
+### What Consensus Costs
+
+A write through a consensus cluster requires a round trip to a quorum. Even within a region, that is several milliseconds. Across regions, tens to hundreds of milliseconds. The cluster's throughput is bounded by how fast it can replicate to a quorum.
+
+This is why coordination services hold *control plane* state — small, slow-changing, infrequently written. They are not where you put your application data. Your application data goes in a database that may or may not use consensus internally for its own metadata, but serves your reads and writes from a more scalable layer.
+
+### Distributed Locks: A Cautionary Note
+
+A distributed lock built on a coordination service is *almost* correct. The hidden problem is that locks have a TTL — the system has to release them if the holder dies — and a holder can be slow enough that its lock expires while it still believes it holds the lock. A second holder acquires the lock, both think they own it, and the protected resource gets two writers.
+
+This is the **fencing token** problem (Martin Kleppmann's analysis of Redlock). The fix is for the lock service to issue a monotonically increasing token; the protected resource (the database, the storage system) checks the token and rejects writes from older lock-holders. Without fencing, distributed locks are a best-effort optimization, not a correctness guarantee.
+
+### "Exactly-Once" Is Almost Always a Lie
+
+You will see "exactly-once delivery" advertised as a feature. In a network that can lose packets, exactly-once *delivery* of a message is not achievable in general. What is achievable is **exactly-once processing** — at-least-once delivery combined with idempotent processing on the consumer side, with deduplication based on a message ID.
+
+Kafka's "exactly-once semantics," for example, is exactly that: at-least-once delivery plus transactional writes that include the consumer's offset, so duplicate processing of the same message produces no additional effect. The delivery is still at-least-once; the *effect* is exactly-once. The distinction matters because consumer code has to do its part — track processed IDs, write atomically with whatever state it produces.
+
+### When You Need It
+
+Most application code does not directly invoke consensus. The places it shows up:
+
+- The **leader of a replicated database** is elected via consensus.
+- The **cluster membership** of an orchestrator (Kubernetes, ECS, Nomad) lives in a consensus-backed store.
+- A **distributed lock** for a cron job that should run only once across a fleet uses one.
+- A **service discovery** registry uses one.
+- A **configuration store** for feature flags or service config uses one.
+
+When in doubt, the right move is to put the strongly-consistent state in a small consensus-backed system (etcd, your relational database) and let the rest of your application be eventually consistent built on top of it. This is the same pattern as Chapter 7's recommendation: keep the source of truth strongly consistent, layer fast eventually-consistent caches and replicas on top.
+
+The next chapter — infrastructure, virtualization, and cloud — is what runs all of this. The servers, the load balancers, the consensus clusters, the databases — they all live on something.

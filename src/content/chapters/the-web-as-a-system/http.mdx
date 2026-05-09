@@ -1,0 +1,79 @@
+HTTP is the application protocol that runs on top of TCP (and increasingly UDP via QUIC). It is what your browser, your `curl` command, and almost every public API speak. At its core it is simple: a client sends a request, a server sends a response, the connection may be reused or closed.
+
+Everything elaborate about the modern web is a layer on top of this exchange.
+
+### The Request
+
+An HTTP/1.1 request, on the wire, is plain text:
+
+```
+GET /users/42 HTTP/1.1
+Host: api.example.com
+Accept: application/json
+User-Agent: curl/8.4.0
+
+```
+
+A start line (method, path, version), a set of headers, a blank line, and an optional body. That is the entire format.
+
+The **method** signals intent:
+
+- `GET` — fetch a resource. Should have no side effects.
+- `POST` — create or submit. May have side effects.
+- `PUT` — replace a resource at a known location. Idempotent.
+- `PATCH` — partially update.
+- `DELETE` — remove a resource.
+- `HEAD` — like GET, but the server returns only the headers.
+- `OPTIONS` — ask what the server supports (used by CORS preflight).
+
+The protocol does not enforce the semantics. A `GET /delete-account?id=5` is legal HTTP and a terrible API; conventions exist because tools, caches, and proxies assume them.
+
+### The Response
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 27
+
+{"id":42,"name":"alice"}
+```
+
+A status line, headers, blank line, body. The status code is a three-digit number grouped by class:
+
+- **1xx** — informational. Rare. `100 Continue`, `101 Switching Protocols` (used to upgrade to WebSockets).
+- **2xx** — success. `200 OK`, `201 Created`, `204 No Content`.
+- **3xx** — redirection. `301` permanent, `302/307` temporary, `304 Not Modified` (used by caches).
+- **4xx** — client error. `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `429 Too Many Requests`.
+- **5xx** — server error. `500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`, `504 Gateway Timeout`.
+
+The split between 4xx and 5xx is "your fault" vs "my fault." Getting this right matters — load balancers, retry logic, and observability systems all key off the class.
+
+### Headers
+
+Headers are arbitrary key-value pairs that carry metadata about the request, the response, the connection, or the entity in the body. A small set you will see constantly:
+
+- `Host` — which virtual host on this server (one IP can serve many domains).
+- `Content-Type` — what kind of bytes are in the body. `application/json`, `text/html`, `image/png`.
+- `Content-Length` — how many bytes follow.
+- `Authorization` — credentials. Typically `Bearer <token>`.
+- `Cookie` / `Set-Cookie` — see "State on a Stateless Protocol".
+- `Cache-Control` — see "Caching and CDNs".
+- `Accept` / `Accept-Encoding` — what the client can handle.
+
+### Statelessness
+
+HTTP is stateless. Each request is independent — the server is not required to remember anything between them. Two requests from the same browser arrive as two unrelated TCP-payload exchanges; nothing in HTTP itself ties them together.
+
+Statelessness is what makes the web horizontally scalable. A request can be served by any of a thousand identical machines because none of them are holding anything that the others lack. Anything resembling state — login, shopping cart, preferences — has to be carried into each request, by the client, in cookies, headers, or the URL. The server reconstructs whatever state it needs from those.
+
+### HTTP/1.1, HTTP/2, HTTP/3
+
+The semantics above are the same in all three versions. What changes is how requests are framed on the wire.
+
+**HTTP/1.1** (1997) sends requests and responses serially over a TCP connection. To do many things in parallel a browser opens many connections (typically six per origin). Headers are repeated in plain text on every request.
+
+**HTTP/2** (2015) frames everything as binary streams multiplexed over a single TCP connection. Many requests can be in flight simultaneously without head-of-line blocking *at the HTTP layer*. Headers are compressed (HPACK). It still suffers head-of-line blocking at the *TCP* layer — one dropped TCP packet stalls all the streams sharing that connection.
+
+**HTTP/3** (2022) replaces TCP with QUIC, which runs on UDP. QUIC implements its own loss recovery and ordering per stream, so a packet drop on one stream does not block the others. It also folds the TLS handshake into the connection setup, cutting the round trips needed before the first request.
+
+You will mostly write the same code against any of them. The version negotiation happens during TLS, transparent to the application. Where it matters is when you are debugging a slow page load or designing for low latency on lossy networks.

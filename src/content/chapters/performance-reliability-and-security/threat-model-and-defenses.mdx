@@ -1,0 +1,126 @@
+Security is not a product you buy. It is a property you design for, and the first step of designing for it is being explicit about what you are protecting and from whom. That explicit description is your **threat model**: the assets, the adversaries, the attack surfaces, and the assumptions you are making about each.
+
+### The Threat Model
+
+A threat model answers four questions:
+
+- **What are you protecting?** User data, service availability, money, the integrity of records, the secrecy of code.
+- **From whom?** Curious users, opportunistic attackers, organized criminals, nation-states, malicious insiders. Each has different capabilities and incentives.
+- **Through what attack surfaces?** Public APIs, login forms, file uploads, dependency supply chain, employee laptops, internal tools, cloud account, source repositories.
+- **What are you assuming?** That dependencies are honest. That employees are honest. That the cryptographic primitives are sound. That logs are not tampered with.
+
+Without a threat model, security work is guesswork — adding controls without knowing what they defend against, or skipping controls because the threat felt theoretical. With a threat model, defenses become checkable: "this control mitigates that threat by this mechanism."
+
+The standard formulation, **STRIDE**, names six threat categories: **S**poofing identity, **T**ampering with data, **R**epudiation, **I**nformation disclosure, **D**enial of service, **E**levation of privilege. Walk these through each component of the system and you have the start of a threat model.
+
+### Authentication vs Authorization
+
+Two different things often confused:
+
+- **Authentication (AuthN)** — proving who you are.
+- **Authorization (AuthZ)** — deciding what you are allowed to do.
+
+A system can have great AuthN and broken AuthZ — you are correctly identified, but the policy governing what you can access is wrong.
+
+AuthN mechanisms in modern systems:
+
+- **Password + something else.** TOTP, push notification, hardware key (FIDO/WebAuthn). Passwords alone are no longer sufficient for anything important.
+- **OAuth / OpenID Connect.** Delegated authentication via a trusted identity provider — "log in with Google."
+- **mTLS.** Mutual TLS where both sides present certificates. Used between services in a service mesh.
+- **API tokens.** Long-lived credentials granted to specific clients with specific scopes. Short-lived access tokens + long-lived refresh tokens is the common pattern.
+
+AuthZ mechanisms:
+
+- **RBAC (Role-Based Access Control).** Users have roles; roles have permissions.
+- **ABAC (Attribute-Based Access Control).** Decisions based on attributes — who you are, what you are accessing, when, from where.
+- **Capability tokens.** Bearer tokens that themselves carry authority — possession is enough.
+- **Resource-based policies.** Permissions attached to resources (e.g. AWS IAM policies on a bucket).
+
+Most production systems use a mix: AuthN at the edge (tokens, sessions), AuthZ throughout (per-endpoint, per-resource).
+
+### Defense in Depth
+
+A single control will eventually fail. Defense in depth means stacking controls so that bypassing one does not give the attacker the kingdom.
+
+The standard layers, top to bottom in a request's path:
+
+- **Network.** WAF, DDoS protection, IP reputation, security groups, private subnets.
+- **TLS.** Encryption in transit; rejection of weak ciphers; mTLS where it makes sense.
+- **AuthN at the edge.** Reject unauthenticated traffic at the perimeter.
+- **AuthZ at every boundary.** Permission checks in the API layer and again at the data layer.
+- **Input validation.** Reject malformed requests before they touch business logic.
+- **Output encoding.** Escape user-controlled data when rendering, before it reaches a context that interprets it.
+- **Encryption at rest.** Database, backups, object storage.
+- **Secrets management.** API keys and credentials in a dedicated store, not in environment variables or code.
+- **Logging and detection.** Suspicious activity surfaces in time to respond.
+
+Each layer assumes the layers above might fail. A SQL injection succeeds at the input validation layer; the layered AuthZ check in the data layer prevents it from accessing data the user should not see; the prepared-statement discipline prevents arbitrary execution; the privilege of the database connection prevents schema modification. Any one layer alone would be insufficient. Together, they make exploitation hard.
+
+### The OWASP Hits
+
+The vulnerabilities that have caused the most production damage on the web, more or less in order:
+
+**Injection (SQL, NoSQL, command, LDAP).** User input is concatenated into a query or command instead of being passed as a parameter. The fix is parameterized queries (prepared statements) and command APIs that take arguments separately, not string interpolation.
+
+**Cross-Site Scripting (XSS).** User-controlled data is rendered in a page without proper encoding, executing in another user's browser. The fix is contextual escaping at render time and a strong Content Security Policy. Modern frameworks (React, Vue, etc.) do this by default; getting XSS in 2026 usually means reaching for `dangerouslySetInnerHTML` or its equivalent.
+
+**Cross-Site Request Forgery (CSRF).** A malicious site causes the user's browser to send a state-changing request to your site, leveraging the user's existing session. The fix is the `SameSite` cookie attribute (now the default in modern browsers) and CSRF tokens for any state-changing endpoint.
+
+**Server-Side Request Forgery (SSRF).** Your server makes outbound requests to URLs the user controls, and the user points them at internal addresses (cloud metadata services, internal admin APIs). The cloud metadata variants (169.254.169.254 on AWS, etc.) have caused famous breaches. The fix is allowlisting outbound destinations and using IMDSv2-style protocols that require authentication.
+
+**Broken access control.** AuthZ logic that is wrong — Insecure Direct Object References (loading `/users/42/profile` for any user), missing checks, default-allow policies. The fix is centralized AuthZ that requires every endpoint to declare permissions, and checking at the data layer rather than only the API layer.
+
+**Cryptographic failures.** Storing passwords in plaintext or with broken hashes (MD5, SHA-1). Using ECB-mode encryption. Custom crypto. The fix is using a vetted library at a higher level (libsodium, Tink, your platform's framework crypto) and not designing primitives.
+
+**Vulnerable dependencies.** A library you depend on has a known CVE. Most public breaches in the last decade involved a vulnerable library somewhere. The fix is dependency scanning (Dependabot, Snyk, GitHub Advanced Security) integrated with your CI, plus a process to actually act on the alerts.
+
+**Misconfiguration.** Default credentials, public S3 buckets, debug endpoints exposed in production, security groups open to the world, IAM roles too broad. Most cloud security incidents are misconfigurations, not exploits. The fix is policy-as-code, opinionated defaults, and least-privilege IAM.
+
+**SSRF and supply chain attacks.** A package you depend on is compromised at its source — `event-stream`, `solar wind`, the typo-squatted package on npm with malicious post-install. The fix is package pinning, lockfiles, internal package mirrors, and reproducible builds.
+
+### Least Privilege
+
+The most leveraged single principle in practical security: every component, every credential, every role should have the minimum permissions it needs to do its job.
+
+A web app's database user should have access to its own database, not all databases. A service's IAM role should have permission for the specific S3 bucket and the specific operations it needs, not `s3:*`. A developer's account should not have production write access by default.
+
+The discipline is unglamorous and continuous. Permissions accumulate; least privilege has to be re-established periodically. Tools (IAM Access Analyzer, GCP Recommender) surface unused permissions and suggest tightening.
+
+### Secrets Management
+
+API keys, database passwords, signing keys, third-party tokens. The bad places they end up:
+
+- In source control. Even if removed in a later commit, history is searchable.
+- In environment variables logged at startup.
+- In CI logs.
+- In configuration files baked into images.
+- In Slack messages between developers.
+
+The good places:
+
+- A dedicated secret manager (AWS Secrets Manager, GCP Secret Manager, Vault) with audit logging and rotation.
+- IAM roles instead of long-lived credentials whenever possible — ephemeral credentials issued by the cloud provider, scoped to the workload.
+- Short-lived credentials issued by an internal service (mTLS certificates, OIDC-issued tokens) for service-to-service.
+
+A leaked secret you have to rotate is much better than a leaked secret you cannot rotate because it is hard-coded in 50 places.
+
+### Logging and Detection
+
+Detection is the security analog of monitoring: when something is going wrong, you find out in time to act. The minimum:
+
+- Authentication events — who logged in, from where, when.
+- Authorization decisions — who tried to access what, allowed or denied.
+- Privileged operations — admin actions, key rotations, IAM changes.
+- Application errors that suggest probing — many 401s, many 403s, unusual paths, parser errors.
+
+Detection is more useful when fed into a system that *correlates* — many failed logins from one source, one user logging in from two continents within an hour, a spike of denied AuthZ checks for resources of a single tenant. SIEM systems (Splunk, Datadog Cloud SIEM, Sumo Logic) do this; cloud providers offer their own (AWS GuardDuty, Microsoft Defender for Cloud).
+
+### Where Security Lives
+
+Security is not a separate phase or a separate team. It is a property of every layer of the system, owned by everyone who touches that layer:
+
+- The application developer is responsible for input validation, output encoding, parameterized queries.
+- The platform team is responsible for IAM hygiene, secrets management, network policy, secure defaults in the platform.
+- The security team is responsible for the threat model, the policy, the detection, and the response.
+
+Most security failures are mundane: a default admin password not changed, an S3 bucket made public for a convenient hack, a token committed to a public repo, an unpatched dependency. The dramatic exploits exist; they make a small fraction of the breach count. The unglamorous work — defaults, scanning, rotation, least privilege — covers most of the surface.

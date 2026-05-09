@@ -1,0 +1,68 @@
+A browser is not a viewer for documents. It is a process — usually many processes — running a network client, a JavaScript virtual machine, a rendering engine, a graphics pipeline, and a sandbox for untrusted code from any server on the internet. Treating it as a runtime, not a viewer, is the shift this section makes.
+
+### The Process Architecture
+
+Modern browsers run multiple OS processes. In Chromium, the typical split:
+
+- **Browser process** — the UI, the address bar, the bookmarks, the master controller.
+- **Renderer processes** — one per site (in some configurations one per tab). Runs the HTML parser, the layout engine, the JS VM, the painting code. Sandboxed.
+- **GPU process** — the only one that talks to the graphics driver.
+- **Network process** — handles sockets, DNS, TLS, the HTTP cache.
+- **Utility processes** — audio decoding, storage, plugins.
+
+Why so many processes? Two reasons. **Isolation**: a compromise in the renderer for one tab cannot read another tab's memory or talk to the disk directly — it has to go through the browser process, which polices what it is allowed to do. **Reliability**: a single hung or crashed renderer takes down a tab, not the browser.
+
+### What Happens When You Load a Page
+
+Inside the renderer, loading a page is a pipeline:
+
+1. **Network** — the browser process resolves DNS, opens a TCP+TLS connection, sends the request, streams the response into the renderer.
+2. **HTML parsing** — produces the DOM (Document Object Model), a tree of nodes.
+3. **CSS parsing** — produces the CSSOM, the structured representation of styles.
+4. **Style** — combines DOM and CSSOM into a render tree, computing the effective styles for each visible element.
+5. **Layout** — calculates the geometry: where each box ends up, how big it is. Depends on viewport size, content, and CSS.
+6. **Paint** — turns the render tree into draw commands: fill this rectangle, stroke this text.
+7. **Composite** — assembles the painted layers and hands them to the GPU process to put pixels on screen.
+
+JavaScript can run at any point and mutate the DOM, which invalidates layout, which invalidates paint. A common performance failure is JS that synchronously triggers many layout recalculations — "layout thrashing."
+
+### The JS Engine
+
+The JavaScript engine (V8 in Chromium, JavaScriptCore in Safari, SpiderMonkey in Firefox) is a full virtual machine. It parses JS source, compiles it (first to bytecode, then to optimized machine code via JIT for hot functions), and executes it.
+
+JIT compilers optimize based on observed types: a function repeatedly called with integers gets specialized for integers. Pass it a string later and the VM deoptimizes — falls back to slower, more general code. This is why monomorphic call sites are faster than polymorphic ones, and why micro-benchmarks are often misleading.
+
+The JS heap is garbage-collected. Modern collectors are generational and concurrent, but they still occasionally pause the main thread. A long GC pause on the renderer thread is a stutter on screen.
+
+### The Event Loop
+
+JavaScript on the renderer thread runs on an event loop, the same idea as Chapter 4 but with web-specific phases:
+
+```
+forever:
+   run one task to completion
+   run all microtasks
+   if it is time to render: style, layout, paint
+```
+
+A *task* is a unit like "deliver this network response," "fire this click handler," "run this `setTimeout` callback." A task runs to completion — it is not preempted. While a task runs, no rendering happens, no other tasks run, and the page is unresponsive.
+
+A *microtask* is a smaller unit, used for `Promise` resolution and `queueMicrotask`. Microtasks run after the current task and before the next render — they can starve rendering if you queue them in a loop.
+
+This is why a synchronous loop crunching numbers freezes the page. The loop is one task. Until it returns, the event loop cannot run anything else, including rendering.
+
+### Web Workers and Off-Main-Thread Work
+
+The escape hatch is **Web Workers** — a separate thread with its own event loop, no DOM access, communicating with the main thread via `postMessage`. Workers are how browsers offload CPU-heavy work without blocking rendering. They are the in-process equivalent of moving CPU work off the Node.js event loop to a thread pool.
+
+`Service Workers` are a related but different thing — a separate background script that intercepts network requests for a scope, used for offline support, push notifications, and caching strategies.
+
+### Sandboxing
+
+The renderer process runs at the lowest possible OS privilege. It cannot open arbitrary files, cannot make arbitrary network requests, cannot talk to the GPU or the audio driver directly. Every privileged operation is brokered through IPC to the browser process, which checks whether the renderer is allowed to make that request.
+
+This is why a malicious page can do annoying things — pop-ups, fingerprinting, crypto mining inside the JS VM — but cannot read your home directory or install software. The sandbox is the security model. The same-origin policy, in the next section, is what isolates origins from each other *within* the renderer.
+
+### What This Means for You
+
+When you write client-side code, you are submitting work to a runtime with hard real-time obligations: produce a frame every 16ms or the user sees jank. Long synchronous work, large layout invalidations, and synchronous network calls all eat into that budget. The browser is a system. Treating it as one is the difference between a page that feels fast and a page that does not.

@@ -1,0 +1,88 @@
+A relational database manages structured data on top of files. The interface is a query language — SQL — that describes *what* you want, not how to get it. The database figures out the how.
+
+This decoupling is the central idea. The same query keeps working as the data grows from a thousand rows to a billion, as new indexes are added, as the storage engine is replaced. The database does the optimization; you express intent.
+
+### Tables, Rows, Columns
+
+A relational database is a collection of **tables**. A table has a fixed schema: a list of named columns, each with a type. A **row** is a tuple matching the schema.
+
+```
+users
+id  | email           | created_at
+----+-----------------+--------------------
+1   | alice@x.com     | 2025-01-04 10:13:22
+2   | bob@y.com       | 2025-01-04 10:14:08
+```
+
+A **primary key** uniquely identifies a row. A **foreign key** is a column whose value must match a primary key in another table — the database enforces this constraint on writes.
+
+Schema is the contract. Anything that violates it (a missing required column, a wrong type, a duplicate primary key) is rejected at write time.
+
+### How Tables Are Stored
+
+A table is one or more files on disk. The simplest layout is a **heap**: rows packed into 8 KB or 16 KB *pages*, with a directory mapping primary keys to page locations. New rows append to the heap; deletes mark slots as free.
+
+This is fine for inserts and lookups by primary key. It is terrible for anything else. Finding all users created after January 4th in a heap of a million rows means reading all million rows. The fix is indexes.
+
+### Indexes and B-Trees
+
+An **index** is a separate data structure that maps column values to the locations of the rows containing them. The standard implementation is the **B-tree** (specifically, B+ trees in most databases).
+
+A B+ tree is a balanced tree where:
+
+- Internal nodes hold ranges of keys and pointers to child nodes.
+- Leaf nodes hold the actual key → row-pointer mappings, in sorted order, linked to their neighbors.
+- Every leaf is at the same depth — typically 3 or 4 levels even for billion-row tables.
+
+A lookup is `O(log n)` page reads — a handful of disk accesses, each cached aggressively in memory after the first hit. Range scans are fast because the leaves are sorted and linked.
+
+Trade-offs:
+
+- An index speeds up reads matching its key.
+- It slows down writes — every insert, update, and delete has to update every relevant index.
+- It costs disk space — often 10–30% of the table size per index.
+
+Choosing indexes is the single biggest performance lever you have on a relational database. Indexing every column is a mistake; indexing none is also a mistake.
+
+### Query Planning
+
+You write SQL declaratively:
+
+```sql
+SELECT u.email, COUNT(*)
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.created_at > '2026-01-01'
+GROUP BY u.email
+```
+
+The **query planner** turns this into a plan — a tree of physical operations:
+
+- Which tables to read first.
+- Which indexes to use.
+- Which join algorithm (nested loop, hash join, merge join).
+- In what order to apply filters and aggregations.
+
+For each option the planner estimates a *cost* using statistics about the data — how many rows are in each table, how selective each predicate is, how skewed each column is. The plan with the lowest estimated cost wins.
+
+You can ask the database to show you the plan with `EXPLAIN`. The output is what you read when a query is slow — it tells you whether the index you expected is being used, whether a join is doing a full scan, whether the row estimates are off.
+
+When the planner is wrong it is usually because the statistics are stale or because the query is shaped in a way that defeats the index (a function applied to an indexed column, an `OR` across unrelated columns). The fix is to update statistics, rewrite the query, or add a more specific index.
+
+### Joins
+
+A join combines rows from two tables on a condition. The three physical implementations:
+
+- **Nested loop join** — for each row in A, scan B for matches. `O(n × m)` without an index, fast with a good index on B's join column.
+- **Hash join** — build a hash table on the smaller side, probe it with rows from the larger side. `O(n + m)` but needs memory for the hash table.
+- **Merge join** — sort both sides on the join key, walk them in lockstep. Cheap if the inputs are already sorted (often via the index).
+
+Which one is right depends on the data sizes, the indexes, and the available memory. The planner picks. You usually do not have to think about it — until you do, in which case the plan tells you which it picked.
+
+### Why SQL Won
+
+SQL is a declarative language sitting on top of a relational algebra defined in 1970. Its design lets the database optimize aggressively — the same query keeps working across schema changes, index changes, and even storage engine changes.
+
+The alternative — an imperative API where you say "use this index, do this join, in this order" — ties the application to the current physical layout. Decades of operational experience converged on the conclusion that the decoupling is worth it.
+
+This is why even systems built on key-value stores (NewSQL, distributed SQL, query layers over object storage) often re-add a SQL layer on top. The query language is the durable interface; the engine underneath can be anything.

@@ -1,0 +1,78 @@
+A single database server has limits. Eventually you outgrow them — the dataset is too big to fit on one machine, the read load is too high for one CPU, the failure of that one machine is unacceptable. The two structural answers are **replication** (multiple copies of the same data) and **sharding** (splitting the data across machines). Most production systems do both.
+
+### Why Replicate
+
+Replication gives you three things:
+
+- **Durability beyond a single machine.** A meteor hitting one server does not lose data; another replica has it.
+- **Availability** during failure. If the primary fails, a replica can take over.
+- **Read scaling.** Many replicas can serve reads in parallel.
+
+The cost is consistency: keeping multiple copies in agreement across a network where messages can be delayed or dropped is hard, and the strategies you can choose form a spectrum.
+
+### Replication Strategies
+
+**Single-leader (primary-replica)**: one node accepts all writes; the others (replicas) copy them. The leader streams its write-ahead log to the followers, which apply the changes in order.
+
+- **Synchronous** replication: the leader waits for replicas to acknowledge before confirming the write. Strong durability, higher latency, an unavailable replica blocks writes (mitigated by quorum: wait for some, not all).
+- **Asynchronous** replication: the leader confirms the write after writing locally and streams to replicas in the background. Lower latency, but a leader crash can lose recent writes that had not yet replicated.
+
+Single-leader is the default for relational databases. Postgres, MySQL, and Oracle all do it. It is operationally simple — there is one canonical copy at any moment — and the failure mode (failover when the leader dies) is well understood, even if implementations are not always smooth.
+
+**Multi-leader**: multiple nodes accept writes and replicate to each other. Useful for multi-region deployments where every region needs to write locally without round-tripping to a single primary. The cost is conflict resolution — two regions can write the same key concurrently and the system has to decide which wins.
+
+**Leaderless** (Dynamo-style): every node accepts writes; clients send each write to several nodes; reads ask several nodes and reconcile. This is what Cassandra and DynamoDB do. The trade-offs are explicit and tunable: how many replicas to write to, how many to read from, how to resolve conflicts.
+
+### Sharding
+
+Sharding (or *partitioning*) splits a dataset across multiple machines. Each *shard* holds a subset of the data, and each query is routed to the shard that owns the relevant data.
+
+Common partitioning schemes:
+
+- **Hash partitioning**: hash the key, take it modulo N. Even distribution, but range scans across all keys touch every shard, and adding shards reshuffles a lot of data unless you use *consistent hashing*.
+- **Range partitioning**: keys are divided into contiguous ranges (e.g. user IDs 1–10M on shard 1, 10M–20M on shard 2). Range scans are efficient; hot ranges create hotspots.
+- **Directory-based**: a lookup service maps each key to a shard. Flexible but requires the directory to be highly available and consistent.
+
+The fundamental trade-off of sharding is that any operation needing data from multiple shards becomes a cross-shard query — slower, harder, often without transactional guarantees. You design the schema around the partition key. Most operations should hit a single shard; the ones that do not should be rare and tolerable when slow.
+
+Sharding only solves the *capacity* problem if your workload partitions cleanly. If 90% of the traffic is for one celebrity user, sharding does not help — that one shard is the bottleneck.
+
+### Replication and Sharding Together
+
+The standard layout: split the data into N shards, replicate each shard to M replicas. You get capacity from sharding and availability from replication. A 1000-node cluster with 100 shards × 10 replicas can survive losing whole replicas without downtime and scales linearly with the shard count.
+
+Cassandra, MongoDB, DynamoDB, Bigtable, and most managed databases run this way. The complexity is mostly hidden behind a driver that knows the cluster topology.
+
+### CAP
+
+The CAP theorem (Brewer 2000, formalized 2002) says: in the presence of a network partition (a split between nodes), a distributed system can choose at most two of:
+
+- **Consistency** — every read sees the most recent write.
+- **Availability** — every request gets a non-error response.
+- **Partition tolerance** — the system continues to operate despite messages being dropped between nodes.
+
+In a real distributed system, partitions happen. They are not optional. So the actual choice is between **CP** and **AP** during a partition:
+
+- **CP** systems refuse requests rather than risk inconsistency. Examples: ZooKeeper, etcd, traditional RDBMS in synchronous-replication mode.
+- **AP** systems keep accepting requests on both sides of the partition and reconcile later. Examples: Cassandra, Dynamo-style stores, DNS.
+
+Outside a partition, both kinds can offer both C and A.
+
+CAP is widely misquoted as "pick two of three." The accurate version is "during a partition, pick C or A." Most of the time, the network is fine, and the system can offer both.
+
+### PACELC
+
+CAP only describes the partition case. **PACELC** extends it: in a Partition you trade Availability vs Consistency, *and Else* (no partition) you trade Latency vs Consistency.
+
+Consistent reads in a replicated system require coordination across replicas — extra round trips, extra latency. A system can choose to skip that coordination, serve reads from any replica, and accept that some reads will be stale. This is the *latency vs consistency* axis that exists even when nothing is wrong.
+
+Most production systems sit on this axis somewhere. Strong consistency on every read is expensive; "read your own writes" or "monotonic reads" are weaker but cheaper guarantees that cover most application needs.
+
+### What This Means in Practice
+
+- A relational database with synchronous replication is CP and slow in normal operation. Add asynchronous replication and you trade away strict consistency for latency, but the leader stays canonical.
+- A Dynamo-style KV store is AP and tunable — you choose your read/write quorums per call.
+- A distributed transaction across multiple regions is theoretically possible but practically rare; the latency makes it the wrong tool for most user-facing work.
+- Most architectures keep the *system of record* in a strongly consistent database (CP) and use eventually consistent caches, read replicas, and search indexes (AP) on top. The user-facing read path is fast and may be slightly stale; the writes go to the source of truth.
+
+There is no free distribution. Every replicated, sharded system has trade-offs, and the right answer depends on what your application can tolerate. The next chapter walks up from the database to the servers and services running in front of it — where these trade-offs become architecture decisions.

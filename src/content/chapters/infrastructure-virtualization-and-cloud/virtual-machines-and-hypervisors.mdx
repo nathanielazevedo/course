@@ -1,0 +1,57 @@
+A virtual machine is a complete simulated computer running inside a real one. The simulated computer has its own kernel, its own boot process, its own filesystem — and it does not know it is virtual. This is the foundation everything in modern infrastructure rests on. The cloud is, mechanically, a fleet of physical machines running virtual machines for tenants who never touch the physical hardware.
+
+### What Virtualization Actually Does
+
+Without virtualization, an operating system has direct, exclusive control of the CPU, memory, and devices. Running two operating systems on the same physical machine would mean two kernels both trying to manage the same MMU, both trying to handle interrupts, both writing to the same disk — chaos.
+
+Virtualization solves this with a layer underneath the OS called the **hypervisor**. The hypervisor presents each guest OS with what looks like a real computer — virtual CPUs, virtual memory, virtual devices — and arbitrates between them when they want to actually touch hardware.
+
+The CPU helps. Modern x86 chips have **hardware virtualization extensions** (Intel VT-x, AMD-V) that let the hypervisor run guest code at near-native speed. The guest's privileged instructions (the ones that would normally talk directly to hardware) trap to the hypervisor, which emulates the effect. Most non-privileged instructions just run.
+
+### Type 1 vs Type 2
+
+**Type 1 hypervisors** run directly on the hardware, with no host OS underneath. The hypervisor *is* the OS, in a minimal sense — just enough to schedule VMs and manage their access to hardware. Examples: Xen, KVM (technically a Linux module that turns Linux into a Type 1), VMware ESXi, Hyper-V.
+
+This is what cloud providers run. AWS EC2 uses a customized Xen variant called Nitro. GCP and Azure use KVM. The hypervisor is the entire trusted boundary between tenants — your VM and another customer's VM are isolated by it, on the same physical CPU.
+
+**Type 2 hypervisors** run as an application on top of a host OS. VirtualBox, VMware Workstation, Parallels. Easier to install on a personal machine; less efficient because the guest's hardware access goes through both the hypervisor and the host kernel.
+
+### What a VM Costs
+
+Compared to running directly on the hardware, a well-tuned VM is a few percent slower for CPU-bound work. The overhead is in:
+
+- **Privileged instructions** that have to trap to the hypervisor.
+- **I/O virtualization** — disk and network. Native paravirtualization (virtio) is fast; emulating a legacy device is slow.
+- **Memory** — each VM has its own page tables; the hypervisor maintains a second layer of translation (Extended Page Tables on Intel, Nested Page Tables on AMD).
+- **Boot time** — a VM goes through a full kernel boot. Tens of seconds for traditional images, low single-digit seconds for cloud-optimized ones, hundreds of milliseconds for Firecracker microVMs.
+
+In exchange you get **strong isolation**. Two VMs share nothing: not the kernel, not the system call interface, not the filesystem. A kernel exploit in one cannot reach another, except through hypervisor bugs (which exist but are rare).
+
+### What You See When You "Provision a Server" in the Cloud
+
+You are asking the cloud provider's control plane to:
+
+1. Pick a physical host with capacity.
+2. Allocate virtual CPU, memory, and storage on it.
+3. Boot a VM from an image (a disk snapshot — Linux + your config).
+4. Attach a virtual network interface, give it IP addresses.
+5. Hand you SSH access (or whatever bootstrap mechanism you configured).
+
+A few seconds later you have a "server." It is a VM. The "instance type" you pick (t3.medium, n1-standard-4) is shorthand for a CPU/memory/network allocation on the underlying hardware. The "region" and "availability zone" describe where physically.
+
+### The MicroVM Variant
+
+For workloads that do not need a full OS but need isolation stronger than containers can give, **microVMs** (Firecracker, Cloud Hypervisor) strip a Type 1 hypervisor down to the minimum: no legacy device emulation, no boot ROM, no fluff. A microVM boots in ~125ms with ~5MB of memory overhead.
+
+Firecracker is what AWS Lambda and Fargate use under the hood. Each function invocation runs in its own microVM — the latency is small enough to amortize across requests, and the isolation is hypervisor-level (much stronger than container-level).
+
+### Why This Layer Exists
+
+Virtualization solved two real problems at once:
+
+- **Efficiency.** A physical server typically runs at 5–20% utilization. Stacking many VMs on it brings utilization up without sacrificing isolation.
+- **Decoupling.** The OS is no longer tied to a specific physical machine. A VM can be migrated live between hosts, snapshotted, restored elsewhere, replicated for disaster recovery.
+
+These two together are what made the cloud economically possible. You rent a slice of someone else's hardware, isolated from everyone else's slice, billable by the hour. Without hypervisors, the cloud is just colocation.
+
+The next section is what happens when you decide a full VM is too heavy for the workload — and the answer is a different isolation primitive entirely.
