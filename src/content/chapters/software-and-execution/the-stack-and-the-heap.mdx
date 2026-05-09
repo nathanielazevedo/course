@@ -1,0 +1,33 @@
+A running program uses two main regions of memory: the stack and the heap. They serve different purposes and have very different performance characteristics.
+
+### The Stack
+
+The stack is a region of memory that grows and shrinks as functions are called and return. It operates as a LIFO (last in, first out) structure.
+
+Every function call pushes a *stack frame* onto the stack. A frame holds:
+
+- The function's local variables
+- The return address — where execution resumes after the function returns
+- Saved register values
+
+When the function returns, its frame is popped: the stack pointer moves back and that memory is immediately reusable. This makes stack allocation essentially free — just a pointer increment.
+
+The stack has a fixed maximum size (typically 1–8 MB per thread). Exceeding it — usually through unbounded recursion — causes a *stack overflow*.
+
+### The Heap
+
+The heap is a larger, general-purpose region for data whose lifetime cannot be determined at compile time. Objects that need to outlive the function that created them, or whose size is not known until runtime, go on the heap.
+
+Heap allocation is slower than stack allocation: the runtime must find a free block of the right size, track it, and eventually reclaim it.
+
+Languages handle heap reclamation differently:
+
+- **Manual** (C, C++) — the programmer calls `free()`. Forgetting to free causes memory leaks; freeing too early causes use-after-free bugs.
+- **Garbage collection** (Java, Go, Python, JavaScript) — the runtime periodically scans for unreachable objects and frees them automatically. Convenient, but introduces GC pauses.
+- **Ownership** (Rust) — the compiler tracks object lifetimes statically and inserts frees automatically, with no GC and no manual management.
+
+### The Call Stack in Practice
+
+The call stack is what a debugger shows when a program crashes. Each frame is one function call. Reading a stack trace bottom-to-top shows the chain of calls that led to the error.
+
+Performance profilers sample the call stack thousands of times per second. Where the stack appears most often is where the program spends most of its time — which is how CPU profilers pinpoint hot code without instrumenting every line.

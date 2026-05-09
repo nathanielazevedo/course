@@ -1,0 +1,39 @@
+User programs cannot directly access hardware. They run in *user space* — a restricted execution mode where a process can only touch its own memory and cannot talk to hardware directly. To do anything meaningful — read a file, open a network connection, allocate more memory — a program must ask the OS.
+
+That request is a *system call*.
+
+### User Space and Kernel Space
+
+The CPU enforces two privilege levels:
+
+- **User space** — where applications run. No direct hardware access. Cannot read or write another process's memory.
+- **Kernel space** — where the OS runs. Full hardware access. Manages resources on behalf of all processes.
+
+A system call is the controlled gateway between them. It is the only way for user code to cross into kernel space.
+
+### How a System Call Works
+
+1. The program places arguments in CPU registers and issues a special instruction (`syscall` on x86-64).
+2. The CPU switches to kernel mode and jumps to the OS's system call handler.
+3. The kernel validates the request and performs the operation.
+4. The CPU switches back to user mode and returns the result.
+
+This mode switch costs on the order of microseconds. It is not free — code that issues thousands of system calls per second can spend significant time just crossing the boundary.
+
+### Common System Calls
+
+- `read` / `write` — read from or write to a file descriptor (file, socket, pipe).
+- `open` / `close` — open a file and get back a descriptor number; release it when done.
+- `mmap` — map a file or anonymous memory region into the process's address space.
+- `fork` / `execve` — create a new process; replace the current process image with a new program.
+- `exit` — terminate the process.
+
+Most standard library functions are thin wrappers. `fopen()` in C calls `open`. `fs.readFile()` in Node.js eventually calls `read`. The abstraction is helpful; the system call is always underneath.
+
+### Why I/O Is Expensive
+
+When a process calls `read()` and the data is not already in the kernel's buffer cache, the kernel issues a request to the storage hardware and blocks the process until data arrives. The process cannot run while it waits.
+
+This is the fundamental reason I/O is slow: it crosses the hardware boundary, not just the kernel boundary.
+
+Async I/O and event loops exist to avoid wasting a thread while waiting. Instead of blocking, the process asks the kernel to notify it when data is ready — via `epoll` on Linux, `kqueue` on macOS, or `io_uring` for newer Linux kernels — and does other work in the meantime.

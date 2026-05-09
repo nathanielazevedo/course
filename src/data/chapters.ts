@@ -32,7 +32,18 @@ const data: {
       "Buses and Interrupts",
     ],
   },
-  { title: "Software and Execution" },
+  {
+    title: "Software and Execution",
+    description:
+      "How source code becomes a running program — compilation, memory layout, linking, runtimes, and the boundary between software and the OS.",
+    sections: [
+      "From Source to Machine Code",
+      "The Stack and the Heap",
+      "Linking and Libraries",
+      "Runtimes and Virtual Machines",
+      "System Calls",
+    ],
+  },
   { title: "Operating Systems" },
   { title: "Processes and Concurrency" },
   { title: "Networking and Communication" },
