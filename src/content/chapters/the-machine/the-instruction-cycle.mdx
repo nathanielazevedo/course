@@ -90,7 +90,91 @@ The ISA is the contract between hardware and software: it defines which instruct
 
 x86 was designed in 1978 and has been adding instructions ever since while keeping backward compatibility. Its decoder must recognize hundreds of variable-length instructions (1 to 15 bytes each) and several legacy modes. That decoder costs transistors, and transistors cost power on every cycle.
 
-ARM was designed in 1985 as a clean RISC architecture: fewer instructions, all 32 bits wide, a much simpler decoder. Less work per instruction means less power per instruction. That difference is why ARM wins wherever power matters more than compatibility:
+ARM was designed in 1985 as a clean RISC architecture: fewer instructions, all 32 bits wide, a much simpler decoder. Less work per instruction means less power per instruction.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 280"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A 16-byte memory strip showing how x86 instructions can be 2, 5, 4, or 5 bytes long, while every ARM instruction is exactly 4 bytes."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* TOP PANEL: x86 */}
+    <text x="360" y="20" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">x86 — VARIABLE LENGTH</text>
+
+    {/* x86 brackets */}
+    <path d="M 72 44 L 72 52 L 144 52 L 144 44" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 144 44 L 144 52 L 324 52 L 324 44" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 324 44 L 324 52 L 468 52 L 468 44" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 468 44 L 468 52 L 648 52 L 648 44" fill="none" stroke="#000" strokeWidth="1" />
+
+    {/* x86 size labels */}
+    <text x="108" y="66" fontSize="10" fill="#666" textAnchor="middle">2B</text>
+    <text x="234" y="66" fontSize="10" fill="#666" textAnchor="middle">5B</text>
+    <text x="396" y="66" fontSize="10" fill="#666" textAnchor="middle">4B</text>
+    <text x="558" y="66" fontSize="10" fill="#666" textAnchor="middle">5B</text>
+
+    {/* x86 byte cells (16 cells) */}
+    {[0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3].map((groupIdx, i) => (
+      <rect
+        key={`x86-${i}`}
+        x={72 + i * 36}
+        y={78}
+        width="36"
+        height="24"
+        fill={groupIdx % 2 === 0 ? "#fafafa" : "#f0f0f0"}
+        stroke="#bbb"
+        strokeWidth="0.75"
+      />
+    ))}
+
+    {/* x86 caption */}
+    <text x="360" y="124" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">
+      decoder must parse each instruction to find where the next one begins
+    </text>
+
+    {/* BOTTOM PANEL: ARM */}
+    <text x="360" y="166" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">ARM — FIXED 32 BITS</text>
+
+    {/* ARM brackets — all the same width */}
+    <path d="M 72 190 L 72 198 L 216 198 L 216 190" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 216 190 L 216 198 L 360 198 L 360 190" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 360 190 L 360 198 L 504 198 L 504 190" fill="none" stroke="#000" strokeWidth="1" />
+    <path d="M 504 190 L 504 198 L 648 198 L 648 190" fill="none" stroke="#000" strokeWidth="1" />
+
+    {/* ARM size labels */}
+    <text x="144" y="212" fontSize="10" fill="#666" textAnchor="middle">4B</text>
+    <text x="288" y="212" fontSize="10" fill="#666" textAnchor="middle">4B</text>
+    <text x="432" y="212" fontSize="10" fill="#666" textAnchor="middle">4B</text>
+    <text x="576" y="212" fontSize="10" fill="#666" textAnchor="middle">4B</text>
+
+    {/* ARM byte cells (16 cells) */}
+    {[0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3].map((groupIdx, i) => (
+      <rect
+        key={`arm-${i}`}
+        x={72 + i * 36}
+        y={224}
+        width="36"
+        height="24"
+        fill={groupIdx % 2 === 0 ? "#fafafa" : "#f0f0f0"}
+        stroke="#bbb"
+        strokeWidth="0.75"
+      />
+    ))}
+
+    {/* ARM caption */}
+    <text x="360" y="270" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">
+      next instruction is always 4 bytes after the current one
+    </text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Same 16 bytes of memory, two ways to parse them. Uniform width is what lets ARM's decoder be simple.
+  </figcaption>
+</figure>
+
+That difference is why ARM wins wherever power matters more than compatibility:
 
 - **Phones and tablets** — a power-hungry CPU drains the battery in hours. ARM had a head start on perf-per-watt and never lost it.
 - **Apple Silicon Macs** (ARM, 2020+) — 20-hour battery life while matching Intel's raw performance.
