@@ -18,6 +18,55 @@ To read from RAM, the CPU sends an address over the memory bus, asserts a read s
 
 When a device needs the CPU's attention — a key was pressed, a packet arrived, a disk read finished — it raises an *interrupt*: a hardware signal that pauses whatever the CPU is doing. The CPU jumps to a small piece of code called an *interrupt handler*, processes the event, and resumes.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 320"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Timeline showing the CPU running task A, being interrupted by a device, running an interrupt handler, then resuming task A."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <defs>
+      <marker id="arrow-int" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+      </marker>
+      <marker id="arrow-int-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
+      </marker>
+    </defs>
+
+    {/* Device */}
+    <rect x="320" y="40" width="160" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="400" y="62" fontSize="9" letterSpacing="1" fill="#666" textAnchor="middle">DEVICE</text>
+    <text x="400" y="84" fontSize="13" fontWeight="600" textAnchor="middle">Network Card</text>
+
+    {/* IRQ arrow */}
+    <line x1="400" y1="100" x2="400" y2="178" stroke="#000" strokeWidth="1.2" markerEnd="url(#arrow-int)" />
+    <text x="412" y="142" fontSize="11" fontStyle="italic">IRQ</text>
+
+    {/* CPU label */}
+    <text x="50" y="205" fontSize="9" letterSpacing="2" fill="#666" textAnchor="end">CPU</text>
+
+    {/* Timeline segments */}
+    <rect x="60" y="188" width="340" height="36" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="230" y="211" fontSize="12" fontWeight="600" textAnchor="middle">Task A</text>
+
+    <rect x="400" y="188" width="120" height="36" fill="#eee" stroke="#000" strokeWidth="1.5" />
+    <text x="460" y="211" fontSize="12" fontWeight="600" textAnchor="middle">Handler</text>
+
+    <rect x="520" y="188" width="140" height="36" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="590" y="211" fontSize="12" fontWeight="600" textAnchor="middle">Task A (resumed)</text>
+
+    {/* Time arrow */}
+    <line x1="60" y1="262" x2="660" y2="262" stroke="#666" strokeWidth="1" markerEnd="url(#arrow-int-gray)" />
+    <text x="660" y="282" fontSize="10" fontStyle="italic" fill="#666" textAnchor="end">time</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The CPU runs Task A until the network card raises an interrupt, jumps to the handler, then resumes where it left off.
+  </figcaption>
+</figure>
+
 Without interrupts, the CPU would have to repeatedly check every device ("polling") to see if anything happened. Interrupts let the CPU work on something else and react only when something actually happens.
 
 ### DMA (Direct Memory Access)

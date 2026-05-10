@@ -1,5 +1,60 @@
 The CPU runs one instruction at a time, in a loop. Each iteration is one instruction cycle (also called the fetch–decode–execute cycle), and it runs billions of times per second.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 480"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The fetch–decode–execute cycle. The program counter holds the address of the next instruction; Fetch reads it, Decode interprets it, Execute runs it, and the cycle loops back."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <defs>
+      <marker id="arrow-cycle" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+      </marker>
+    </defs>
+
+    {/* Program Counter register */}
+    <rect x="80" y="60" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="92" y="80" fontSize="9" letterSpacing="1" fill="#666">PROGRAM COUNTER</text>
+    <text x="150" y="105" fontSize="14" fontWeight="600" textAnchor="middle">0x1004</text>
+
+    {/* PC -> FETCH */}
+    <line x1="220" y1="90" x2="298" y2="90" stroke="#000" strokeWidth="1.2" markerEnd="url(#arrow-cycle)" />
+    <text x="259" y="82" fontSize="9" fontStyle="italic" fill="#888" textAnchor="middle">address</text>
+
+    {/* FETCH (top) */}
+    <rect x="300" y="60" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="370" y="92" fontSize="14" fontWeight="600" textAnchor="middle">FETCH</text>
+    <text x="370" y="108" fontSize="9" fill="#666" textAnchor="middle">read instruction</text>
+
+    {/* DECODE (right) */}
+    <rect x="500" y="210" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="570" y="242" fontSize="14" fontWeight="600" textAnchor="middle">DECODE</text>
+    <text x="570" y="258" fontSize="9" fill="#666" textAnchor="middle">interpret bits</text>
+
+    {/* EXECUTE (bottom) */}
+    <rect x="300" y="360" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="370" y="392" fontSize="14" fontWeight="600" textAnchor="middle">EXECUTE</text>
+    <text x="370" y="408" fontSize="9" fill="#666" textAnchor="middle">run operation</text>
+
+    {/* FETCH -> DECODE */}
+    <path d="M 440 90 L 570 90 L 570 208" fill="none" stroke="#000" strokeWidth="1.2" markerEnd="url(#arrow-cycle)" />
+    {/* DECODE -> EXECUTE */}
+    <path d="M 570 270 L 570 320 L 370 320 L 370 358" fill="none" stroke="#000" strokeWidth="1.2" markerEnd="url(#arrow-cycle)" />
+    {/* EXECUTE -> FETCH (loop) */}
+    <path d="M 300 390 L 200 390 L 200 90 L 298 90" fill="none" stroke="#000" strokeWidth="1.2" markerEnd="url(#arrow-cycle)" />
+
+    {/* Loopback annotation */}
+    <text x="195" y="232" fontSize="10" fontStyle="italic" fill="#888" textAnchor="end">PC advances</text>
+    <text x="195" y="246" fontSize="10" fontStyle="italic" fill="#888" textAnchor="end">(or jumps)</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each iteration: fetch the instruction at the PC, decode it, execute it, then update the PC and repeat.
+  </figcaption>
+</figure>
+
 ### The Program Counter
 
 The data the CPU is actively working on lives in registers, the top tier of the memory hierarchy. One register is special: the *program counter* (PC). It holds the memory address of the next instruction to run. Every iteration of the cycle is anchored on it.
@@ -33,6 +88,16 @@ The ISA is the contract between hardware and software: it defines which instruct
 - **x86-64** — the dominant ISA for desktops, laptops, and most cloud servers. Complex, with hundreds of instructions accumulated over decades (CISC).
 - **ARM** — used in phones, tablets, and Apple Silicon Macs. Increasingly common in cloud servers (AWS Graviton). Simpler, fixed-width instructions (RISC). Generally more power-efficient.
 
+x86 was designed in 1978 and has been adding instructions ever since while keeping backward compatibility. Its decoder must recognize hundreds of variable-length instructions (1 to 15 bytes each) and several legacy modes. That decoder costs transistors, and transistors cost power on every cycle.
+
+ARM was designed in 1985 as a clean RISC architecture: fewer instructions, all 32 bits wide, a much simpler decoder. Less work per instruction means less power per instruction. That difference is why ARM wins wherever power matters more than compatibility:
+
+- **Phones and tablets** — a power-hungry CPU drains the battery in hours. ARM had a head start on perf-per-watt and never lost it.
+- **Apple Silicon Macs** (ARM, 2020+) — 20-hour battery life while matching Intel's raw performance.
+- **Cloud** (AWS Graviton) — ~20% cheaper than equivalent x86 instances because the chips draw less power, and datacenters pay the electricity bill.
+
+x86 still dominates desktops and most servers because of compatibility: decades of software, drivers, and operating systems are built for it. ARM is winning the new contexts (mobile, low-power laptops) and steadily chipping away at the old ones.
+
 Programs compiled for one ISA do not run on another. When you run an x86 Docker container on an ARM machine or an AWS Graviton instance, the CPU or a software layer has to translate — which is why architecture matters when choosing cloud instance types or building container images.
 
 ### Pipelining and Out-of-Order Execution
@@ -42,5 +107,109 @@ Modern CPUs do not run one instruction at a time in strict sequence. They use se
 - **Pipelining** — while one instruction is executing, the next is already being decoded, and the one after that is being fetched. Like an assembly line: multiple instructions in flight simultaneously.
 - **Out-of-order execution** — if an instruction is stalled waiting for data (e.g., a cache miss), the CPU scans ahead and runs later instructions that are already ready. Results are committed in the original order.
 - **Branch prediction** — at a conditional jump, the CPU guesses which branch will be taken and starts executing it before the condition is resolved. A wrong guess flushes the pipeline and costs ~15 cycles.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 400"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Two timing grids showing six clock cycles. Without pipelining, two instructions complete sequentially in six cycles. With pipelining, four instructions overlap their fetch, decode, and execute stages and complete in the same six cycles."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* TOP PANEL: WITHOUT PIPELINING */}
+    <text x="360" y="20" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">WITHOUT PIPELINING</text>
+
+    {/* Cycle headers */}
+    <text x="246" y="48" fontSize="9" letterSpacing="1" fill="#888" textAnchor="end">CYCLE</text>
+    {[1, 2, 3, 4, 5, 6].map((c) => (
+      <text key={`th-top-${c}`} x={275 + (c - 1) * 50} y="48" fontSize="11" fontWeight="600" textAnchor="middle">
+        {c}
+      </text>
+    ))}
+
+    {/* Top panel rows */}
+    {[
+      { label: "Instr 1", y: 64, stages: ["F", "D", "E", null, null, null] },
+      { label: "Instr 2", y: 98, stages: [null, null, null, "F", "D", "E"] },
+    ].map((row, ri) => (
+      <g key={`top-row-${ri}`}>
+        <text x="246" y={row.y + 20} fontSize="11" textAnchor="end">{row.label}</text>
+        {row.stages.map((stage, i) => (
+          <g key={`top-cell-${ri}-${i}`}>
+            <rect
+              x={250 + i * 50}
+              y={row.y}
+              width="50"
+              height="30"
+              fill={stage ? "#f0f0f0" : "#fff"}
+              stroke={stage ? "#000" : "#ddd"}
+              strokeWidth={stage ? 1.5 : 1}
+            />
+            {stage && (
+              <text x={250 + i * 50 + 25} y={row.y + 20} fontSize="14" fontWeight="600" textAnchor="middle">
+                {stage}
+              </text>
+            )}
+          </g>
+        ))}
+      </g>
+    ))}
+
+    {/* Top caption */}
+    <text x="360" y="152" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">
+      each instruction completes before the next begins · 2 done in 6 cycles
+    </text>
+
+    {/* BOTTOM PANEL: WITH PIPELINING */}
+    <text x="360" y="194" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">WITH PIPELINING</text>
+
+    {/* Cycle headers */}
+    <text x="246" y="222" fontSize="9" letterSpacing="1" fill="#888" textAnchor="end">CYCLE</text>
+    {[1, 2, 3, 4, 5, 6].map((c) => (
+      <text key={`th-bot-${c}`} x={275 + (c - 1) * 50} y="222" fontSize="11" fontWeight="600" textAnchor="middle">
+        {c}
+      </text>
+    ))}
+
+    {/* Bottom panel rows */}
+    {[
+      { label: "Instr 1", y: 238, stages: ["F", "D", "E", null, null, null] },
+      { label: "Instr 2", y: 272, stages: [null, "F", "D", "E", null, null] },
+      { label: "Instr 3", y: 306, stages: [null, null, "F", "D", "E", null] },
+      { label: "Instr 4", y: 340, stages: [null, null, null, "F", "D", "E"] },
+    ].map((row, ri) => (
+      <g key={`bot-row-${ri}`}>
+        <text x="246" y={row.y + 20} fontSize="11" textAnchor="end">{row.label}</text>
+        {row.stages.map((stage, i) => (
+          <g key={`bot-cell-${ri}-${i}`}>
+            <rect
+              x={250 + i * 50}
+              y={row.y}
+              width="50"
+              height="30"
+              fill={stage ? "#f0f0f0" : "#fff"}
+              stroke={stage ? "#000" : "#ddd"}
+              strokeWidth={stage ? 1.5 : 1}
+            />
+            {stage && (
+              <text x={250 + i * 50 + 25} y={row.y + 20} fontSize="14" fontWeight="600" textAnchor="middle">
+                {stage}
+              </text>
+            )}
+          </g>
+        ))}
+      </g>
+    ))}
+
+    {/* Bottom caption */}
+    <text x="360" y="390" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">
+      stages overlap · 4 done in the same 6 cycles
+    </text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Same hardware, same 6 clock cycles, double the throughput. F = fetch, D = decode, E = execute.
+  </figcaption>
+</figure>
 
 These optimizations are why a modern 3 GHz chip executes far more than 3 billion simple instructions per second — and why a cache miss or a mispredicted branch is expensive relative to a register operation.

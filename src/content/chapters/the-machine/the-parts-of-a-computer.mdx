@@ -1,5 +1,81 @@
 A computer is built from a small number of hardware parts.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 480"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Block diagram showing the major hardware components of a computer mounted on a motherboard and connected by buses."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Motherboard outline */}
+    <rect x="20" y="40" width="680" height="420" fill="none" stroke="#000" strokeWidth="1" strokeDasharray="4 4" rx="6" />
+    <text x="32" y="30" fontSize="10" letterSpacing="2" fill="#666">MOTHERBOARD</text>
+
+    {/* Memory bus */}
+    <line x1="240" y1="160" x2="480" y2="160" stroke="#000" strokeWidth="1" />
+    <text x="360" y="152" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">memory bus</text>
+
+    {/* System bus */}
+    <line x1="50" y1="290" x2="670" y2="290" stroke="#000" strokeWidth="1" />
+    <line x1="140" y1="240" x2="140" y2="320" stroke="#000" strokeWidth="1" />
+    <line x1="360" y1="290" x2="360" y2="320" stroke="#000" strokeWidth="1" />
+    <line x1="580" y1="290" x2="580" y2="320" stroke="#000" strokeWidth="1" />
+    <text x="250" y="282" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">system bus</text>
+
+    {/* CPU */}
+    <rect x="40" y="80" width="200" height="160" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="52" y="102" fontSize="13" fontWeight="600">CPU</text>
+    <text x="52" y="116" fontSize="9" letterSpacing="1" fill="#666">CENTRAL PROCESSING UNIT</text>
+    <rect x="52" y="130" width="82" height="40" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="93" y="154" fontSize="10" textAnchor="middle">Core 0</text>
+    <rect x="146" y="130" width="82" height="40" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="187" y="154" fontSize="10" textAnchor="middle">Core 1</text>
+    <rect x="52" y="180" width="82" height="40" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="93" y="204" fontSize="10" textAnchor="middle">Core 2</text>
+    <rect x="146" y="180" width="82" height="40" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="187" y="204" fontSize="10" textAnchor="middle">Core 3</text>
+
+    {/* RAM */}
+    <rect x="480" y="80" width="200" height="160" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="492" y="102" fontSize="13" fontWeight="600">RAM</text>
+    <text x="492" y="116" fontSize="9" letterSpacing="1" fill="#666">RANDOM ACCESS MEMORY</text>
+    {Array.from({ length: 3 }).flatMap((_, row) =>
+      Array.from({ length: 8 }).map((_, col) => (
+        <rect
+          key={`ram-${row}-${col}`}
+          x={509 + col * 18}
+          y={146 + row * 20}
+          width="16"
+          height="18"
+          fill="#fff"
+          stroke="#888"
+          strokeWidth="0.75"
+        />
+      ))
+    )}
+
+    {/* GPU */}
+    <rect x="50" y="320" width="180" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="62" y="342" fontSize="13" fontWeight="600">GPU</text>
+    <text x="62" y="356" fontSize="9" letterSpacing="1" fill="#666">GRAPHICS PROCESSING UNIT</text>
+
+    {/* Storage */}
+    <rect x="270" y="320" width="180" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="282" y="342" fontSize="13" fontWeight="600">STORAGE</text>
+    <text x="282" y="356" fontSize="9" letterSpacing="1" fill="#666">SSD / HDD</text>
+
+    {/* I/O */}
+    <rect x="490" y="320" width="180" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="502" y="342" fontSize="13" fontWeight="600">I/O</text>
+    <text x="502" y="356" fontSize="9" letterSpacing="1" fill="#666">INPUT / OUTPUT</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The major hardware parts and how they connect over buses on the motherboard.
+  </figcaption>
+</figure>
+
 ### CPU (Central Processing Unit)
 
 Executes instructions. Performs arithmetic, logic, and control flow. Modern CPUs have multiple *cores* — independent processors that run in parallel.
@@ -31,3 +107,44 @@ For decades, CPU performance improved by raising the clock speed. That stopped a
 The industry's answer was to put multiple independent cores on one chip rather than make one core faster. A 4-core CPU at 3 GHz can do more total work than a 1-core CPU at 3 GHz — but only if the software can run tasks in parallel. This is the hardware reason concurrency matters.
 
 Cores on the same chip share the L3 cache and the memory bus. They do not automatically share work; software must split it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="parts-of-a-computer-q1"
+    question="A computer is running, then the power is cut. Which memory loses its contents?"
+    options={[
+      "Storage (SSD/HDD) only",
+      "RAM only",
+      "Both RAM and storage",
+      "Neither — both keep their contents"
+    ]}
+    answer={1}
+    explanation="RAM is volatile — it needs power to hold data. Storage (SSD/HDD) is non-volatile and keeps its contents without power. That is why everything you care about long-term has to make it to storage before the machine shuts down."
+  />
+  <Quiz
+    id="parts-of-a-computer-q2"
+    question="Around 2004, single-core CPU clock speed stopped climbing. Why?"
+    options={[
+      "Engineers ran out of ideas for new instructions",
+      "Higher clock speeds need more voltage, and the resulting heat became unmanageable",
+      "RAM got too slow to keep up with faster cores",
+      "Software stopped being written to take advantage of higher clocks"
+    ]}
+    answer={1}
+    explanation="Higher clocks require higher voltage, and heat scales nonlinearly with voltage. A 10 GHz chip would destroy itself. Putting multiple cores on one chip at moderate clock speeds sidesteps the heat ceiling."
+  />
+  <Quiz
+    id="parts-of-a-computer-q3"
+    question="A program runs on a 4-core CPU at 3 GHz. Compared to a 1-core CPU at 3 GHz, will it always finish faster?"
+    options={[
+      "Yes — 4 cores always means roughly 4× the work",
+      "Only if the program is written to run work in parallel across cores",
+      "No — the extra cores actually slow programs down",
+      "Only if the chip is also overclocked"
+    ]}
+    answer={1}
+    explanation="Cores do not automatically share work. A program written as one sequence of instructions runs on one core while the others sit idle. Getting a speedup requires the program to split its work across cores — which is why concurrency exists as a software concept."
+  />
+</QuizSet>

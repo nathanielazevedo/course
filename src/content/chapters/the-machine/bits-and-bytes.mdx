@@ -14,6 +14,56 @@ Larger units: KB ≈ 1,000 bytes, MB ≈ 1 million, GB ≈ 1 billion, TB ≈ 1 t
 
 Binary uses powers of 2 instead of powers of 10. The byte `0b00001011` = 8 + 2 + 1 = 11.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The byte 0b00001011 broken into eight bit positions. Each position carries a power-of-two place value: 128, 64, 32, 16, 8, 4, 2, 1. The bits set to one fall on places 8, 2, and 1, summing to 11."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Byte literal */}
+    <text x="360" y="28" fontSize="14" fontWeight="600" textAnchor="middle">0b00001011</text>
+
+    {/* Place values */}
+    <text x="136" y="64" fontSize="11" fill="#bbb" textAnchor="middle">128</text>
+    <text x="200" y="64" fontSize="11" fill="#bbb" textAnchor="middle">64</text>
+    <text x="264" y="64" fontSize="11" fill="#bbb" textAnchor="middle">32</text>
+    <text x="328" y="64" fontSize="11" fill="#bbb" textAnchor="middle">16</text>
+    <text x="392" y="64" fontSize="11" fontWeight="600" textAnchor="middle">8</text>
+    <text x="456" y="64" fontSize="11" fill="#bbb" textAnchor="middle">4</text>
+    <text x="520" y="64" fontSize="11" fontWeight="600" textAnchor="middle">2</text>
+    <text x="584" y="64" fontSize="11" fontWeight="600" textAnchor="middle">1</text>
+
+    {/* Bit cells (0,0,0,0,1,0,1,1) */}
+    <rect x="106" y="80" width="60" height="60" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="136" y="118" fontSize="22" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="170" y="80" width="60" height="60" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="200" y="118" fontSize="22" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="234" y="80" width="60" height="60" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="264" y="118" fontSize="22" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="298" y="80" width="60" height="60" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="328" y="118" fontSize="22" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="362" y="80" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="392" y="118" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="426" y="80" width="60" height="60" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="456" y="118" fontSize="22" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="490" y="80" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="520" y="118" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="554" y="80" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="584" y="118" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+
+    {/* Sum */}
+    <text x="360" y="180" fontSize="14" textAnchor="middle">
+      = 8 + 2 + 1 = <tspan fontWeight="600">11</tspan>
+    </text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each bit position holds a power-of-two place value. The bits set to 1 contribute their place value to the total.
+  </figcaption>
+</figure>
+
 Integers come in fixed sizes: 8-bit, 16-bit, 32-bit, 64-bit. A 32-bit unsigned integer holds values from 0 to ~4.3 billion. Signed integers reserve one bit for the sign and use a scheme called *two's complement*, giving roughly ±2 billion.
 
 Non-integer numbers are stored as *floats* — a separate format that encodes a number in scientific notation. They cover a wider range than integers, but with limited precision.
@@ -22,9 +72,137 @@ Non-integer numbers are stored as *floats* — a separate format that encodes a 
 
 Each character maps to a number. ASCII covers English with one byte per character — `A` is 65, `a` is 97. UTF-8 extends this to every language; characters use 1–4 bytes.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 300"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="ASCII walks each character down to a number, hex code, and byte. A is 65, hex 0x41, binary 01000001. Lowercase a is 97, hex 0x61, binary 01100001."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">CHARACTER → NUMBER → BITS</text>
+
+    {/* COLUMN 1: 'A' */}
+    <rect x="145" y="42" width="70" height="70" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="180" y="92" fontSize="36" fontWeight="600" textAnchor="middle">A</text>
+
+    <text x="180" y="134" fontSize="16" fill="#888" textAnchor="middle">↓</text>
+
+    <text x="180" y="164" fontSize="22" fontWeight="600" textAnchor="middle">65</text>
+    <text x="180" y="192" fontSize="14" fill="#666" textAnchor="middle">0x41</text>
+
+    {/* Bit cells for 'A' = 01000001 */}
+    <rect x="77" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="89" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="103" y="216" width="24" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="115" y="236" fontSize="14" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="129" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="141" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="155" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="167" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="181" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="193" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="207" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="219" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="233" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="245" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="259" y="216" width="24" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="271" y="236" fontSize="14" fontWeight="600" textAnchor="middle">1</text>
+
+    <text x="180" y="270" fontSize="9" letterSpacing="2" fill="#888" textAnchor="middle">8 BITS · 1 BYTE</text>
+
+    {/* COLUMN 2: 'a' */}
+    <rect x="505" y="42" width="70" height="70" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="92" fontSize="36" fontWeight="600" textAnchor="middle">a</text>
+
+    <text x="540" y="134" fontSize="16" fill="#888" textAnchor="middle">↓</text>
+
+    <text x="540" y="164" fontSize="22" fontWeight="600" textAnchor="middle">97</text>
+    <text x="540" y="192" fontSize="14" fill="#666" textAnchor="middle">0x61</text>
+
+    {/* Bit cells for 'a' = 01100001 */}
+    <rect x="437" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="449" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="463" y="216" width="24" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="475" y="236" fontSize="14" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="489" y="216" width="24" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="501" y="236" fontSize="14" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="515" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="527" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="541" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="553" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="567" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="579" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="593" y="216" width="24" height="30" fill="#fff" stroke="#ccc" strokeWidth="1" />
+    <text x="605" y="236" fontSize="14" fill="#ccc" textAnchor="middle">0</text>
+    <rect x="619" y="216" width="24" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="631" y="236" fontSize="14" fontWeight="600" textAnchor="middle">1</text>
+
+    <text x="540" y="270" fontSize="9" letterSpacing="2" fill="#888" textAnchor="middle">8 BITS · 1 BYTE</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The same letter in different cases is two different numbers — and so two different bytes in memory.
+  </figcaption>
+</figure>
+
 ### Hexadecimal
 
 A compact shorthand for writing bytes. Each hex digit represents 4 bits, so one byte = two hex digits. The byte `11111111` is `0xFF` (255). Common in memory addresses, color codes (`#0066ff`), and raw byte dumps.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 280"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The byte 11111111 split into two four-bit nibbles. Each nibble (1111) maps to the hex digit F. Combined: 0xFF, equal to 255 in decimal."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">1 BYTE = 2 HEX DIGITS</text>
+
+    {/* High nibble cells (1,1,1,1) */}
+    <rect x="92" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="122" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="156" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="186" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="220" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="250" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="284" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="314" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+
+    {/* Low nibble cells (1,1,1,1) */}
+    <rect x="376" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="406" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="440" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="470" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="504" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="534" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+    <rect x="568" y="56" width="60" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="598" y="94" fontSize="22" fontWeight="600" textAnchor="middle">1</text>
+
+    {/* Nibble labels */}
+    <text x="218" y="138" fontSize="9" letterSpacing="1" fill="#888" textAnchor="middle">HIGH NIBBLE</text>
+    <text x="502" y="138" fontSize="9" letterSpacing="1" fill="#888" textAnchor="middle">LOW NIBBLE</text>
+
+    {/* Down arrows */}
+    <text x="218" y="160" fontSize="14" fill="#888" textAnchor="middle">↓</text>
+    <text x="502" y="160" fontSize="14" fill="#888" textAnchor="middle">↓</text>
+
+    {/* Hex digits */}
+    <text x="218" y="200" fontSize="32" fontWeight="600" textAnchor="middle">F</text>
+    <text x="502" y="200" fontSize="32" fontWeight="600" textAnchor="middle">F</text>
+
+    {/* Combined */}
+    <text x="360" y="244" fontSize="18" fontWeight="600" textAnchor="middle">0xFF</text>
+    <text x="360" y="266" fontSize="11" fontStyle="italic" fill="#888" textAnchor="middle">= 255 in decimal</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A byte's eight bits split cleanly into two groups of four. Each group is one hex digit, so any byte fits in two hex characters.
+  </figcaption>
+</figure>
 
 ### Endianness
 
@@ -32,6 +210,71 @@ When a multi-byte value is stored in memory, the bytes can be laid out in two wa
 
 - **Little-endian** — least significant byte first. The number `0x0A0B0C0D` is stored as `0D 0C 0B 0A`. Used by x86 and ARM.
 - **Big-endian** — most significant byte first. `0x0A0B0C0D` is stored as `0A 0B 0C 0D`. Used in network protocols (TCP/IP transmits bytes big-endian, which is why it's called *network byte order*).
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 320"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The 32-bit value 0x0A0B0C0D laid out in memory two ways: little-endian stores the least significant byte first; big-endian stores the most significant byte first."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Source value */}
+    <text x="360" y="20" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">32-BIT VALUE</text>
+    <text x="232" y="65" fontSize="14" fontWeight="600" textAnchor="end">0x</text>
+    <rect x="234" y="40" width="60" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="264" y="65" fontSize="14" fontWeight="600" textAnchor="middle">0A</text>
+    <rect x="298" y="40" width="60" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="328" y="65" fontSize="14" fontWeight="600" textAnchor="middle">0B</text>
+    <rect x="362" y="40" width="60" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="392" y="65" fontSize="14" fontWeight="600" textAnchor="middle">0C</text>
+    <rect x="426" y="40" width="60" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="456" y="65" fontSize="14" fontWeight="600" textAnchor="middle">0D</text>
+    <text x="264" y="32" fontSize="9" letterSpacing="1" fill="#666" textAnchor="middle">MSB</text>
+    <text x="456" y="32" fontSize="9" letterSpacing="1" fill="#666" textAnchor="middle">LSB</text>
+
+    {/* Caption */}
+    <text x="360" y="118" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">stored in memory as</text>
+
+    {/* Little-endian */}
+    <text x="200" y="152" fontSize="11" fontWeight="600" letterSpacing="1" textAnchor="middle">LITTLE-ENDIAN</text>
+    <text x="200" y="166" fontSize="9" fontStyle="italic" fill="#888" textAnchor="middle">x86, ARM</text>
+    <rect x="96" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="121" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0D</text>
+    <rect x="148" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="173" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0C</text>
+    <rect x="200" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="225" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0B</text>
+    <rect x="252" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="277" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0A</text>
+    <text x="121" y="244" fontSize="10" fill="#666" textAnchor="middle">+0</text>
+    <text x="173" y="244" fontSize="10" fill="#666" textAnchor="middle">+1</text>
+    <text x="225" y="244" fontSize="10" fill="#666" textAnchor="middle">+2</text>
+    <text x="277" y="244" fontSize="10" fill="#666" textAnchor="middle">+3</text>
+    <text x="200" y="280" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">memory address →</text>
+
+    {/* Big-endian */}
+    <text x="520" y="152" fontSize="11" fontWeight="600" letterSpacing="1" textAnchor="middle">BIG-ENDIAN</text>
+    <text x="520" y="166" fontSize="9" fontStyle="italic" fill="#888" textAnchor="middle">network byte order</text>
+    <rect x="416" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="441" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0A</text>
+    <rect x="468" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="493" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0B</text>
+    <rect x="520" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="545" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0C</text>
+    <rect x="572" y="186" width="50" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="597" y="211" fontSize="13" fontWeight="600" textAnchor="middle">0D</text>
+    <text x="441" y="244" fontSize="10" fill="#666" textAnchor="middle">+0</text>
+    <text x="493" y="244" fontSize="10" fill="#666" textAnchor="middle">+1</text>
+    <text x="545" y="244" fontSize="10" fill="#666" textAnchor="middle">+2</text>
+    <text x="597" y="244" fontSize="10" fill="#666" textAnchor="middle">+3</text>
+    <text x="520" y="280" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">memory address →</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The same 32-bit value, two byte orders. Memory addresses run left to right.
+  </figcaption>
+</figure>
 
 Endianness is invisible most of the time. It matters when you read raw bytes from a file, a network socket, or shared memory — the same bytes mean different numbers depending on which end comes first.
 

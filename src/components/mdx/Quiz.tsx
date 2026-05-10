@@ -8,6 +8,7 @@ type QuizProps = {
   options: string[];
   answer: number;
   explanation?: string;
+  onNext?: () => void;
 };
 
 export default function Quiz({
@@ -16,6 +17,7 @@ export default function Quiz({
   options,
   answer,
   explanation,
+  onNext,
 }: QuizProps) {
   const submittedAnswer = useCourseStore((s) => s.quizAnswers[id]);
   const setQuizAnswer = useCourseStore((s) => s.setQuizAnswer);
@@ -144,17 +146,32 @@ export default function Quiz({
                 {explanation}
               </Typography>
             )}
-            <Button
-              onClick={handleReset}
-              sx={{
-                alignSelf: "flex-start",
-                px: 0,
-                color: "text.secondary",
-                "&:hover": { bgcolor: "transparent", color: "text.primary" },
-              }}
-            >
-              Reset
-            </Button>
+            {isCorrect && onNext ? (
+              <Button
+                variant="contained"
+                onClick={onNext}
+                sx={{
+                  alignSelf: "flex-start",
+                  bgcolor: "text.primary",
+                  color: "background.default",
+                  "&:hover": { bgcolor: "text.primary", opacity: 0.85 },
+                }}
+              >
+                Next →
+              </Button>
+            ) : (
+              <Button
+                onClick={handleReset}
+                sx={{
+                  alignSelf: "flex-start",
+                  px: 0,
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "transparent", color: "text.primary" },
+                }}
+              >
+                Reset
+              </Button>
+            )}
           </Stack>
         )}
       </Stack>

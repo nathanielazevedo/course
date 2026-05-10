@@ -1,5 +1,71 @@
 Not all memory is equal. The CPU's fastest storage is a handful of registers. Each tier below — cache, RAM, disk — is larger but significantly slower.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 480"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The memory hierarchy as a pyramid: from registers at the top (smallest, fastest) to hard disk at the bottom (largest, slowest), with latency labeled on the left and capacity on the right."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Column headers */}
+    <text x="70" y="32" fontSize="9" letterSpacing="2" fill="#666" textAnchor="end">LATENCY</text>
+    <text x="360" y="32" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">MEMORY HIERARCHY</text>
+    <text x="650" y="32" fontSize="9" letterSpacing="2" fill="#666" textAnchor="start">CAPACITY</text>
+
+    {/* Registers */}
+    <rect x="310" y="60" width="100" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="86" fontSize="13" fontWeight="600" textAnchor="middle">Registers</text>
+    <text x="70" y="86" fontSize="11" textAnchor="end">~1 cycle</text>
+    <text x="650" y="86" fontSize="11" textAnchor="start">bytes</text>
+
+    {/* L1 Cache */}
+    <rect x="280" y="110" width="160" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="136" fontSize="13" fontWeight="600" textAnchor="middle">L1 Cache</text>
+    <text x="70" y="136" fontSize="11" textAnchor="end">~1 ns</text>
+    <text x="650" y="136" fontSize="11" textAnchor="start">~32 KB</text>
+
+    {/* L2 Cache */}
+    <rect x="250" y="160" width="220" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="186" fontSize="13" fontWeight="600" textAnchor="middle">L2 Cache</text>
+    <text x="70" y="186" fontSize="11" textAnchor="end">~3 ns</text>
+    <text x="650" y="186" fontSize="11" textAnchor="start">~256 KB–1 MB</text>
+
+    {/* L3 Cache */}
+    <rect x="220" y="210" width="280" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="236" fontSize="13" fontWeight="600" textAnchor="middle">L3 Cache</text>
+    <text x="70" y="236" fontSize="11" textAnchor="end">~10 ns</text>
+    <text x="650" y="236" fontSize="11" textAnchor="start">~10–30 MB</text>
+
+    {/* Boundary on-chip / off-chip */}
+    <text x="360" y="266" fontSize="9" fontStyle="italic" letterSpacing="1" fill="#888" textAnchor="middle">on the CPU package</text>
+    <line x1="80" y1="274" x2="640" y2="274" stroke="#888" strokeWidth="1" strokeDasharray="3 3" />
+    <text x="360" y="288" fontSize="9" fontStyle="italic" letterSpacing="1" fill="#888" textAnchor="middle">off the CPU</text>
+
+    {/* RAM */}
+    <rect x="180" y="298" width="360" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="324" fontSize="13" fontWeight="600" textAnchor="middle">RAM</text>
+    <text x="70" y="324" fontSize="11" textAnchor="end">~100 ns</text>
+    <text x="650" y="324" fontSize="11" textAnchor="start">GB</text>
+
+    {/* SSD */}
+    <rect x="130" y="348" width="460" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="374" fontSize="13" fontWeight="600" textAnchor="middle">SSD</text>
+    <text x="70" y="374" fontSize="11" textAnchor="end">~100 µs</text>
+    <text x="650" y="374" fontSize="11" textAnchor="start">TB</text>
+
+    {/* HDD */}
+    <rect x="90" y="398" width="540" height="42" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="424" fontSize="13" fontWeight="600" textAnchor="middle">HDD</text>
+    <text x="70" y="424" fontSize="11" textAnchor="end">~10 ms</text>
+    <text x="650" y="424" fontSize="11" textAnchor="start">TB</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each tier down is roughly an order of magnitude larger and slower than the one above.
+  </figcaption>
+</figure>
+
 ### Registers
 
 Tiny storage cells inside the CPU. ~1 cycle to access (sub-nanosecond) — the fastest, smallest tier.
@@ -35,5 +101,94 @@ The hierarchy works because real programs access memory in patterns:
 - **Spatial locality** — data near recently-used data will likely be used soon.
 
 This is why cache fetches data in *cache lines* (typically 64 bytes at a time): if you read one byte, you'll probably want its neighbors. It is also why looping over an array sequentially is much faster than jumping around at random.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 380"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Top: a row of 16 bytes representing one cache line; the CPU reads one byte and the cache pulls in the entire line. Bottom: sequential access stays inside one cache line (1 miss, 3 hits), while random access touches four different cache lines (4 misses)."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* SECTION 1: Cache line concept */}
+    <text x="360" y="20" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">CACHE LINES</text>
+    <text x="360" y="40" fontSize="11" fontStyle="italic" fill="#666" textAnchor="middle">when the CPU reads 1 byte, the cache pulls in the whole line containing it</text>
+
+    {/* CPU reads label + arrow above cell index 4 */}
+    <text x="234" y="62" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">CPU reads</text>
+    <text x="234" y="78" fontSize="14" textAnchor="middle">↓</text>
+
+    {/* 16-cell row, cell index 4 highlighted */}
+    {Array.from({ length: 16 }).map((_, i) => {
+      const x = 72 + i * 36;
+      const isHit = i === 4;
+      return (
+        <rect
+          key={`line-${i}`}
+          x={x}
+          y={84}
+          width="36"
+          height="36"
+          fill={isHit ? "#f0f0f0" : "#fff"}
+          stroke={isHit ? "#000" : "#888"}
+          strokeWidth={isHit ? 1.5 : 1}
+        />
+      );
+    })}
+
+    {/* Bracket below the line */}
+    <path d="M 72 130 L 72 136 L 648 136 L 648 130" fill="none" stroke="#000" strokeWidth="1" />
+    <text x="360" y="154" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">all fetched together · typically 64 bytes</text>
+
+    {/* SECTION 2: Access patterns */}
+    <text x="360" y="194" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">MEMORY ACCESS PATTERNS</text>
+
+    {/* Sequential row */}
+    <text x="360" y="222" fontSize="9" letterSpacing="2" fontWeight="600" textAnchor="middle">SEQUENTIAL</text>
+    {Array.from({ length: 16 }).map((_, i) => {
+      const groupIdx = Math.floor(i / 4);
+      const x = 124 + groupIdx * 8 + i * 28;
+      const isAccessed = i < 4;
+      return (
+        <rect
+          key={`seq-${i}`}
+          x={x}
+          y={234}
+          width="28"
+          height="28"
+          fill={isAccessed ? "#f0f0f0" : "#fff"}
+          stroke={isAccessed ? "#000" : "#ccc"}
+          strokeWidth={isAccessed ? 1.5 : 1}
+        />
+      );
+    })}
+    <text x="360" y="282" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">4 reads, all in 1 cache line · 1 miss + 3 hits</text>
+
+    {/* Random row */}
+    <text x="360" y="312" fontSize="9" letterSpacing="2" fontWeight="600" textAnchor="middle">RANDOM</text>
+    {Array.from({ length: 16 }).map((_, i) => {
+      const groupIdx = Math.floor(i / 4);
+      const x = 124 + groupIdx * 8 + i * 28;
+      const isAccessed = [1, 7, 10, 14].includes(i);
+      return (
+        <rect
+          key={`rnd-${i}`}
+          x={x}
+          y={324}
+          width="28"
+          height="28"
+          fill={isAccessed ? "#f0f0f0" : "#fff"}
+          stroke={isAccessed ? "#000" : "#ccc"}
+          strokeWidth={isAccessed ? 1.5 : 1}
+        />
+      );
+    })}
+    <text x="360" y="372" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">4 reads, in 4 different cache lines · 4 misses</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Sequential access pays for one cache miss and gets the rest as hits. Random access pays for a new miss every time.
+  </figcaption>
+</figure>
 
 With the tiers of memory in mind, the next section is what the CPU actually does with what it loads: the instruction cycle that runs billions of times per second, and why a cache miss on the wrong instruction stalls the whole machine.
