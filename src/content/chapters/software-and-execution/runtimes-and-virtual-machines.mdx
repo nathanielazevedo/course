@@ -32,4 +32,69 @@ PyPy is an alternative Python runtime with a JIT compiler. For compute-heavy Pyt
 
 Runtimes like Node.js and browser JavaScript use a single-threaded *event loop* for concurrency. Instead of blocking on I/O (which would stall the whole thread), a program registers a callback and yields. The event loop dispatches callbacks when I/O completes.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 320"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Two thread-activity timelines. With blocking I/O, the thread sits idle while waiting. With an event loop, the thread runs other tasks during the same time window and handles a callback when the I/O completes."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">BLOCKING vs ASYNC I/O</text>
+
+    {/* "I/O completes" vertical marker */}
+    <line x1="500" y1="60" x2="500" y2="248" stroke="#888" strokeWidth="1" strokeDasharray="3 3" />
+    <text x="500" y="48" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">I/O completes</text>
+
+    {/* Panel 1: BLOCKING */}
+    <text x="90" y="76" fontSize="9" letterSpacing="2" fontWeight="600">BLOCKING</text>
+
+    <rect x="90" y="88" width="90" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="135" y="108" fontSize="10" textAnchor="middle">kick off</text>
+
+    <rect x="180" y="88" width="320" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1" />
+    <text x="340" y="108" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">blocked · thread sits idle waiting for I/O</text>
+
+    <rect x="500" y="88" width="130" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="565" y="108" fontSize="10" textAnchor="middle">resume</text>
+
+    <text x="360" y="140" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">thread does no other work during the wait</text>
+
+    {/* Panel 2: ASYNC */}
+    <text x="90" y="190" fontSize="9" letterSpacing="2" fontWeight="600">ASYNC + EVENT LOOP</text>
+
+    <rect x="90" y="202" width="90" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="135" y="222" fontSize="10" textAnchor="middle">kick off</text>
+
+    <rect x="180" y="202" width="80" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="220" y="222" fontSize="10" textAnchor="middle">task A</text>
+
+    <rect x="260" y="202" width="80" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="300" y="222" fontSize="10" textAnchor="middle">task B</text>
+
+    <rect x="340" y="202" width="80" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="380" y="222" fontSize="10" textAnchor="middle">task C</text>
+
+    <rect x="420" y="202" width="80" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="460" y="222" fontSize="10" textAnchor="middle">task D</text>
+
+    <rect x="500" y="202" width="80" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="222" fontSize="10" fontWeight="600" textAnchor="middle">callback</text>
+
+    <rect x="580" y="202" width="50" height="30" fill="#fff" stroke="#000" strokeWidth="1" />
+    <text x="605" y="222" fontSize="10" textAnchor="middle">next</text>
+
+    <text x="360" y="254" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">thread keeps running tasks; callback fires when I/O completes</text>
+
+    {/* Time axis */}
+    <line x1="90" y1="284" x2="630" y2="284" stroke="#888" strokeWidth="1" />
+    <text x="630" y="300" fontSize="9" fontStyle="italic" fill="#888" textAnchor="end">time →</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Same wall-clock time, same I/O. Blocking wastes the wait; the event loop fills it with other work.
+  </figcaption>
+</figure>
+
 This handles high concurrency with low overhead — no thread-per-connection overhead. The catch: a single long-running synchronous computation blocks the entire loop, making the program unresponsive to all other work until it finishes.

@@ -16,6 +16,57 @@ A dynamic linker runs at load time. Instead of copying library code into the exe
 
 When the OS loads the program, the dynamic linker finds the shared library, maps it into memory, and patches the program's references to point at it. Multiple programs using the same shared library share a single copy in memory — which is why `libc` is loaded by almost every process on a Linux system.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 400"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Static linking inlines libc and libssl into one large binary. Dynamic linking keeps the binary small with references, and loads shared libraries at runtime — one copy in memory used by every program."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* STATIC LEFT */}
+    <text x="180" y="22" fontSize="11" letterSpacing="2" fontWeight="600" textAnchor="middle">STATIC LINKING</text>
+    <text x="180" y="38" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">self-contained binary</text>
+
+    <rect x="90" y="60" width="180" height="70" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="180" y="100" fontSize="13" fontWeight="600" textAnchor="middle">my code</text>
+
+    <rect x="90" y="130" width="180" height="90" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="180" y="180" fontSize="13" fontWeight="600" textAnchor="middle">libc (full copy)</text>
+
+    <rect x="90" y="220" width="180" height="120" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="180" y="285" fontSize="13" fontWeight="600" textAnchor="middle">libssl (full copy)</text>
+
+    <text x="180" y="362" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">BINARY · ONE FILE</text>
+
+    {/* DYNAMIC RIGHT */}
+    <text x="540" y="22" fontSize="11" letterSpacing="2" fontWeight="600" textAnchor="middle">DYNAMIC LINKING</text>
+    <text x="540" y="38" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">binary + shared libs</text>
+
+    <rect x="450" y="60" width="180" height="70" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="100" fontSize="13" fontWeight="600" textAnchor="middle">my code</text>
+
+    <rect x="450" y="130" width="180" height="30" fill="#fafafa" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="150" fontSize="11" fontWeight="600" textAnchor="middle">refs: libc, libssl</text>
+
+    {/* Loaded at runtime */}
+    <text x="540" y="184" fontSize="16" fill="#888" textAnchor="middle">↓</text>
+    <text x="540" y="206" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">loaded at runtime</text>
+
+    <rect x="450" y="230" width="180" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="260" fontSize="13" fontWeight="600" textAnchor="middle">libc.so</text>
+
+    <rect x="450" y="290" width="180" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="320" fontSize="13" fontWeight="600" textAnchor="middle">libssl.so</text>
+
+    <text x="540" y="362" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">SHARED · ONE COPY FOR ALL PROGRAMS</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Static linking inlines library code into every binary. Dynamic linking keeps binaries small and lets programs share one in-memory copy of each library.
+  </figcaption>
+</figure>
+
 ### What Can Go Wrong
 
 Dynamic linking can fail at startup if a required library is missing or the wrong version is installed. This is the origin of errors like:

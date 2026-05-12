@@ -16,6 +16,60 @@ At any moment a process is in one of three states:
 
 A process moves between these states constantly. Calling `read()` on a file not in the kernel's cache moves the process from running to blocked. When the data arrives from disk, it moves to ready. When the scheduler picks it, it moves back to running.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 360"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A process state machine with three states: Running at the top, Blocked at the bottom-left, Ready at the bottom-right. Running transitions to Blocked when waiting for I/O; Running and Ready transition both ways with time slices and scheduler decisions; Blocked transitions to Ready when I/O completes."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <defs>
+      <marker id="state-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+      </marker>
+    </defs>
+
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">PROCESS STATE MACHINE</text>
+
+    {/* Running */}
+    <rect x="290" y="50" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="78" fontSize="14" fontWeight="600" textAnchor="middle">Running</text>
+    <text x="360" y="95" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">on a CPU core</text>
+
+    {/* Blocked */}
+    <rect x="90" y="220" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="160" y="248" fontSize="14" fontWeight="600" textAnchor="middle">Blocked</text>
+    <text x="160" y="265" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">waiting on I/O</text>
+
+    {/* Ready */}
+    <rect x="490" y="220" width="140" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="560" y="248" fontSize="14" fontWeight="600" textAnchor="middle">Ready</text>
+    <text x="560" y="265" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">waiting for a core</text>
+
+    {/* Running → Blocked (straight diagonal) */}
+    <line x1="310" y1="110" x2="230" y2="220" stroke="#000" strokeWidth="1" markerEnd="url(#state-arrow)" />
+    <text x="222" y="170" fontSize="10" fontStyle="italic" fill="#666" textAnchor="end">waits for I/O</text>
+
+    {/* Running → Ready (curved right) */}
+    <path d="M 430 110 Q 520 150 490 220" fill="none" stroke="#000" strokeWidth="1" markerEnd="url(#state-arrow)" />
+    <text x="538" y="155" fontSize="10" fontStyle="italic" fill="#666" textAnchor="start">time slice ends</text>
+
+    {/* Ready → Running (curved left) */}
+    <path d="M 490 220 Q 405 195 410 115" fill="none" stroke="#000" strokeWidth="1" markerEnd="url(#state-arrow)" />
+    <text x="392" y="160" fontSize="10" fontStyle="italic" fill="#666" textAnchor="end">scheduler picks</text>
+
+    {/* Blocked → Ready (horizontal) */}
+    <line x1="230" y1="250" x2="490" y2="250" stroke="#000" strokeWidth="1" markerEnd="url(#state-arrow)" />
+    <text x="360" y="240" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">I/O completes</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Note that Blocked → Ready, not Blocked → Running: a process whose I/O completes still has to wait for the scheduler to pick it.
+  </figcaption>
+</figure>
+
 ### Context Switching
 
 When the OS switches from one process to another it performs a *context switch*:

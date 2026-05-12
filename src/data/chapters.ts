@@ -34,11 +34,11 @@ const data: {
   {
     title: "Software and Execution",
     description:
-      "How source code becomes a running program — compilation, memory layout, linking, runtimes, and the boundary between software and the OS.",
+      "How source code becomes a running program — compilation, linking, memory layout, runtimes, and the boundary between software and the OS.",
     sections: [
       "From Source to Machine Code",
-      "The Stack and the Heap",
       "Linking and Libraries",
+      "The Stack and the Heap",
       "Runtimes and Virtual Machines",
       "System Calls",
     ],

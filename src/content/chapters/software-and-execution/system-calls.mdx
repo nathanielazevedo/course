@@ -18,6 +18,58 @@ A system call is the controlled gateway between them. It is the only way for use
 3. The kernel validates the request and performs the operation.
 4. The CPU switches back to user mode and returns the result.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 380"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A user-space process runs until it issues a syscall instruction, which traps into the kernel. The kernel handler runs in kernel space, then returns control to user space so the program can resume."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <defs>
+      <marker id="sc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+      </marker>
+    </defs>
+
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">ANATOMY OF A SYSTEM CALL</text>
+
+    {/* USER SPACE band */}
+    <text x="360" y="56" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">USER SPACE</text>
+    <rect x="60" y="80" width="180" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="150" y="110" fontSize="12" fontWeight="600" textAnchor="middle">user code running</text>
+    <rect x="480" y="80" width="180" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="570" y="110" fontSize="12" fontWeight="600" textAnchor="middle">user code resumes</text>
+
+    {/* Privilege boundary */}
+    <line x1="40" y1="180" x2="680" y2="180" stroke="#888" strokeWidth="1" strokeDasharray="4 4" />
+    <text x="50" y="174" fontSize="9" letterSpacing="1" fontStyle="italic" fill="#888" textAnchor="start">privilege boundary</text>
+
+    {/* KERNEL SPACE band */}
+    <text x="360" y="208" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">KERNEL SPACE</text>
+    <rect x="240" y="232" width="240" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="255" fontSize="12" fontWeight="600" textAnchor="middle">kernel handler</text>
+    <text x="360" y="271" fontSize="10" fontStyle="italic" fill="#666" textAnchor="middle">validates, does the work</text>
+
+    {/* Down arrow — syscall trap */}
+    <line x1="240" y1="130" x2="240" y2="230" stroke="#000" strokeWidth="1" markerEnd="url(#sc-arrow)" />
+    <text x="232" y="186" fontSize="10" fontStyle="italic" fill="#666" textAnchor="end">syscall</text>
+
+    {/* Up arrow — return */}
+    <line x1="480" y1="232" x2="480" y2="132" stroke="#000" strokeWidth="1" markerEnd="url(#sc-arrow)" />
+    <text x="488" y="186" fontSize="10" fontStyle="italic" fill="#666" textAnchor="start">return</text>
+
+    {/* Time axis */}
+    <line x1="60" y1="330" x2="660" y2="330" stroke="#888" strokeWidth="1" />
+    <text x="660" y="346" fontSize="9" fontStyle="italic" fill="#888" textAnchor="end">time →</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The CPU enforces the privilege boundary. The syscall instruction is the only way for user code to cross it; the kernel returns control once the work is done.
+  </figcaption>
+</figure>
+
 This mode switch costs on the order of microseconds. It is not free — code that issues thousands of system calls per second can spend significant time just crossing the boundary.
 
 ### Common System Calls

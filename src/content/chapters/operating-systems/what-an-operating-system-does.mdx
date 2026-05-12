@@ -2,6 +2,44 @@ The operating system is the layer of software that manages hardware on behalf of
 
 The OS provides three things: **abstraction**, **resource management**, and **isolation**.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 400"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The OS stack: user applications and system libraries run in user space; the kernel and its drivers sit below the syscall interface in kernel space; hardware (CPU, RAM, disk, network) is the bottom layer."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">OPERATING SYSTEM STACK</text>
+
+    {[
+      { subtitle: "USER APPS", yTop: 50, items: ["browser", "shell", "editor", "your app"], fill: "#fff" },
+      { subtitle: "SYSTEM LIBRARIES", yTop: 122, items: ["libc", "openssl", "libpthread", "runtime"], fill: "#fff" },
+      { subtitle: "KERNEL", yTop: 226, items: ["scheduler", "memory mgr", "file system", "drivers"], fill: "#f0f0f0" },
+      { subtitle: "HARDWARE", yTop: 310, items: ["CPU", "RAM", "Disk", "Network"], fill: "#fafafa" },
+    ].map((row, ri) => (
+      <g key={`row-${ri}`}>
+        <text x="102" y={row.yTop + 14} fontSize="9" letterSpacing="2" fill="#666">{row.subtitle}</text>
+        {row.items.map((item, i) => (
+          <g key={`row-${ri}-item-${i}`}>
+            <rect x={102 + i * 132} y={row.yTop + 22} width="120" height="40" fill={row.fill} stroke="#000" strokeWidth="1.5" />
+            <text x={162 + i * 132} y={row.yTop + 47} fontSize="12" fontWeight="600" textAnchor="middle">{item}</text>
+          </g>
+        ))}
+      </g>
+    ))}
+
+    {/* Syscall boundary */}
+    <line x1="60" y1="202" x2="660" y2="202" stroke="#888" strokeWidth="1" strokeDasharray="4 4" />
+    <text x="360" y="218" fontSize="10" fontStyle="italic" fill="#888" textAnchor="middle">system call interface</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Everything above the dashed line runs in user space. Only the kernel has direct hardware access; user code must cross the boundary via system calls.
+  </figcaption>
+</figure>
+
 ### Abstraction
 
 The OS hides hardware complexity behind clean, uniform interfaces:

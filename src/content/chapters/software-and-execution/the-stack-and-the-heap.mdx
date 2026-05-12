@@ -1,5 +1,42 @@
 A running program uses two main regions of memory: the stack and the heap. They serve different purposes and have very different performance characteristics.
 
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 480"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A process's address space: stack at high addresses growing downward, a large free region in the middle, and the heap at lower addresses growing upward."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">PROCESS MEMORY LAYOUT</text>
+
+    {/* Address labels */}
+    <text x="220" y="66" fontSize="9" letterSpacing="2" fill="#888" textAnchor="end">HIGH ADDR</text>
+    <text x="220" y="445" fontSize="9" letterSpacing="2" fill="#888" textAnchor="end">LOW ADDR</text>
+
+    {/* Stack */}
+    <rect x="240" y="60" width="200" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="105" fontSize="14" fontWeight="600" textAnchor="middle">Stack</text>
+    <text x="340" y="155" fontSize="24" fill="#888" textAnchor="middle">↓</text>
+    <text x="460" y="120" fontSize="10" fill="#666" textAnchor="start">locals · return addrs · saved regs</text>
+
+    {/* Free */}
+    <rect x="240" y="180" width="200" height="180" fill="#fafafa" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="275" fontSize="11" fontStyle="italic" fill="#888" textAnchor="middle">(free address space)</text>
+
+    {/* Heap */}
+    <rect x="240" y="360" width="200" height="80" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="385" fontSize="24" fill="#888" textAnchor="middle">↑</text>
+    <text x="340" y="420" fontSize="14" fontWeight="600" textAnchor="middle">Heap</text>
+    <text x="460" y="400" fontSize="10" fill="#666" textAnchor="start">dynamic allocations (malloc, new)</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Stack and heap grow toward each other through the free region. The stack adds a frame on every call; the heap adds a block on every allocation.
+  </figcaption>
+</figure>
+
 ### The Stack
 
 The stack is a region of memory that grows and shrinks as functions are called and return. It operates as a LIFO (last in, first out) structure.
@@ -9,6 +46,52 @@ Every function call pushes a *stack frame* onto the stack. A frame holds:
 - The function's local variables
 - The return address — where execution resumes after the function returns
 - Saved register values
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 720 370"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The call stack during a function call. Function B's frame is at the top, expanded into three regions: saved registers, return address, and local variables. Below it are A's and main's frames."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {/* Title */}
+    <text x="360" y="22" fontSize="9" letterSpacing="2" fill="#666" textAnchor="middle">CALL STACK DURING FUNCTION B</text>
+
+    {/* TOP / BOTTOM labels */}
+    <text x="220" y="58" fontSize="9" letterSpacing="2" fill="#888" textAnchor="end">TOP</text>
+    <text x="220" y="345" fontSize="9" letterSpacing="2" fill="#888" textAnchor="end">BOTTOM</text>
+
+    {/* Frame B - sections (current frame, emphasized) */}
+    <rect x="240" y="60" width="200" height="40" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="85" fontSize="12" textAnchor="middle">saved registers</text>
+    <text x="460" y="85" fontSize="10" fontStyle="italic" fill="#666" textAnchor="start">caller's regs to restore</text>
+
+    <rect x="240" y="100" width="200" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="135" fontSize="12" textAnchor="middle">return address</text>
+    <text x="460" y="135" fontSize="10" fontStyle="italic" fill="#666" textAnchor="start">where to resume after return</text>
+
+    <rect x="240" y="160" width="200" height="60" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="195" fontSize="12" textAnchor="middle">local variables</text>
+    <text x="460" y="195" fontSize="10" fontStyle="italic" fill="#666" textAnchor="start">this function's locals</text>
+
+    {/* Frame B bracket */}
+    <path d="M 222 60 L 215 60 L 215 220 L 222 220" fill="none" stroke="#888" strokeWidth="1" />
+    <text x="208" y="143" fontSize="9" letterSpacing="2" fill="#888" textAnchor="end">FRAME B</text>
+
+    {/* Frame A */}
+    <rect x="240" y="220" width="200" height="55" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="252" fontSize="12" textAnchor="middle">Frame A (caller)</text>
+
+    {/* Frame main */}
+    <rect x="240" y="275" width="200" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="340" y="305" fontSize="12" textAnchor="middle">Frame main</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each function call adds a new frame on top. When B returns, its frame is popped and execution resumes at A's saved return address.
+  </figcaption>
+</figure>
 
 When the function returns, its frame is popped: the stack pointer moves back and that memory is immediately reusable. This makes stack allocation essentially free — just a pointer increment.
 
