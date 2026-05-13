@@ -24,44 +24,54 @@ export default function Chapter() {
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <Container maxWidth="md" sx={{ py: { xs: 6, md: 12 } }}>
-        <Stack spacing={6}>
-          <Button
-            component={RouterLink}
-            to="/"
-            sx={{
-              alignSelf: "flex-start",
-              px: 0,
-              color: "text.secondary",
-              "&:hover": { bgcolor: "transparent", color: "text.primary" },
-            }}
-          >
-            ← All chapters
-          </Button>
-
-          <Stack spacing={2}>
-            <Typography
-              variant="overline"
-              sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
+      <Box
+        sx={{
+          bgcolor: "grey.50",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Container maxWidth="md" sx={{ py: { xs: 5, md: 8 } }}>
+          <Stack spacing={4}>
+            <Button
+              component={RouterLink}
+              to="/"
+              sx={{
+                alignSelf: "flex-start",
+                px: 0,
+                color: "text.secondary",
+                "&:hover": { bgcolor: "transparent", color: "text.primary" },
+              }}
             >
-              Chapter {String(chapter.number).padStart(2, "0")}
-            </Typography>
-            <Typography variant="h2" component="h1">
-              {chapter.title}
-            </Typography>
-            {chapter.description && (
+              ← All chapters
+            </Button>
+
+            <Stack spacing={2}>
               <Typography
-                variant="body1"
-                sx={{ color: "text.secondary", lineHeight: 1.7, fontSize: "1.0625rem" }}
+                variant="overline"
+                sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
               >
-                {chapter.description}
+                Chapter {String(chapter.number).padStart(2, "0")}
               </Typography>
-            )}
+              <Typography variant="h2" component="h1">
+                {chapter.title}
+              </Typography>
+              {chapter.description && (
+                <Typography
+                  variant="body1"
+                  sx={{ color: "text.secondary", lineHeight: 1.7, fontSize: "1.0625rem" }}
+                >
+                  {chapter.description}
+                </Typography>
+              )}
+            </Stack>
           </Stack>
+        </Container>
+      </Box>
 
+      <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 } }}>
+        <Stack spacing={6}>
           {chapter.videoId && <ChapterVideo videoId={chapter.videoId} />}
-
-          <Divider />
 
           <Stack spacing={2}>
             <Typography variant="h6">Sections</Typography>

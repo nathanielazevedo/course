@@ -147,4 +147,28 @@ Cores on the same chip share the L3 cache and the memory bus. They do not automa
     answer={1}
     explanation="Cores do not automatically share work. A program written as one sequence of instructions runs on one core while the others sit idle. Getting a speedup requires the program to split its work across cores — which is why concurrency exists as a software concept."
   />
+  <Quiz
+    id="parts-of-a-computer-q4"
+    question="Why is a GPU well-suited to graphics, AI, and video work — tasks a CPU could also do?"
+    options={[
+      "GPUs run at much higher clock speeds than CPUs",
+      "GPUs have direct access to storage and can skip RAM",
+      "GPUs are built for massive parallelism — many simple operations at once",
+      "GPUs use a smaller instruction set, so each instruction runs faster"
+    ]}
+    answer={2}
+    explanation="GPUs trade general-purpose flexibility for huge numbers of simple cores running the same operation in parallel. Graphics, neural net math, and video decoding all break down into the same operation applied to large arrays — exactly what a GPU is built for."
+  />
+  <Quiz
+    id="parts-of-a-computer-q5"
+    question="What is the role of the motherboard?"
+    options={[
+      "It executes instructions when the CPU is busy",
+      "It stores the operating system when the power is off",
+      "It connects the parts and carries data between them over buses",
+      "It controls how much voltage each core receives"
+    ]}
+    answer={2}
+    explanation="The motherboard is the substrate that wires everything together. The CPU, RAM, GPU, storage, and I/O all sit on it, and the buses etched into it are what actually move bytes between them."
+  />
 </QuizSet>

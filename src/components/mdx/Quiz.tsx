@@ -106,9 +106,17 @@ export default function Quiz({
                     ? "●"
                     : "○"}
                 </Box>
-                <Typography variant="body2" sx={{ flex: 1 }}>
+                <Box
+                  component="span"
+                  sx={{
+                    flex: 1,
+                    fontSize: "0.875rem",
+                    lineHeight: 1.43,
+                    color: showAsCorrect ? "#ffffff" : "#000000",
+                  }}
+                >
                   {option}
-                </Typography>
+                </Box>
               </ButtonBase>
             );
           })}

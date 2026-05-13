@@ -283,3 +283,68 @@ Endianness is invisible most of the time. It matters when you read raw bytes fro
 Even the program is bits. Each CPU instruction is a fixed binary pattern that tells the processor what to do — add these two numbers, jump to this address, copy this byte.
 
 But before the CPU can read those bits and act on them, the bits have to be *somewhere* — and where they sit determines how fast the CPU can get to them. The next section is the memory hierarchy: the tiers of storage between the CPU and the disk, and why moving data between them is most of what makes one program faster than another.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="bits-and-bytes-q1"
+    question="What is the decimal value of the byte 0b00010100?"
+    options={[
+      "12",
+      "20",
+      "24",
+      "40"
+    ]}
+    answer={1}
+    explanation="The bits set to 1 are at place values 16 and 4. 16 + 4 = 20."
+  />
+  <Quiz
+    id="bits-and-bytes-q2"
+    question="Why does one byte fit cleanly into exactly two hexadecimal digits?"
+    options={[
+      "Bytes and hex were standardized together so they line up by convention",
+      "Each hex digit represents 4 bits, and a byte is 8 bits",
+      "Hex is base 8, so two hex digits cover the same range as 8 bits",
+      "Memory addresses are always written as two hex digits"
+    ]}
+    answer={1}
+    explanation="Hex is base 16, and 16 = 2⁴, so each hex digit encodes exactly 4 bits. A byte is 8 bits, which splits cleanly into two 4-bit nibbles — one hex digit each."
+  />
+  <Quiz
+    id="bits-and-bytes-q3"
+    question="The 32-bit value 0x12345678 is written to memory on an x86 machine. Reading bytes from address +0 to +3, what do you see?"
+    options={[
+      "12 34 56 78",
+      "78 56 34 12",
+      "87 65 43 21",
+      "34 12 78 56"
+    ]}
+    answer={1}
+    explanation="x86 is little-endian: the least significant byte goes at the lowest address. The least significant byte of 0x12345678 is 0x78, so it sits at +0, followed by 56, 34, 12."
+  />
+  <Quiz
+    id="bits-and-bytes-q4"
+    question="A 32-bit unsigned integer holds values from 0 to roughly 4.3 billion. What is the approximate range of a 32-bit signed integer?"
+    options={[
+      "0 to ~4.3 billion (same range, just allows negatives)",
+      "~±1 billion",
+      "~±2.1 billion",
+      "~±4.3 billion"
+    ]}
+    answer={2}
+    explanation="One bit is spent encoding the sign, leaving 31 bits for magnitude. 2³¹ ≈ 2.1 billion, so a signed 32-bit int covers roughly −2.1 to +2.1 billion using two's complement."
+  />
+  <Quiz
+    id="bits-and-bytes-q5"
+    question="A file contains the two bytes 0x41 0x61, decoded as ASCII. What text does it represent?"
+    options={[
+      "AA",
+      "aa",
+      "Aa",
+      "aA"
+    ]}
+    answer={2}
+    explanation="0x41 is 65 in decimal, which is ASCII 'A'. 0x61 is 97, which is ASCII 'a'. Same letter, different case — different number, different byte."
+  />
+</QuizSet>

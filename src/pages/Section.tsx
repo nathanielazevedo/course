@@ -23,45 +23,74 @@ export default function Section() {
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <Box
         sx={{
+          bgcolor: "grey.50",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Box
+          sx={{
+            maxWidth: 1200,
+            mx: "auto",
+            px: { xs: 3, md: 6 },
+            py: { xs: 5, md: 8 },
+            display: "flex",
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0, maxWidth: 720, mx: { xs: "auto", lg: 0 } }}>
+            <Stack spacing={4}>
+              <Button
+                component={RouterLink}
+                to={`/chapters/${chapter.slug}`}
+                sx={{
+                  alignSelf: "flex-start",
+                  px: 0,
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "transparent", color: "text.primary" },
+                }}
+              >
+                ← {chapter.title}
+              </Button>
+
+              <Stack spacing={2}>
+                <Typography
+                  variant="overline"
+                  sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
+                >
+                  Chapter {String(chapter.number).padStart(2, "0")} · Section{" "}
+                  {String(section.number).padStart(2, "0")} of{" "}
+                  {String(chapter.sections.length).padStart(2, "0")}
+                </Typography>
+                <Typography variant="h2" component="h1">
+                  {section.title}
+                </Typography>
+              </Stack>
+            </Stack>
+          </Box>
+          <Box
+            sx={{
+              display: { xs: "none", lg: "block" },
+              width: 220,
+              ml: 6,
+              flexShrink: 0,
+            }}
+          />
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
           maxWidth: 1200,
           mx: "auto",
           px: { xs: 3, md: 6 },
-          py: { xs: 6, md: 12 },
+          py: { xs: 6, md: 10 },
           display: "flex",
           alignItems: "flex-start",
         }}
       >
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 720, mx: { xs: "auto", lg: 0 } }}>
           <Stack spacing={6}>
-            <Button
-              component={RouterLink}
-              to={`/chapters/${chapter.slug}`}
-              sx={{
-                alignSelf: "flex-start",
-                px: 0,
-                color: "text.secondary",
-                "&:hover": { bgcolor: "transparent", color: "text.primary" },
-              }}
-            >
-              ← {chapter.title}
-            </Button>
-
-            <Stack spacing={2}>
-              <Typography
-                variant="overline"
-                sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
-              >
-                Chapter {String(chapter.number).padStart(2, "0")} · Section{" "}
-                {String(section.number).padStart(2, "0")} of{" "}
-                {String(chapter.sections.length).padStart(2, "0")}
-              </Typography>
-              <Typography variant="h2" component="h1">
-                {section.title}
-              </Typography>
-            </Stack>
-
-            <Divider />
-
             <Box
               component="article"
               ref={articleRef}

@@ -3,7 +3,6 @@ import {
   Container,
   Stack,
   Typography,
-  Divider,
   List,
   ListItemButton,
 } from "@mui/material";
@@ -13,8 +12,14 @@ import { chapters } from "../data/chapters";
 export default function Home() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <Container maxWidth="md" sx={{ py: { xs: 6, md: 12 } }}>
-        <Stack spacing={6}>
+      <Box
+        sx={{
+          bgcolor: "grey.50",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Container maxWidth="md" sx={{ py: { xs: 6, md: 12 } }}>
           <Stack spacing={2}>
             <Typography
               variant="overline"
@@ -29,40 +34,40 @@ export default function Home() {
               First Principles for the Age of AI
             </Typography>
           </Stack>
+        </Container>
+      </Box>
 
-          <Divider />
-
-          <Stack spacing={2}>
-            <Typography variant="h6">Chapters</Typography>
-            <List disablePadding>
-              {chapters.map((chapter, i) => (
-                <ListItemButton
-                  key={chapter.slug}
-                  component={RouterLink}
-                  to={`/chapters/${chapter.slug}`}
-                  sx={{
-                    px: 0,
-                    py: 1.5,
-                    borderTop: i === 0 ? "1px solid" : "none",
-                    borderBottom: "1px solid",
-                    borderColor: "divider",
-                    color: "text.primary",
-                    "&:hover": { bgcolor: "transparent" },
-                  }}
+      <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 } }}>
+        <Stack spacing={2}>
+          <Typography variant="h6">Chapters</Typography>
+          <List disablePadding>
+            {chapters.map((chapter, i) => (
+              <ListItemButton
+                key={chapter.slug}
+                component={RouterLink}
+                to={`/chapters/${chapter.slug}`}
+                sx={{
+                  px: 0,
+                  py: 1.5,
+                  borderTop: i === 0 ? "1px solid" : "none",
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  color: "text.primary",
+                  "&:hover": { bgcolor: "transparent" },
+                }}
+              >
+                <Typography
+                  variant="body1"
+                  sx={{ flex: 1, color: "text.primary" }}
                 >
-                  <Typography
-                    variant="body1"
-                    sx={{ flex: 1, color: "text.primary" }}
-                  >
-                    {chapter.title}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    {String(chapter.number).padStart(2, "0")}
-                  </Typography>
-                </ListItemButton>
-              ))}
-            </List>
-          </Stack>
+                  {chapter.title}
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {String(chapter.number).padStart(2, "0")}
+                </Typography>
+              </ListItemButton>
+            ))}
+          </List>
         </Stack>
       </Container>
     </Box>
