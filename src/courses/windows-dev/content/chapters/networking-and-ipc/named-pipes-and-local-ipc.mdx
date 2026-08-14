@@ -1,0 +1,98 @@
+The previous section covered talking to another machine over the network. This one is about the narrower, extremely common problem of two processes on the *same* machine talking to each other — a service and a tray app (Chapter 5's Session 0 isolation problem, finally getting its solution), two components of the same application, or a privileged helper process and its unprivileged caller.
+
+### Why not just use a loopback socket for everything local?
+
+A TCP socket bound to `127.0.0.1` works for local IPC and is genuinely the simplest option when you already have networking code to reuse — but it carries costs specific to being "network" traffic even when it never leaves the machine: it goes through the full network stack (Winsock, from the previous section) rather than the lighter path a same-machine IPC primitive can take, it needs port coordination (something has to agree in advance which port to use, and handle the case another process is already using it), and by default it's addressable by anything else that can reach `127.0.0.1`, which is a broader exposure than same-machine IPC strictly needs. Windows provides two primitives built specifically for the local case, each with a different shape.
+
+### Named pipes: a byte stream with a name and real ACLs
+
+A **named pipe** is a byte-stream connection, conceptually similar to a TCP socket, but addressed by name (`\\.\pipe\MyAppPipe`) rather than a host and port, and — critically — a real securable kernel object (Chapter 7's security model applies directly) with its own ACL controlling exactly which users or processes can even open a handle to it at all:
+
+```csharp
+// Server
+using var server = new NamedPipeServerStream("MyAppPipe", PipeDirection.InOut);
+await server.WaitForConnectionAsync();
+using var writer = new StreamWriter(server) { AutoFlush = true };
+await writer.WriteLineAsync("Hello from the service");
+
+// Client (a separate process)
+using var client = new NamedPipeClientStream(".", "MyAppPipe", PipeDirection.InOut);
+await client.ConnectAsync();
+using var reader = new StreamReader(client);
+string? line = await reader.ReadLineAsync();
+```
+
+This is the direct, practical answer to Chapter 5's "a service has to talk to a logged-on user's UI app" problem: a service creates a named pipe server, a companion tray app (running in the user's own session, capable of showing UI) connects as a client, and the two exchange data across the session boundary neither could cross any other way, with the pipe's ACL controlling exactly who's allowed to connect — restricting it to the local machine's `Authenticated Users`, for instance, rather than leaving it open the way an unrestricted loopback socket would be by default.
+
+### Named pipes also support impersonation directly
+
+`NamedPipeServerStream.RunAsClient` lets a pipe server impersonate the connecting client for the duration of a callback, using exactly the impersonation mechanism Chapter 7 covered — this is, in fact, the most common real-world way that impersonation pattern actually gets triggered, tying this section directly back to that one: a service receiving a request over a named pipe, impersonating the caller, and performing a file or registry operation with the caller's own permissions rather than the service account's.
+
+### `Mutex`, `Semaphore`, and shared memory: coordination without a data stream
+
+Not every IPC need is "send bytes" — sometimes it's purely coordination. A **named `Mutex`** (`new Mutex(false, "Global\\MyAppSingleInstance")`) is the standard mechanism for enforcing a single running instance of an application: the second launch attempts to acquire the same named mutex, fails immediately because the first instance already holds it, and can detect that failure to signal the already-running instance instead of starting a second one. **Memory-mapped files** (`MemoryMappedFile.CreateOrOpen`) provide actual shared memory between processes — a region both can read and write directly, useful for high-throughput data sharing where marshaling everything through a pipe's stream-oriented read/write calls would add unnecessary overhead. `Global\` versus no prefix on a named object matters here too: an unprefixed name is scoped to the current session, while `Global\` makes it visible across every session on the machine — relevant again specifically because of Session 0 isolation, if a service and a user-session process both need to see the same named object.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="named-pipes-and-local-ipc-q1"
+    question="What costs does using a loopback TCP socket for same-machine IPC carry, compared to a primitive built specifically for local IPC?"
+    options={[
+      "There are no meaningful differences; loopback sockets are identical in every way to named pipes",
+      "It goes through the full network stack, requires port coordination, and by default is addressable by anything reaching 127.0.0.1 — a broader exposure than strictly needed for same-machine communication"
+      , "Loopback sockets cannot be used for IPC at all on Windows",
+      "Loopback sockets are always faster than named pipes in every scenario"
+    ]}
+    answer={1}
+    explanation="While functional, loopback sockets carry network-stack overhead, port-coordination requirements, and broader default addressability than a purpose-built local IPC primitive like a named pipe."
+  />
+  <Quiz
+    id="named-pipes-and-local-ipc-q2"
+    question="How does a named pipe's security model differ from a typical socket's?"
+    options={[
+      "Named pipes have no security model at all",
+      "A named pipe is a real securable kernel object with its own ACL, controlling exactly which users or processes can even open a handle to it — the same security model covered in Chapter 7"
+      , "Named pipes can only be secured through the Windows Firewall, like sockets",
+      "Named pipe security only applies to server processes, never to clients"
+    ]}
+    answer={1}
+    explanation="Named pipes are ACL-protected kernel objects, letting access be restricted precisely (e.g. to Authenticated Users) in a way an unrestricted loopback socket doesn't provide by default."
+  />
+  <Quiz
+    id="named-pipes-and-local-ipc-q3"
+    question="How do named pipes provide a practical solution to the service-to-user-session communication problem raised in Chapter 5?"
+    options={[
+      "They don't — services still cannot communicate with user-session processes under any circumstance",
+      "A service can create a named pipe server, and a companion app running in the user's own session connects as a client, exchanging data across the session boundary neither could cross directly"
+      , "Named pipes automatically grant a service the ability to show UI directly",
+      "This only works if the service is running interactively, which defeats Session 0 isolation"
+    ]}
+    answer={1}
+    explanation="Named pipes are a standard mechanism for exactly this cross-session communication need, letting a service and a user-facing companion app exchange data despite Session 0 isolation preventing direct UI interaction."
+  />
+  <Quiz
+    id="named-pipes-and-local-ipc-q4"
+    question="What does NamedPipeServerStream.RunAsClient enable, and how does it connect to earlier chapter content?"
+    options={[
+      "It lets the client process impersonate the server",
+      "It lets a pipe server impersonate the connecting client for the duration of a callback, using the exact impersonation mechanism covered in Chapter 7 — a common real-world trigger for that pattern"
+      , "It disables all security checks for the duration of the pipe connection",
+      "It converts the named pipe into a TCP socket automatically"
+    ]}
+    answer={1}
+    explanation="RunAsClient is a direct, practical application of Chapter 7's impersonation mechanism, letting a service perform operations under the connecting client's own permissions rather than its own service account."
+  />
+  <Quiz
+    id="named-pipes-and-local-ipc-q5"
+    question="What is the significance of prefixing a named Mutex or other kernel object's name with Global\\ versus leaving it unprefixed?"
+    options={[
+      "It has no functional effect and is purely a naming convention",
+      "An unprefixed name is scoped to the current session, while Global\\ makes it visible across every session on the machine — relevant specifically because of Session 0 isolation"
+      , "Global\\ names are only valid for Mutex objects, not for memory-mapped files",
+      "Only administrator accounts can create Global\\-prefixed named objects"
+    ]}
+    answer={1}
+    explanation="The Global\\ prefix crosses session boundaries, which matters directly for the same service/user-session communication problem this section addresses — without it, a service and a user-session process might not even see the same named object."
+  />
+</QuizSet>

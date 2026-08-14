@@ -1,0 +1,99 @@
+`FileSystemWatcher` looks like a simple event source — a file changed, here's an event. In practice it's a thin wrapper around a kernel API with sharp edges of its own, and most of the bug reports filed against code using it trace back to one of a small number of well-known gotchas rather than a bug in `FileSystemWatcher` itself.
+
+### What's actually happening underneath
+
+`FileSystemWatcher` wraps `ReadDirectoryChangesW`, a Win32 API that asks the filesystem driver to notify the calling process when something in a directory changes, delivered asynchronously. Change notifications arrive in an internal buffer that `FileSystemWatcher` reads and raises as `.NET` events (`Created`, `Changed`, `Deleted`, `Renamed`). Everything unusual about `FileSystemWatcher`'s behavior traces back to that buffer.
+
+```csharp
+using var watcher = new FileSystemWatcher(@"C:\data")
+{
+    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+    Filter = "*.csv",
+    IncludeSubdirectories = true,
+};
+watcher.Changed += (s, e) => Console.WriteLine($"{e.ChangeType}: {e.FullPath}");
+watcher.EnableRaisingEvents = true; // nothing fires until this is set
+```
+
+`EnableRaisingEvents` defaulting to `false` is the first gotcha: it's easy to wire up every event handler correctly and still see nothing happen, because the watcher hasn't actually started.
+
+### The internal buffer can overflow — and silently drop events
+
+The buffer `ReadDirectoryChangesW` fills is finite (`InternalBufferSize`, default 8 KB, configurable). If changes happen faster than your event handlers drain them — a burst of thousands of file writes, for instance — the buffer can fill up entirely. When that happens, Windows doesn't queue the overflow; it raises a single `Error` event with an `InternalBufferOverflowException`, and **the specific changes that overflowed are gone** — not delayed, not batched, just unreported. Any code relying on `FileSystemWatcher` for something that must not miss an event (syncing, auditing) needs either a much larger buffer, a reconciliation pass that periodically re-scans the directory to catch what the watcher missed, or both.
+
+### One "Changed" event can fire multiple times
+
+Many applications — including Notepad and Office — don't do a single write when saving a file; they may write to a temp file, flush, and rename, or issue multiple separate write operations, each of which can produce its own change notification. Code that reacts to `Changed` by immediately trying to open and process the file is prone to both firing multiple times per logical save and racing the writer — opening the file before the writer has fully released it, hitting the sharing violations from the earlier `System.IO` section. Debouncing (waiting a short quiet period after the last event before acting) is a standard mitigation, not a workaround for a bug.
+
+### `NotifyFilter` and `Filter` control cost, not just noise
+
+`NotifyFilter` (which attributes to watch — last write time, file name, security, etc.) and `Filter` (a glob pattern like `*.csv`) aren't purely conveniences for reducing irrelevant events; a broader filter means the underlying driver has to track and deliver more notification types, which is more traffic into that fixed-size buffer. Narrowing both to exactly what you need is a real mitigation against the overflow problem above, not just cleaner code.
+
+### `IncludeSubdirectories` and network drives
+
+Watching subdirectories (`IncludeSubdirectories = true`) is straightforward on local NTFS volumes. Watching a network share is supported but far less reliable — notification delivery depends on the remote server and protocol (SMB) supporting change notification forwarding, and some NAS devices or older SMB configurations don't deliver them promptly, or at all. For anything watching a network path where correctness matters, treating `FileSystemWatcher` as a best-effort hint — and falling back to periodic polling — is the realistic design, not a fallback for a hypothetical edge case.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="watching-the-filesystem-for-changes-q1"
+    question="What Win32 API does FileSystemWatcher wrap, and how does it deliver notifications?"
+    options={[
+      "It polls the directory repeatedly with no underlying kernel API",
+      "ReadDirectoryChangesW, which delivers notifications asynchronously into an internal buffer that FileSystemWatcher reads"
+      , "It uses the registry to track file change timestamps",
+      "It relies entirely on the Windows Search indexer",
+    ]}
+    answer={1}
+    explanation="FileSystemWatcher is a managed wrapper around ReadDirectoryChangesW, and the behavior of that underlying buffered, asynchronous API explains most of its quirks."
+  />
+  <Quiz
+    id="watching-the-filesystem-for-changes-q2"
+    question="What happens when FileSystemWatcher's internal notification buffer overflows?"
+    options={[
+      "The overflowed events are automatically queued and delivered later",
+      "An Error event with InternalBufferOverflowException fires, and the specific changes that overflowed are permanently lost"
+      , "The watcher automatically restarts and re-scans the directory",
+      "EnableRaisingEvents is silently set to false",
+    ]}
+    answer={1}
+    explanation="Buffer overflow doesn't queue missed notifications — it drops them and only reports that an overflow occurred, meaning code needing full accuracy must add reconciliation or a larger buffer."
+  />
+  <Quiz
+    id="watching-the-filesystem-for-changes-q3"
+    question="Why might a single logical file save trigger multiple Changed events?"
+    options={[
+      "FileSystemWatcher always fires events twice for consistency",
+      "Some applications perform multiple underlying write operations (temp file writes, renames, flushes) per save, each capable of producing its own notification"
+      , "This only happens due to a bug in FileSystemWatcher",
+      "It never happens if NotifyFilter is configured correctly",
+    ]}
+    answer={1}
+    explanation="Applications like Notepad or Office often don't perform one atomic write; multiple underlying operations can each generate a separate change notification, which is why debouncing is a standard mitigation."
+  />
+  <Quiz
+    id="watching-the-filesystem-for-changes-q4"
+    question="Why does narrowing NotifyFilter and Filter help avoid buffer overflow, beyond reducing irrelevant event noise?"
+    options={[
+      "It has no effect on the internal buffer at all",
+      "A broader filter means the driver tracks and delivers more notification types, increasing traffic into the fixed-size internal buffer"
+      , "Filter only affects which file extensions can be watched, unrelated to buffering",
+      "NotifyFilter only applies to network drives, not local ones",
+    ]}
+    answer={1}
+    explanation="Watching more attribute types or a wider file pattern increases the volume of notifications the driver generates, which is real pressure on the same fixed-size buffer that can overflow."
+  />
+  <Quiz
+    id="watching-the-filesystem-for-changes-q5"
+    question="Why is FileSystemWatcher less reliable when watching a network share compared to a local NTFS volume?"
+    options={[
+      "It cannot watch network shares at all",
+      "Notification delivery depends on the remote server and SMB configuration supporting change notification forwarding, which isn't always reliable"
+      , "Network shares don't support the Changed event, only Created",
+      "IncludeSubdirectories is ignored entirely on network paths",
+    ]}
+    answer={1}
+    explanation="Change notifications over a network share rely on the remote server correctly forwarding them over SMB, which varies by server and configuration — making periodic polling a realistic fallback for correctness-sensitive cases."
+  />
+</QuizSet>

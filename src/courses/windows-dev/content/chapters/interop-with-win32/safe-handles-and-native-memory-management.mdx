@@ -1,0 +1,124 @@
+This closing section of the chapter pulls together a thread that's run through every earlier section: the GC manages managed memory, but every P/Invoke and COM boundary this chapter has covered involves resources the GC doesn't know about at all — native handles, unmanaged buffers, COM reference counts. This section is about the actual tools .NET gives you for that, and the discipline they require.
+
+### Why the GC's reach stops at the managed/native boundary
+
+The .NET garbage collector tracks managed objects and reclaims their memory when nothing references them anymore. A native handle returned by `CreateFile`, an unmanaged buffer allocated with `Marshal.AllocHGlobal`, or a COM object's reference count are all invisible to that tracking — from the GC's point of view, an `IntPtr` is just a number, indistinguishable from any other integer. Nothing about holding one keeps anything alive, and nothing about losing track of one triggers cleanup. Every pattern in this section exists to put *something* the GC does understand — a managed wrapper object — in charge of a resource it doesn't.
+
+### `SafeHandle`: the pattern from Chapter 6.3, generalized
+
+The `SafeHandle` pattern shown earlier in this chapter isn't specific to the one example handle type — it's the general-purpose answer for any native handle:
+
+```csharp
+internal sealed class MyResourceHandle : SafeHandleZeroOrMinusOneIsInvalid
+{
+    internal MyResourceHandle() : base(ownsHandle: true) { }
+    protected override bool ReleaseHandle() => NativeMethods.CloseMyResource(handle);
+}
+```
+
+`SafeHandle` is a **critical finalizable object** — the CLR guarantees its finalizer runs even in situations (like an `AppDomain` unload, or certain thread-abort scenarios in older .NET) where an ordinary finalizer might not, and its release logic is written to be reliable under low-memory or exceptional conditions specifically because it's meant to be the last line of defense for something that genuinely must not leak. `Dispose()` (typically via `using`) is still the correct primary path — the finalizer is a safety net, not the intended mechanism — but the guarantee it provides is exactly why `SafeHandle`, not a bare `IntPtr` with a manually-called cleanup method, is the correct building block.
+
+### Unmanaged memory: `Marshal.AllocHGlobal` and `NativeMemory`
+
+Passing a buffer to a native function sometimes requires allocating memory the native side owns or writes into directly:
+
+```csharp
+IntPtr buffer = Marshal.AllocHGlobal(256);
+try
+{
+    NativeMethods.SomeFunctionThatFillsABuffer(buffer, 256);
+    string result = Marshal.PtrToStringUni(buffer)!;
+}
+finally
+{
+    Marshal.FreeHGlobal(buffer); // no GC, no finalizer — this is the only cleanup
+}
+```
+
+This memory is entirely outside GC accounting — there's no automatic cleanup at all if `FreeHGlobal` is never called, no finalizer safety net the way `SafeHandle` provides unless you build one yourself around it. Modern .NET's `System.Runtime.InteropServices.NativeMemory` class offers a similar, slightly more modern API (`NativeMemory.Alloc` / `NativeMemory.Free`), with the same fundamental requirement: you allocated it, you are unconditionally responsible for freeing it, and a `try`/`finally` (or wrapping it in a small `SafeHandle`-derived type, for anything longer-lived than a single method) is not optional cleanliness — it's the only thing standing between this allocation and a genuine, permanent memory leak.
+
+### `fixed` and pinning: keeping the GC's hands off, briefly
+
+When passing a managed array directly to native code without copying it into unmanaged memory first, the GC must be prevented from moving that array during the call — the GC is a moving collector for many object types, and a native function holding a raw pointer into an array that just got relocated mid-call would be reading garbage:
+
+```csharp
+byte[] data = new byte[64];
+unsafe
+{
+    fixed (byte* ptr = data)
+    {
+        NativeMethods.WriteBuffer((IntPtr)ptr, data.Length);
+    } // pin released automatically at the end of the fixed block
+}
+```
+
+`fixed` pins the array for the scope of the block, guaranteeing a stable address the native call can safely use, and releases the pin automatically when the block ends — this is a narrower, more automatic tool than `GCHandle.Alloc(obj, GCHandleType.Pinned)`, which pins for an arbitrary, manually-controlled duration and requires an explicit `Free()` call, useful specifically when a pointer needs to remain valid across multiple calls or beyond a single method's scope rather than for one call.
+
+### The rule this whole chapter has been building toward
+
+Every mechanism in this chapter — `SafeHandle`, `Marshal.FreeHGlobal`, `Marshal.ReleaseComObject`, `fixed` — exists because crossing from managed to native code means leaving the GC's automatic safety net behind for that specific resource. The discipline isn't different in kind from managing a `FileStream` or a `Process` handle from earlier chapters — it's the same "acquire deterministically, release deterministically" pattern — just without the BCL having already done the wrapping for you.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="safe-handles-and-native-memory-management-q1"
+    question="Why is a native handle, represented as a raw IntPtr, invisible to the .NET garbage collector's tracking?"
+    options={[
+      "IntPtr values are tracked exactly like any other managed reference",
+      "From the GC's perspective, an IntPtr is just a number — holding one doesn't keep anything alive and losing track of it doesn't trigger any cleanup"
+      , "The GC actively avoids collecting IntPtr values for safety reasons",
+      "IntPtr is a reference type, so it is always finalized automatically"
+    ]}
+    answer={1}
+    explanation="The GC only manages memory for managed objects it tracks; a native handle stored as an IntPtr is opaque data to it, with no automatic lifecycle management at all."
+  />
+  <Quiz
+    id="safe-handles-and-native-memory-management-q2"
+    question="What guarantee does SafeHandle provide as a critical finalizable object that an ordinary object's finalizer does not reliably provide?"
+    options={[
+      "It guarantees the handle is released the instant it goes out of scope",
+      "The CLR guarantees its finalizer runs even under exceptional conditions where an ordinary finalizer might not, making it a reliable last-resort safety net"
+      , "It eliminates the need to ever call Dispose()",
+      "It prevents the handle from ever needing to be closed at all"
+    ]}
+    answer={1}
+    explanation="SafeHandle's critical finalization status ensures cleanup even in edge cases like domain unloads, though Dispose (via using) remains the intended primary release path, not the finalizer."
+  />
+  <Quiz
+    id="safe-handles-and-native-memory-management-q3"
+    question="What happens if memory allocated with Marshal.AllocHGlobal is never explicitly freed with Marshal.FreeHGlobal?"
+    options={[
+      "The GC eventually reclaims it during a collection",
+      "It leaks permanently — there is no automatic cleanup or finalizer safety net for this memory unless one is built manually"
+      , "The CLR throws an exception at process exit",
+      "It is automatically converted into a SafeHandle"
+    ]}
+    answer={1}
+    explanation="Unmanaged memory allocated this way is entirely outside GC accounting; unlike SafeHandle, there is no automatic finalizer protecting against a missed Free call, making a try/finally essential."
+  />
+  <Quiz
+    id="safe-handles-and-native-memory-management-q4"
+    question="Why is pinning a managed array necessary before passing a raw pointer to it into native code?"
+    options={[
+      "Pinning is not actually necessary; the GC never moves managed arrays",
+      "The GC can move certain objects, including arrays, during a collection — a native function holding a raw pointer into a relocated array would read invalid data without pinning"
+      , "Pinning is only required when calling functions declared with DllImport, not LibraryImport",
+      "Arrays are always allocated in unmanaged memory already"
+    ]}
+    answer={1}
+    explanation="Because the GC can relocate objects during collection, a fixed block (or GCHandle pinning) is required to guarantee a stable address for the duration native code holds a raw pointer into managed memory."
+  />
+  <Quiz
+    id="safe-handles-and-native-memory-management-q5"
+    question="What common theme connects SafeHandle, Marshal.FreeHGlobal, Marshal.ReleaseComObject, and fixed blocks across this chapter?"
+    options={[
+      "They are all obsolete patterns replaced by modern .NET features",
+      "Each exists to manage a resource that falls outside the GC's automatic safety net once code crosses from managed to native code, requiring deliberate acquire/release discipline"
+      , "They are unrelated tools solving entirely separate problems",
+      "They only matter for COM interop, not P/Invoke"
+    ]}
+    answer={1}
+    explanation="All four mechanisms address the same underlying gap: native resources and pointers the GC doesn't track require explicit, deterministic management, the same discipline applied elsewhere in the course to handles like Process and FileStream."
+  />
+</QuizSet>

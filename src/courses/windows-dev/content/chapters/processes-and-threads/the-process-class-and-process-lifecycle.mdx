@@ -1,0 +1,129 @@
+A process is the unit of isolation Windows gives you: its own virtual address space, its own handle table, its own security token. `System.Diagnostics.Process` is the managed door into that world — but the shape of what it exposes only makes sense once you know the Win32 lifecycle it's standing in front of.
+
+### What a process actually is, under the object model
+
+Recall from Chapter 1 that the kernel's Object Manager tracks everything through typed objects and handles. A process is one such object: a **kernel process object** holding a virtual address space, a handle table (every file, mutex, and other kernel object *this* process currently has open), and a primary access token that says who it's running as. A process on its own does nothing — it exists only as a container. Actual execution belongs to its threads (covered later in this chapter), of which every process has at least one.
+
+### The four-stage lifecycle
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 140"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four stages left to right: Create, where CreateProcess builds the address space and primary thread; Run, where the primary thread executes and may spawn more threads; Exit, where the process calls ExitProcess or its last thread ends; Reap, where a parent holding the process handle reads the exit code, after which the kernel object is freed."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      ["CREATE", "CreateProcessW builds the\naddress space + primary thread"],
+      ["RUN", "primary thread executes,\nmay spawn more threads"],
+      ["EXIT", "ExitProcess called, or\nlast thread ends"],
+      ["REAP", "parent reads exit code via\nthe process handle"],
+    ].map(([title, desc], i) => (
+      <g key={title} transform={`translate(${10 + i * 158}, 10)`}>
+        <rect x="0" y="0" width="140" height="110" fill={i === 2 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.5" />
+        <text x="70" y="24" fontSize="12" fontWeight="600" textAnchor="middle">{title}</text>
+        {desc.split("\n").map((l, li) => (
+          <text key={l} x="70" y={48 + li * 15} fontSize="9.5" fill="#666" textAnchor="middle">{l}</text>
+        ))}
+        {i < 3 && <line x1="145" y1="55" x2="163" y2="55" stroke="#000" strokeWidth="1" markerEnd="url(#a3)" />}
+      </g>
+    ))}
+    <defs>
+      <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+The step most developers miss is **Reap**. When a process exits, its kernel object doesn't vanish immediately — it stays alive, holding its exit code, as long as anyone still has an open handle to it. This is exactly why `Process.WaitForExit()` and `Process.ExitCode` work at all: the .NET `Process` object holds a handle from the moment it starts the child, and that handle stays valid to query after the child has already exited, until you (or the GC, via the finalizer) let it go.
+
+### `System.Diagnostics.Process`: a handle with a friendly face
+
+```csharp
+using var process = new Process
+{
+    StartInfo = new ProcessStartInfo("ipconfig")
+    {
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+    },
+};
+process.Start();
+string output = process.StandardOutput.ReadToEnd();
+process.WaitForExit();
+Console.WriteLine($"Exit code: {process.ExitCode}");
+```
+
+Every property here maps onto something the kernel actually tracks: `Id` is the process ID assigned at creation, `ExitCode` is the value the process object holds until it's reaped, `HasExited` is a live check against the kernel object's signaled state (a process handle becomes *signaled* — usable with wait functions — the instant the process terminates). `process.Handle` (or the `SafeProcessHandle` in newer APIs) is the actual `HANDLE` from `CreateProcessW`, wrapped so the CLR closes it when the `Process` object is disposed.
+
+### Parent-child relationships are looser than you'd expect
+
+Unlike some Unix shells, a Windows child process is **not** automatically killed when its parent process exits, and there's no `wait()`-style requirement that a parent must reap its child before the child's resources are released — a process's threads keep running, and its kernel object is cleaned up independently of whatever handle relationships existed at creation time. `Process.Start` records a parent-child relationship for informational purposes (visible in Task Manager's tree view), but it isn't an enforced lifetime relationship the way it can feel like it should be. Building actual "kill my children when I die" behavior requires Job Objects, which the fourth section of this chapter covers.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-process-class-and-process-lifecycle-q1"
+    question="What does a Windows process kernel object hold, structurally?"
+    options={[
+      "Only a list of open file handles",
+      "A virtual address space, a handle table, and a primary access token",
+      "The compiled machine code for every thread it will ever run",
+      "A copy of the registry",
+    ]}
+    answer={1}
+    explanation="A process object is a container: its own address space, its handle table tracking open kernel objects, and the security token it runs under. Execution itself belongs to its threads."
+  />
+  <Quiz
+    id="the-process-class-and-process-lifecycle-q2"
+    question="Why does Process.ExitCode still work after the child process has already terminated?"
+    options={[
+      "Because .NET caches the exit code separately from the OS",
+      "Because the process's kernel object stays alive holding its exit code as long as any handle to it remains open",
+      "Because Process.ExitCode restarts the process briefly to read the value",
+      "It doesn't — ExitCode is only valid while the process is still running",
+    ]}
+    answer={1}
+    explanation="A terminated process's kernel object persists until every handle to it is closed. The .NET Process object holds such a handle, which is what makes reading ExitCode after exit possible."
+  />
+  <Quiz
+    id="the-process-class-and-process-lifecycle-q3"
+    question="What happens to a Windows process's kernel object when it becomes 'signaled'?"
+    options={[
+      "It is immediately deleted from memory",
+      "It becomes usable with wait functions — this happens the instant the process terminates",
+      "It gains a new access token",
+      "It spawns a child process automatically",
+    ]}
+    answer={1}
+    explanation="A process handle transitions to signaled state at termination, which is what wait functions (and HasExited/WaitForExit in .NET) rely on to detect that a process has ended."
+  />
+  <Quiz
+    id="the-process-class-and-process-lifecycle-q4"
+    question="If a parent process exits, what happens to a child process it started with Process.Start, by default?"
+    options={[
+      "The child is automatically terminated along with the parent",
+      "The child keeps running independently — there is no enforced parent-child lifetime relationship",
+      "The child is paused until a new parent adopts it",
+      "The child's threads are transferred to explorer.exe",
+    ]}
+    answer={1}
+    explanation="Windows does not automatically kill children when a parent exits. The parent-child link Process.Start records is informational; actual lifetime coupling requires Job Objects."
+  />
+  <Quiz
+    id="the-process-class-and-process-lifecycle-q5"
+    question="What underlying Win32 handle does process.Handle (or SafeProcessHandle) in .NET actually represent?"
+    options={[
+      "A handle to the process's main window",
+      "The real HANDLE returned by CreateProcessW, wrapped so the CLR can close it deterministically",
+      "A handle to the process's registry hive",
+      "A purely managed construct with no OS-level counterpart",
+    ]}
+    answer={1}
+    explanation="The .NET Process object wraps the actual kernel handle produced by CreateProcessW in a SafeHandle, tying its lifetime to the managed object's disposal."
+  />
+</QuizSet>

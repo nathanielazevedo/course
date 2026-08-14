@@ -1,0 +1,105 @@
+"A C# app" isn't one shape. The same language and runtime target several very different application models on Windows, each with its own entry point, lifecycle, and relationship to the desktop. Knowing the map up front makes the rest of this course easier to place — most later chapters are really about one of these project types specifically.
+
+### The project types you'll actually reach for
+
+| Project type | `dotnet new` template | Has a UI? | Typical use |
+|---|---|---|---|
+| Console app | `console` | No | CLI tools, scripts, background jobs you run manually |
+| Worker Service | `worker` | No | Long-running background processes, the basis for Windows Services (Chapter 5) |
+| Class library | `classlib` | No | Shared code referenced by other project types |
+| WinForms app | `winforms` | Yes | Simple line-of-business desktop UIs, fast to build, older but still shipping |
+| WPF app | `wpf` | Yes | Richer desktop UIs via XAML, data binding, and styling |
+| WinUI 3 app | `winui3` (via templates) | Yes | Modern native Windows UI, part of the Windows App SDK |
+
+All of them compile through the same C# compiler and run on the same CLR. What differs is the entry point and what runs the message loop, if there is one.
+
+### Console apps and Worker Services: no UI, no window
+
+A console app's `Main` method runs top to bottom and exits — there's no window, no message loop, nothing keeping the process alive except your own code (a `while` loop, `Console.ReadLine()`, or an awaited long-running `Task`). A **Worker Service** is a console app in disguise: it uses the *Generic Host* (`Host.CreateApplicationBuilder`), the same hosting model ASP.NET Core uses, to manage startup, dependency injection, configuration, and graceful shutdown around a long-running `BackgroundService`. This is the standard starting point for anything meant to become a Windows Service later — you build and test it as an ordinary console process, then add the pieces in Chapter 5 that let the Service Control Manager start and stop it.
+
+```csharp
+// Program.cs — a Worker Service, the shape most Windows Services start from
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddHostedService<Worker>();
+var host = builder.Build();
+host.Run();
+```
+
+### WinForms and WPF: two different answers to the same problem
+
+Both WinForms and WPF put a **window** on screen, and both are ultimately driven by the Win32 message loop from the previous sections — a window sits idle until Windows delivers it a message (mouse click, keypress, paint request), and your code reacts. They differ in how far each one is from that loop:
+
+- **WinForms** is a comparatively thin, direct wrapper around native Win32 controls (buttons, text boxes, list views are the real Win32 controls under a managed API). It's simple to reason about and fast to build with, at the cost of being harder to restyle or scale visually.
+- **WPF** replaces native controls with its own retained-mode rendering built on DirectX, described declaratively in **XAML**, with data binding as a first-class concept. It's more powerful and more idiomatically ".NET," at the cost of more moving parts.
+- **WinUI 3**, newer still, is Microsoft's current recommendation for new native Windows UI — closer to WPF's model (XAML, data binding) but built on the modern Windows App SDK rather than the older WPF stack, and it's what a from-scratch desktop app would typically target today.
+
+Chapter 8 covers all three in more depth, including the message loop they all sit on top of.
+
+### Choosing among them
+
+The honest guidance: **console apps and Worker Services** for anything without a human staring at it — tools, services, automation, the kind of C# most of this course is actually about. **WPF or WinUI 3** for a new desktop UI you're building today. **WinForms** mainly if you're maintaining an existing WinForms codebase, need something extremely fast to prototype, or need to embed a legacy Win32 control that has no modern equivalent. Most of the remaining chapters — processes, the filesystem, the registry, services, security, diagnostics — apply identically no matter which of these you're building on top of, because they live below the UI layer entirely.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="where-c-fits-console-services-winforms-wpf-q1"
+    question="What keeps a plain console app's process alive after Main starts running?"
+    options={[
+      "The Win32 message loop, automatically",
+      "Nothing built in — only whatever the code itself does, like a loop, ReadLine, or an awaited long-running task",
+      "The Service Control Manager",
+      "The WPF rendering thread",
+    ]}
+    answer={1}
+    explanation="A console app has no message loop or host keeping it alive by default; Main simply runs to completion unless the code itself blocks or loops."
+  />
+  <Quiz
+    id="where-c-fits-console-services-winforms-wpf-q2"
+    question="What is a .NET Worker Service, structurally?"
+    options={[
+      "A WPF app with the window hidden",
+      "A console-style app built on the Generic Host, running a long-lived BackgroundService with hosting, DI, and configuration built in",
+      "A COM component hosted inside explorer.exe",
+      "A WinForms app compiled without a UI thread",
+    ]}
+    answer={1}
+    explanation="Worker Services use the same Generic Host as ASP.NET Core to wrap a BackgroundService with startup, DI, configuration, and shutdown handling — the usual starting point for a Windows Service."
+  />
+  <Quiz
+    id="where-c-fits-console-services-winforms-wpf-q3"
+    question="What do WinForms and WPF have in common at the lowest level?"
+    options={[
+      "They both render exclusively through DirectX with no Win32 involvement",
+      "Both ultimately sit on top of the Win32 message loop, reacting to messages Windows delivers to their windows",
+      "They compile to the same binary format and are interchangeable at runtime",
+      "Neither one can be built with modern .NET",
+    ]}
+    answer={1}
+    explanation="Despite very different rendering models, both frameworks are windows that receive and react to messages from the same underlying Win32 message loop."
+  />
+  <Quiz
+    id="where-c-fits-console-services-winforms-wpf-q4"
+    question="What is the key structural difference between WinForms and WPF?"
+    options={[
+      "WinForms wraps native Win32 controls directly; WPF renders its own controls via DirectX and describes UI declaratively in XAML"
+      , "WinForms cannot be used with modern .NET at all",
+      "WPF has no concept of data binding, unlike WinForms",
+      "WinForms only runs on .NET Framework, never on modern .NET",
+    ]}
+    answer={0}
+    explanation="WinForms is a thin layer over real Win32 controls; WPF replaces those with its own DirectX-rendered, XAML-described controls with data binding built in."
+  />
+  <Quiz
+    id="where-c-fits-console-services-winforms-wpf-q5"
+    question="According to the chapter's guidance, which project type is the typical starting point for most of what this course covers — processes, the registry, services, security, diagnostics?"
+    options={[
+      "WinForms apps specifically",
+      "Console apps and Worker Services, since these topics live below the UI layer",
+      "WinUI 3 apps exclusively",
+      "None of the project types — those topics require a separate native project",
+    ]}
+    answer={1}
+    explanation="Topics like processes, the registry, and services apply the same way regardless of UI framework, and console apps / Worker Services are the natural home for code without a human-facing UI."
+  />
+</QuizSet>

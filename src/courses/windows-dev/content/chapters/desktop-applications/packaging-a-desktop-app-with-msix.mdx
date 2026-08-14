@@ -1,0 +1,105 @@
+Having built a UI in one of the last three sections' frameworks, this closing section is about the last mile: getting it onto an end user's machine in a form that installs cleanly, updates reliably, and uninstalls completely — which is a genuinely harder problem than it sounds, and one **MSIX** was built specifically to solve.
+
+### What a traditional installer gets wrong
+
+A classic Win32 installer (an MSI, or a raw `.exe` installer built with something like Inno Setup) can, in principle, do almost anything at install time: write anywhere in the filesystem, drop keys anywhere in the registry (Chapter 4), register COM objects (Chapter 6) machine-wide. That power is also the problem — nothing enforces that an uninstall actually reverses every one of those changes, which is the real-world cause of "uninstalled apps" leaving behind registry cruft and orphaned files, and why two applications' installers can conflict by writing to the same shared location in incompatible ways.
+
+### MSIX: an installer that can't leave a mess behind
+
+MSIX packages an application as declarative, sandboxed data rather than an arbitrary install script. Installing an MSIX package doesn't run install-time code that could do anything uncontrolled — it's Windows itself unpacking a signed, immutable package into an isolated per-app location and registering it, following a manifest that declares exactly what the app needs (specific capabilities, specific file-type associations) rather than trusting an installer's code to behave. The direct consequence: uninstalling an MSIX app removes it completely and deterministically, because there's no arbitrary install-time state to have left scattered around in the first place — the manifest is the entire truth about what the app touched.
+
+```xml
+<!-- Package.appxmanifest, abbreviated -->
+<Package>
+  <Identity Name="Contoso.MyApp" Publisher="CN=Contoso" Version="1.2.0.0" />
+  <Applications>
+    <Application Id="App" Executable="MyApp.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="My App" Description="..." Square150x150Logo="..." />
+    </Application>
+  </Applications>
+  <Capabilities>
+    <Capability Name="internetClient" />
+  </Capabilities>
+</Package>
+```
+
+### File and registry virtualization: isolation, without rewriting the app
+
+An existing WPF or WinForms app doesn't need to be rewritten to be packaged as MSIX — this connects directly back to Chapter 4's registry virtualization concept, generalized. MSIX applies a similar sandboxing idea at a broader scale: the packaged app sees what looks like normal, unrestricted file and registry access, but writes are transparently redirected into an isolated per-package storage area rather than actually landing in the real, shared locations — the same pattern Chapter 4 covered for legacy UAC virtualization, deliberately applied here on purpose rather than as a compatibility shim, and covering far more of the filesystem and registry than the older mechanism did.
+
+### Signing is not optional
+
+Every MSIX package must be signed (Chapter 7) with a certificate trusted by the installing machine — there is no unsigned MSIX install path at all, unlike a traditional `.exe` installer, which can run unsigned with just a SmartScreen warning. For internal enterprise distribution, a self-signed or internal CA certificate deployed to trusted machines works; for public distribution, either a public code-signing certificate or, more commonly today, publishing through the **Microsoft Store**, which signs the package as part of the submission process and additionally handles hosting, discovery, and update delivery entirely outside your own infrastructure.
+
+### Installing and updating
+
+```powershell
+Add-AppxPackage -Path MyApp.msix
+```
+
+MSIX's update model checks for and applies new package versions automatically once configured (via App Installer files or Store-managed updates), replacing the update-check logic many older apps had to build themselves — another category of previously bespoke, error-prone code (Chapter 11 covers the broader auto-update landscape, including for apps not packaged as MSIX) that MSIX absorbs into the platform rather than leaving to each app's own installer to reinvent.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="packaging-a-desktop-app-with-msix-q1"
+    question="Why can a traditional Win32 installer leave behind registry cruft or orphaned files after uninstalling?"
+    options={[
+      "Traditional installers are incapable of writing to the registry at all",
+      "A traditional installer can run arbitrary install-time code with broad access, and nothing enforces that its uninstaller actually reverses every change it made"
+      , "This only happens with unsigned installers",
+      "MSI installers are immune to this problem entirely"
+    ]}
+    answer={1}
+    explanation="Because classic installers execute unconstrained install-time logic, there's no structural guarantee that every change gets undone on uninstall — the root cause of leftover files and registry entries."
+  />
+  <Quiz
+    id="packaging-a-desktop-app-with-msix-q2"
+    question="Why does uninstalling an MSIX app remove it completely and deterministically?"
+    options={[
+      "MSIX apps are simply smaller than traditional installs",
+      "MSIX packages the app as declarative, sandboxed data with no arbitrary install-time code — the manifest is the entire truth about what the app touched, leaving nothing untracked to clean up"
+      , "MSIX apps never write to the filesystem or registry at all",
+      "Uninstallation for MSIX apps requires manual cleanup, just like traditional installers"
+    ]}
+    answer={1}
+    explanation="Because installation is declarative rather than an arbitrary script, there's no possibility of untracked side effects — everything the app did is scoped and known, making complete removal structurally guaranteed."
+  />
+  <Quiz
+    id="packaging-a-desktop-app-with-msix-q3"
+    question="How does MSIX let an existing WPF or WinForms app be packaged without rewriting it, despite MSIX's sandboxing model?"
+    options={[
+      "It requires converting all file and registry access to new MSIX-specific APIs",
+      "File and registry access is transparently virtualized — the app sees normal-looking access, but writes are redirected into isolated per-package storage, similar in spirit to Chapter 4's UAC registry virtualization"
+      , "MSIX apps cannot access the filesystem or registry under any circumstances",
+      "The app must be entirely rewritten in WinUI 3 to support MSIX packaging"
+    ]}
+    answer={1}
+    explanation="MSIX generalizes the virtualization concept from Chapter 4 deliberately and broadly, letting existing apps run largely unmodified while still being fully sandboxed and cleanly removable."
+  />
+  <Quiz
+    id="packaging-a-desktop-app-with-msix-q4"
+    question="How does MSIX's signing requirement differ from a traditional .exe installer's?"
+    options={[
+      "Both require signing equally; there is no difference",
+      "Every MSIX package must be signed with a trusted certificate — there is no unsigned install path — whereas a traditional installer can run unsigned with just a SmartScreen warning"
+      , "MSIX packages are never signed, unlike traditional installers",
+      "Only MSIX packages distributed through the Microsoft Store require signing"
+    ]}
+    answer={1}
+    explanation="MSIX enforces signing as a hard requirement for installation at all, a stricter stance than the warning-only behavior traditional unsigned installers get from SmartScreen."
+  />
+  <Quiz
+    id="packaging-a-desktop-app-with-msix-q5"
+    question="What update-related burden does MSIX absorb into the platform that many older apps had to build themselves?"
+    options={[
+      "Nothing — MSIX apps still require fully custom update logic",
+      "Automatic checking for and application of new package versions, via App Installer files or Store-managed updates, replacing bespoke update-check code many apps previously had to write"
+      , "MSIX only supports manual, fully offline updates",
+      "Update delivery is only available through third-party tools, not MSIX itself"
+    ]}
+    answer={1}
+    explanation="MSIX's built-in update mechanism removes the need for each app to implement its own update-checking and delivery logic, a category of code Chapter 11 covers more broadly for apps outside the MSIX model."
+  />
+</QuizSet>

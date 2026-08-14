@@ -1,0 +1,134 @@
+The last section mentioned that `AddWindowsService()` swaps in a lifetime that "speaks the SCM's protocol" when the app is launched by it. This section is about what's actually on the other end of that protocol — the **Service Control Manager (SCM)**, a system process (`services.exe`) that owns the entire lifecycle of every service on the machine, and the small state machine every service participates in whether it knows it or not.
+
+### The SCM's database and the service's own state machine
+
+The SCM maintains a database of every registered service — its executable path, startup type, dependencies, and current state — backed by, unsurprisingly, the registry: `HKLM\SYSTEM\CurrentControlSet\Services`. Each service key there is exactly what `sc.exe`, PowerShell's `Get-Service`, and the Services MMC console (`services.msc`) all read from and write to; there is no separate "service database" beyond this registry hive plus the SCM's in-memory tracking of which ones are actually running right now.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 130"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Service state machine: Stopped transitions to Start Pending when a start is requested, then to Running once the service reports it has started. Running transitions to Stop Pending when a stop is requested, then back to Stopped once the service reports it has stopped."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["Stopped", "Start Pending", "Running", "Stop Pending"].map((label, i) => (
+      <g key={label} transform={`translate(${10 + i * 160}, 40)`}>
+        <rect x="0" y="0" width="140" height="40" fill={i === 2 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.5" />
+        <text x="70" y="25" fontSize="11" textAnchor="middle">{label}</text>
+        {i < 3 && <line x1="145" y1="20" x2="163" y2="20" stroke="#000" strokeWidth="1" markerEnd="url(#a7)" />}
+      </g>
+    ))}
+    <path d="M 640 40 C 640 5, 10 5, 10 40" fill="none" stroke="#000" strokeWidth="1" markerEnd="url(#a7)" />
+    <defs>
+      <marker id="a7" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+A service reports its own state transitions back to the SCM as it moves through this machine — it's a genuine two-way protocol, not the SCM guessing based on whether the process is still alive. This is why a hung service (process running, but never reporting it finished starting) shows as stuck in "Starting" rather than "Running": the SCM is faithfully reporting the last state the service told it, not inferring anything from process existence alone.
+
+### Registering a service
+
+```csharp
+// One-time registration, typically done by an installer or a setup script —
+// sc.exe is the direct CLI equivalent of what this does
+using var scm = new ServiceController("MyService"); // requires it to already exist
+
+// Creating it in the first place (via P/Invoke's CreateService, or sc.exe):
+// sc.exe create MyService binPath= "C:\Services\MyService.exe" start= auto
+```
+
+```powershell
+New-Service -Name "MyService" -BinaryPathName "C:\Services\MyService.exe" `
+  -StartupType Automatic -DisplayName "My Service"
+```
+
+`.NET` has no first-party API for *creating* a service registration — that's `sc.exe`, PowerShell's `New-Service`, or (for an actual installer) P/Invoke against `CreateService` in `advapi32.dll`, following Chapter 6's interop pattern. `ServiceController`, the class shown above, is for **controlling** an already-registered service — starting, stopping, querying status — not for registering one in the first place.
+
+### Controlling a service from C#
+
+```csharp
+using var sc = new ServiceController("MyService");
+if (sc.Status != ServiceControllerStatus.Running)
+{
+    sc.Start();
+    sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+}
+Console.WriteLine(sc.Status); // Running, Stopped, StartPending, etc.
+sc.Stop();
+```
+
+`ServiceController` is itself a thin wrapper over the same SCM APIs `sc.exe` calls — `sc.Status` reflects exactly the state machine above, and `WaitForStatus` blocks (with a timeout you provide) until the service reports the target state, rather than polling naively.
+
+### Startup types decide when, not whether, a service can run
+
+A service's **startup type** — `Automatic`, `Automatic (Delayed Start)`, `Manual`, or `Disabled` — controls whether the SCM starts it at boot, not whether it's *allowed* to run at all; a `Manual` service can still be started on demand (by `ServiceController.Start()`, by another service that depends on it, or by a user via `services.msc`), it simply isn't started automatically. `Disabled` is the only setting that actually prevents the service from starting under any circumstance, which is why disabling a service — rather than just setting it to Manual — is the real fix when you need to guarantee it never runs.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-service-control-manager-q1"
+    question="Where does the Service Control Manager's database of registered services actually live?"
+    options={[
+      "In a proprietary binary file with no other access path",
+      "In the registry, under HKLM\\SYSTEM\\CurrentControlSet\\Services — the same data sc.exe, Get-Service, and services.msc all read and write"
+      , "Entirely in memory, discarded on every reboot",
+      "In a hidden system file on the boot volume unrelated to the registry",
+    ]}
+    answer={1}
+    explanation="Service registration data is stored in a specific registry location, which is why the various tools for managing services (CLI, PowerShell, MMC) are all really just different front ends onto the same underlying data."
+  />
+  <Quiz
+    id="the-service-control-manager-q2"
+    question="How does the SCM know when a service has actually finished starting, as opposed to just having its process running?"
+    options={[
+      "It infers this purely from whether the process exists",
+      "The service reports its own state transitions back to the SCM as a genuine two-way protocol, which is why a hung service can appear stuck in 'Starting'"
+      , "It checks a timeout and assumes success if the process hasn't crashed",
+      "It has no way to know this at all",
+    ]}
+    answer={1}
+    explanation="Services actively report their state through the SCM protocol; a service whose process is alive but never reports finishing startup will show as stuck pending, since the SCM trusts the reported state, not process existence alone."
+  />
+  <Quiz
+    id="the-service-control-manager-q3"
+    question="What is ServiceController used for, as distinct from registering a new service?"
+    options={[
+      "Creating a brand-new service registration in the SCM database",
+      "Controlling and querying an already-registered service — starting, stopping, and checking its status"
+      , "Writing to the Windows Event Log",
+      "Elevating a process to administrator rights",
+    ]}
+    answer={1}
+    explanation="ServiceController operates on services that already exist in the SCM database; actually registering a new service requires sc.exe, PowerShell's New-Service, or P/Invoke against CreateService."
+  />
+  <Quiz
+    id="the-service-control-manager-q4"
+    question="What does setting a service's startup type to Manual actually control?"
+    options={[
+      "It prevents the service from ever being started under any circumstance",
+      "It controls whether the SCM starts the service automatically at boot — the service can still be started on demand by a user, dependent service, or code"
+      , "It is functionally identical to Disabled",
+      "It only applies to services that use the Worker SDK",
+    ]}
+    answer={1}
+    explanation="Manual only opts a service out of automatic startup at boot; it remains startable on demand. Disabled is the only setting that actually blocks the service from running entirely."
+  />
+  <Quiz
+    id="the-service-control-manager-q5"
+    question="Why is setting a service to Disabled the correct choice when you need to guarantee it never runs, rather than setting it to Manual?"
+    options={[
+      "There is no functional difference between Disabled and Manual",
+      "Manual still allows the service to be started on demand by a user, a dependent service, or code — only Disabled actually blocks it from starting under any circumstance"
+      , "Disabled is only available for services created via the Worker SDK",
+      "Manual services consume more system resources than Disabled ones",
+    ]}
+    answer={1}
+    explanation="Since Manual services remain startable on demand, only Disabled provides an actual guarantee that the service cannot be started, whether by a user, a dependency, or code calling ServiceController.Start()."
+  />
+</QuizSet>

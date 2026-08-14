@@ -1,0 +1,97 @@
+The previous section's named pipes and mutexes are low-level primitives — a byte stream, a lock. **Windows Communication Foundation (WCF)** was Microsoft's answer to a higher-level problem: defining a service contract once and being able to expose or consume it over several different underlying transports — including, notably, named pipes themselves — without rewriting the service logic for each one. It's still genuinely relevant to understand, both because plenty of existing Windows codebases run on it, and because knowing what it did well explains what its modern replacements deliberately kept or changed.
+
+### One contract, multiple bindings
+
+WCF's core idea was separating a service's **contract** (the operations it exposes, defined as a C# interface with `[ServiceContract]`/`[OperationContract]` attributes) from its **binding** (the transport and protocol actually used to reach it — HTTP/SOAP, TCP, or named pipes) and its **address** (where to find it). The same contract could be exposed over `NetNamedPipeBinding` for fast local IPC and `BasicHttpBinding` for interoperating with non-.NET clients over the network, simultaneously, from one service implementation — a genuinely powerful abstraction for its time, and part of why WCF became the default choice for enterprise Windows service-to-service communication for years.
+
+```csharp
+[ServiceContract]
+public interface IOrderService
+{
+    [OperationContract]
+    Order GetOrder(int id);
+}
+
+// One implementation, multiple possible bindings/endpoints configured separately
+```
+
+### Why WCF specifically (not just "old code") is now legacy
+
+Classic WCF is built on **.NET Framework** and was never ported to modern .NET in its original, full form — this is a genuinely different situation from most .NET Framework APIs, which either made the jump to modern .NET directly or have a close equivalent. `CoreWCF`, a community/Microsoft-supported open-source project, provides server-side WCF-contract compatibility on modern .NET for migration scenarios, but it's explicitly a migration bridge, not a recommendation for new development — new service code on modern .NET is expected to be built on the alternatives below rather than on WCF's contract-and-binding model at all.
+
+### gRPC: WCF's most direct conceptual successor
+
+**gRPC** (covered in depth in the next section) is the closest thing to "what WCF was trying to do, rebuilt for modern .NET and cross-platform interoperability": a contract defined once (in `.proto` files rather than C# interfaces), strongly-typed client and server code generated from that contract, and a binary, efficient wire protocol (Protocol Buffers over HTTP/2) in place of WCF's XML/SOAP-heavy default. Where WCF's binding model let one contract span wildly different transports including in-process-adjacent named pipes, gRPC is more narrowly, deliberately focused on network RPC done well — which is a reasonable trade given how much of WCF's binding flexibility went unused in practice.
+
+### ASP.NET Core Web API: the plain-HTTP alternative
+
+For services that don't need RPC-style strong contracts at all, a plain ASP.NET Core Web API (JSON over HTTP, `[ApiController]`, minimal APIs) is the more common modern default — simpler to consume from any HTTP client on any platform, better tooling and ecosystem support today than WCF's SOAP-based interoperability story ever achieved, at the cost of the compile-time contract enforcement gRPC or WCF provide.
+
+### Named pipes directly, without a framework on top
+
+For the specific case WCF's `NetNamedPipeBinding` targeted — fast, local-machine IPC with a service-like request/response shape — modern code often skips a framework layer entirely and uses `System.IO.Pipes` directly, as the previous section covered, sometimes with a lightweight message-framing convention (length-prefixed JSON or similar) layered on top by hand. This is a reasonable choice specifically when the communication is genuinely local-only and doesn't need cross-machine reach at all — reaching for gRPC's or Web API's networking machinery for two processes that will always be on the same box is often more infrastructure than the problem actually needs.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="wcf-and-its-modern-alternatives-q1"
+    question="What was the core architectural idea behind WCF's contract/binding/address separation?"
+    options={[
+      "Every service had to be rewritten for each transport it needed to support",
+      "A service's contract (operations exposed) was separated from its binding (transport/protocol) and address, letting the same contract be exposed over multiple transports like HTTP and named pipes from one implementation"
+      , "WCF only ever supported a single fixed transport, HTTP",
+      "Bindings were determined automatically based on the client's operating system"
+    ]}
+    answer={1}
+    explanation="WCF's key abstraction let one service contract be exposed simultaneously over different bindings (e.g. NetNamedPipeBinding for local IPC, BasicHttpBinding for network interop) without duplicating the service logic."
+  />
+  <Quiz
+    id="wcf-and-its-modern-alternatives-q2"
+    question="Why is classic WCF considered legacy in a way that's more definitive than most .NET Framework APIs?"
+    options={[
+      "WCF was ported directly and fully to modern .NET, just under a different namespace",
+      "Classic WCF, built on .NET Framework, was never ported to modern .NET in its original full form — CoreWCF exists specifically as a migration bridge, not a recommendation for new development"
+      , "WCF has been completely removed from all supported Windows versions",
+      "WCF only ever worked on Windows Server editions, never on client Windows"
+    ]}
+    answer={1}
+    explanation="Unlike most .NET Framework functionality that carried over to modern .NET, full WCF did not make that transition — CoreWCF's role is explicitly migration compatibility, reinforcing that new development should target its successors instead."
+  />
+  <Quiz
+    id="wcf-and-its-modern-alternatives-q3"
+    question="In what sense is gRPC described as WCF's most direct conceptual successor?"
+    options={[
+      "gRPC uses the exact same XML/SOAP wire format as WCF",
+      "Like WCF, gRPC defines a contract once and generates strongly-typed client/server code, but uses .proto files and an efficient binary protocol (Protocol Buffers over HTTP/2) instead of WCF's XML/SOAP-heavy defaults"
+      , "gRPC and WCF share no conceptual similarities at all",
+      "gRPC only works for same-machine IPC, never over a network"
+    ]}
+    answer={1}
+    explanation="gRPC mirrors WCF's contract-first, code-generation approach to RPC, modernized with a more efficient wire format and cross-platform tooling, though narrower in transport flexibility than WCF's binding model."
+  />
+  <Quiz
+    id="wcf-and-its-modern-alternatives-q4"
+    question="When is a plain ASP.NET Core Web API generally preferred over gRPC as a WCF alternative?"
+    options={[
+      "Never — gRPC should always be used instead of a Web API for any new service",
+      "When compile-time contract enforcement isn't essential and broad, simple HTTP/JSON interoperability with any client on any platform matters more"
+      , "Web APIs cannot be built on modern .NET at all",
+      "Only when the service needs to support named pipes as a transport"
+    ]}
+    answer={1}
+    explanation="Plain HTTP/JSON Web APIs trade compile-time contract strictness for simpler, more universally consumable interoperability, making them the more common default when strong RPC contracts aren't a hard requirement."
+  />
+  <Quiz
+    id="wcf-and-its-modern-alternatives-q5"
+    question="When might modern code skip both gRPC and a Web API framework and use System.IO.Pipes directly instead, as covered in the previous section?"
+    options={[
+      "This is never a reasonable choice in modern .NET development",
+      "When communication is genuinely local-machine-only with a service-like request/response shape, since reaching for network-oriented frameworks would be more infrastructure than the problem needs"
+      , "Only when the two processes are running on different machines",
+      "Only for services that must support the SOAP protocol"
+    ]}
+    answer={1}
+    explanation="For strictly local IPC needs matching what WCF's NetNamedPipeBinding used to target, using System.IO.Pipes directly (with a lightweight framing convention) avoids the overhead of a full networking framework that isn't actually needed."
+  />
+</QuizSet>

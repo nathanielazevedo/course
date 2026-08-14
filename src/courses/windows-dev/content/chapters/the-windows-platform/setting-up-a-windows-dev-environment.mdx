@@ -1,0 +1,110 @@
+Everything from here on assumes a working Windows development setup. This section is deliberately short — it's a checklist, not a concept — but a few of the choices it covers (which SDK, which target framework) shape how the rest of the course's code samples will behave on your machine.
+
+### The pieces you need
+
+1. **The .NET SDK.** Install the current .NET SDK (`dotnet --version` should report it) from Microsoft's site or via `winget install Microsoft.DotNet.SDK.8`. The SDK includes the runtime, the compiler, and the `dotnet` CLI used throughout this course to create, build, and run projects.
+2. **The Windows SDK.** Needed for anything that touches native Win32 headers directly — P/Invoke against less common APIs, COM interop, or building WinUI 3 apps. Visual Studio installs it as a component; standalone, it's available from Microsoft's developer downloads.
+3. **An editor.** Visual Studio (Community edition is free) gives you the richest Windows-specific tooling — a visual designer for WinForms/WPF/WinUI, integrated debugging with call-stack visibility into native frames, and project templates for every type in the previous section. VS Code with the C# Dev Kit extension is lighter and works well for console apps, services, and anything without a visual designer. Both use the same underlying `dotnet` toolchain, so neither is required — this course's code samples work from either.
+
+### Choosing your target framework
+
+As covered in the last section, whether you write `net8.0` or `net8.0-windows` in your `.csproj` determines whether Windows-only APIs (registry, WMI, COM interop, WinForms/WPF/WinUI) are visible to you at all:
+
+```bash
+dotnet new console -n HelloWindows
+```
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
+```
+
+Most of this course's examples use `net8.0-windows` for exactly this reason. If you start a project as plain `net8.0` and later need `Microsoft.Win32.Registry` or `System.Management`, you'll either need to switch the TFM or pull in the specific compatibility package that ships that API for cross-platform projects (`Microsoft.Windows.Compatibility` bundles most of them).
+
+### A note on running as Administrator
+
+A recurring theme starting in Chapter 2 is that some operations — starting certain processes, writing to protected registry keys, controlling services — require elevated rights. Your terminal or IDE's own elevation matters here: code launched from a non-elevated terminal runs non-elevated regardless of what the code asks for, and `Run as administrator` on your terminal or IDE shortcut is the simplest way to test elevated-only code paths locally. Chapter 2 covers the actual programmatic model (UAC, manifests, elevation requests) — for now, just know that "it works in Visual Studio running as admin but fails from a normal terminal" is expected, not a bug.
+
+### Verifying the setup
+
+A minimal sanity check before moving on:
+
+```bash
+dotnet --version
+dotnet new console -n Sanity -f net8.0-windows
+cd Sanity
+dotnet run
+```
+
+If that prints `Hello, World!` without errors, the SDK, the Windows-targeted TFM, and your terminal's permissions are all in a state the rest of this course can build on.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="setting-up-a-windows-dev-environment-q1"
+    question="What does the .NET SDK provide, as distinct from just the runtime?"
+    options={[
+      "Only the ability to run already-built .NET applications",
+      "The runtime plus the compiler and the dotnet CLI used to create, build, and run projects",
+      "A GUI-only tool with no command-line interface",
+      "Windows-only APIs that the runtime alone does not include",
+    ]}
+    answer={1}
+    explanation="The SDK is a superset of the runtime that adds the compiler and the dotnet CLI, which is what lets you scaffold, build, and run projects from the command line."
+  />
+  <Quiz
+    id="setting-up-a-windows-dev-environment-q2"
+    question="When is the standalone Windows SDK specifically needed, beyond the .NET SDK?"
+    options={[
+      "For every C# console application, without exception",
+      "For work that touches native Win32 headers directly — less common P/Invoke targets, COM interop, or building WinUI 3 apps",
+      "It replaced the .NET SDK entirely in recent Windows versions",
+      "Only when targeting net8.0 without the -windows suffix",
+    ]}
+    answer={1}
+    explanation="The Windows SDK supplies native headers and tooling needed for direct Win32/COM work and WinUI 3 development; plain .NET SDK is enough for most managed-only code."
+  />
+  <Quiz
+    id="setting-up-a-windows-dev-environment-q3"
+    question="What determines whether Windows-only BCL APIs like the Registry are visible in a project?"
+    options={[
+      "Whether Visual Studio or VS Code is used as the editor",
+      "The TargetFramework moniker in the .csproj — net8.0-windows unlocks them, plain net8.0 does not by default",
+      "Whether the Windows SDK is installed, regardless of the .csproj",
+      "Whether the project is a console app or a WPF app",
+    ]}
+    answer={1}
+    explanation="The -windows suffix on the target framework moniker is what exposes the Windows-specific API surface to the compiler and analyzers, independent of editor choice."
+  />
+  <Quiz
+    id="setting-up-a-windows-dev-environment-q4"
+    question="Why might code that requires elevated rights work when run from Visual Studio 'as administrator' but fail from a normal terminal?"
+    options={[
+      "Visual Studio silently bypasses all Windows security checks",
+      "A process runs with whatever elevation level its launching terminal or IDE had — code alone can't upgrade that after the fact",
+      "Elevated rights are unrelated to how the process was launched",
+      "This indicates a bug in the .NET runtime that needs a workaround",
+    ]}
+    answer={1}
+    explanation="A process inherits the elevation of the context that launched it; a non-elevated terminal produces a non-elevated process regardless of what the code inside it attempts."
+  />
+  <Quiz
+    id="setting-up-a-windows-dev-environment-q5"
+    question="What does the Microsoft.Windows.Compatibility package address?"
+    options={[
+      "It upgrades a project from .NET Framework to modern .NET automatically",
+      "It bundles most Windows-only APIs, like Registry and WMI access, for use in projects that need them without fully switching target framework",
+      "It provides a WinForms designer inside VS Code",
+      "It is required for every net8.0-windows project to compile",
+    ]}
+    answer={1}
+    explanation="Microsoft.Windows.Compatibility packages up most of the Windows-specific compatibility APIs, giving projects an alternative to changing their TFM just to reach one Windows-only API."
+  />
+</QuizSet>

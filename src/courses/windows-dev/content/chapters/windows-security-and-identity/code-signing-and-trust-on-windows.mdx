@@ -1,0 +1,93 @@
+Every mechanism so far in this chapter has answered "what is this identity allowed to do." This closing section answers a different question that sits in front of all of them: "is this piece of code actually what it claims to be, and should the system trust it at all before any of those permission checks even become relevant."
+
+### What a code signature actually proves
+
+Authenticode, Windows' code-signing system, attaches a digital signature to an executable or driver, computed from a cryptographic hash of the file's contents and signed with a certificate issued by a trusted Certificate Authority. It proves two specific, narrow things: **integrity** — the file hasn't been modified since it was signed, because any change would invalidate the hash — and **authenticity** — the signature was produced by whoever holds the private key for that certificate, whose identity the CA has (in theory) verified before issuing it. It does **not** prove the code is safe, well-written, or free of vulnerabilities; a legitimately signed piece of malware is still legitimately signed. Signature verification is a trust-and-tampering check, not a code-quality or intent check.
+
+### Where this shows up for a C# developer
+
+- **SmartScreen and "Unknown Publisher" warnings.** An unsigned or newly-signed executable downloaded from the internet triggers SmartScreen's reputation-based warning; a signature from a well-established certificate (with enough accumulated reputation) suppresses it. This is why a from-scratch installer, even one signed with a brand-new valid certificate, can still show a warning the first while — reputation is built over time and volume of installs, not granted instantly by having a valid signature at all.
+- **Driver signing enforcement.** Modern 64-bit Windows refuses to load an unsigned kernel-mode driver at all under normal boot conditions — a hard requirement, not a warning, closing off a large historical malware vector (kernel drivers run with the highest possible trust).
+- **AppLocker and WDAC.** Enterprise environments increasingly use publisher-based rules — "only run code signed by these specific certificates" — as an application allowlisting mechanism, which is a direct, practical use of everything this section covers: the signature is what the allowlist rule actually matches against.
+- **The Mark of the Web.** A file downloaded from the internet gets tagged (via the Alternate Data Stream mechanism from Chapter 3) with its origin zone; Windows treats that file with extra caution — a security warning on open, or the SmartScreen check above — until that tag is explicitly cleared, independent of whether the file happens to be signed at all.
+
+### Verifying a signature from C#
+
+```csharp
+using System.Security.Cryptography.X509Certificates;
+
+X509Certificate2 cert = X509Certificate2.CreateFromSignedFile(path);
+bool trusted = cert.Verify(); // checks the cert chain, revocation, and expiry
+Console.WriteLine(cert.Subject);
+```
+
+`X509Certificate2.Verify()` walks the certificate chain up to a trusted root, checks it hasn't expired, and (network permitting) checks revocation status — an expired or revoked signing certificate fails verification even if the file's hash still matches exactly what was originally signed, which is a deliberate design choice: trust in a certificate is a point-in-time judgment the issuing CA can later retract.
+
+### Signing your own application
+
+For a .NET app you're shipping, signing is generally a build/deployment-pipeline step rather than something the application itself does at runtime — `signtool.exe` (part of the Windows SDK from Chapter 1's setup checklist) is the standard tool, typically invoked from CI against a certificate stored in a hardware security module or a cloud-based signing service rather than a plain file on disk, precisely because a leaked signing private key lets an attacker produce malware that passes every check this section describes as if it were legitimately yours.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="code-signing-and-trust-on-windows-q1"
+    question="What does a valid Authenticode signature actually prove about a file?"
+    options={[
+      "That the code is free of security vulnerabilities and safe to run",
+      "That the file hasn't been modified since signing (integrity) and was signed by whoever holds the corresponding certificate's private key (authenticity)"
+      , "That the code has passed Microsoft's manual security review",
+      "That the software will never trigger a SmartScreen warning"
+    ]}
+    answer={1}
+    explanation="Code signing is narrowly a tamper-detection and identity-attribution mechanism — it says nothing about code quality or safety, which is why legitimately signed malware is entirely possible."
+  />
+  <Quiz
+    id="code-signing-and-trust-on-windows-q2"
+    question="Why can a brand-new installer with a valid, freshly-issued signing certificate still trigger a SmartScreen warning?"
+    options={[
+      "A freshly-issued certificate is never actually valid",
+      "SmartScreen relies on accumulated reputation built over time and install volume, not granted instantly just because a signature is technically valid"
+      , "SmartScreen ignores all code signatures entirely",
+      "New certificates are always rejected for the first 30 days"
+    ]}
+    answer={1}
+    explanation="A valid signature alone doesn't establish reputation — SmartScreen's warning suppression is based on accumulated trust over time, which a brand-new certificate hasn't yet built."
+  />
+  <Quiz
+    id="code-signing-and-trust-on-windows-q3"
+    question="What happens on modern 64-bit Windows if an unsigned kernel-mode driver attempts to load under normal boot conditions?"
+    options={[
+      "It loads with a warning dialog the user can dismiss",
+      "It is refused outright — driver signing enforcement is a hard requirement, not a warning, given how much trust kernel-mode code carries"
+      , "It loads normally with no restriction",
+      "It only fails if the driver is also flagged by SmartScreen"
+    ]}
+    answer={1}
+    explanation="Driver signing enforcement is strict on modern 64-bit Windows specifically because kernel-mode code runs with the highest possible trust, making unsigned drivers a serious historical malware vector that's been closed off structurally."
+  />
+  <Quiz
+    id="code-signing-and-trust-on-windows-q4"
+    question="What does X509Certificate2.Verify() check, beyond whether the file's hash still matches what was signed?"
+    options={[
+      "Nothing further — a matching hash alone is sufficient",
+      "It walks the certificate chain to a trusted root and checks for expiry and revocation, meaning an expired or revoked certificate fails verification even with a matching hash"
+      , "It checks the file for known malware signatures",
+      "It only validates certificates issued by Microsoft directly"
+    ]}
+    answer={1}
+    explanation="Signature verification includes chain-of-trust, expiry, and revocation checks — trust in a certificate can be retracted by the issuing CA after the fact, which Verify() accounts for beyond a simple hash match."
+  />
+  <Quiz
+    id="code-signing-and-trust-on-windows-q5"
+    question="Why is a signing private key typically stored in a hardware security module or cloud signing service rather than a plain file, when signing a shipped application?"
+    options={[
+      "Plain files are always faster to sign with, so this is purely a convenience tradeoff",
+      "A leaked signing key would let an attacker produce malware that passes every trust check this section describes as if it were legitimately the real vendor's software"
+      , "signtool.exe cannot read certificates from plain files at all",
+      "It is a legal requirement for all commercial software"
+    ]}
+    answer={1}
+    explanation="Because a valid signature is itself the basis of trust described throughout this section, protecting the private key that produces it is critical — its compromise undermines every downstream trust mechanism (SmartScreen reputation, AppLocker rules, driver enforcement) at once."
+  />
+</QuizSet>

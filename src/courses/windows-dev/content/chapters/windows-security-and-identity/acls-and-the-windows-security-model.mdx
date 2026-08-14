@@ -1,0 +1,117 @@
+Chapter 3 covered file DACLs in practical depth — ACEs, Allow vs. Deny, inheritance, ownership. Everything in that section generalizes to any securable Windows object — registry keys, services, processes, even the access token itself — because they all share one underlying structure: the **security descriptor**. This section is that unifying picture, plus the piece Chapter 3 didn't cover: auditing.
+
+### The security descriptor: one structure behind every ACL check
+
+Every securable object in Windows — files, registry keys, processes, services, kernel synchronization objects — carries a **security descriptor** with four parts: the owner SID, the primary group SID (largely a POSIX-subsystem legacy field on modern Windows, rarely meaningful in pure Windows workflows), a **DACL** (Discretionary Access Control List — the permissions covered in Chapter 3), and a **SACL** (System Access Control List — who gets *audited*, covered below). This is why `System.Security.AccessControl` has parallel types for different object kinds — `FileSecurity`, `RegistrySecurity`, `EventWaitHandleSecurity` — that all share the same conceptual shape and the same base classes, because they're all reading and writing the same kind of structure, just attached to a different object type.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A security descriptor contains four parts: owner SID, primary group SID, a DACL controlling access, and a SACL controlling auditing. The same security descriptor structure attaches to files, registry keys, services, and other kernel objects."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="180" y="10" width="280" height="34" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="32" fontSize="12" fontWeight="600" textAnchor="middle">SECURITY DESCRIPTOR</text>
+    {["Owner SID", "Group SID", "DACL (access)", "SACL (audit)"].map((label, i) => (
+      <g key={label} transform={`translate(${10 + i * 158}, 70)`}>
+        <line x1="150" y1="-26" x2="70" y2="0" stroke="#000" strokeWidth="1" />
+        <rect x="0" y="0" width="140" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x="70" y="22" fontSize="10.5" textAnchor="middle">{label}</text>
+      </g>
+    ))}
+    <text x="320" y="140" fontSize="10" fill="#666" textAnchor="middle">
+      the same shape attaches to files, registry keys, services, and other kernel objects
+    </text>
+  </svg>
+</figure>
+
+### The SACL: auditing, not access control
+
+Where the DACL decides *whether* an access succeeds, the SACL decides *whether that access gets logged* — an entirely separate list of entries, each specifying which operations by which principals should generate a security audit event, success, failure, or both. A SACL entry granting no one any access rights and a DACL entry granting the same are structurally identical ACE lists, but mean opposite things depending on which list they're in. Reading or writing a SACL itself requires `SeSecurityPrivilege`, distinct from the rights needed to read or write the DACL — a deliberate separation, since the ability to see or tamper with what's being audited is treated as more sensitive than the ability to manage ordinary access.
+
+```csharp
+// System.Security.AccessControl exposes SACL access analogously to DACL access
+FileSecurity security = fileInfo.GetAccessControl(AccessControlSections.Audit);
+security.AddAuditRule(new FileSystemAuditRule(
+    "DOMAIN\\someuser",
+    FileSystemRights.Write,
+    AuditFlags.Success | AuditFlags.Failure));
+```
+
+Audit events generated this way land in the Security log, which Chapter 9's Event Log coverage picks up directly.
+
+### The access check, as a single algorithm
+
+Pulling together Chapter 3's file-specific rules and this chapter's tokens and integrity levels, an access check against any securable object follows roughly this order: first, the integrity-level check from the previous section (write access to a higher-integrity object is refused outright, before the DACL is even consulted); then the DACL is walked in order, and the first ACE that matches one of the caller's token SIDs — user or any group — for the requested right decides the outcome, Deny ACEs generally ordered ahead of Allow ACEs at the same specificity level (Chapter 3); if no ACE matches at all, access is denied by default — there's no implicit "allow if nothing says otherwise."
+
+### Why this matters beyond files
+
+Once this structure is recognized as generic, plenty of earlier chapters snap into a clearer picture: a service's SCM registration (Chapter 5) has its own security descriptor controlling who can start, stop, or reconfigure it, independent of the file ACL on its executable; a named pipe or a named mutex (Chapter 10) has one too, controlling who else can open a handle to it at all. "Can process A see/touch object B" is, structurally, the same question and the same mechanism no matter what kind of object B actually is.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="acls-and-the-windows-security-model-q1"
+    question="What is a security descriptor?"
+    options={[
+      "A concept specific only to NTFS files",
+      "A structure attached to any securable Windows object — owner SID, group SID, a DACL, and a SACL — that generalizes across files, registry keys, services, and other kernel objects"
+      , "A synonym for an access token",
+      "A Windows Service configuration file",
+    ]}
+    answer={1}
+    explanation="The security descriptor is the underlying structure behind Chapter 3's file DACL coverage, generalized: it applies identically in shape to any securable object type, just with the specific data varying."
+  />
+  <Quiz
+    id="acls-and-the-windows-security-model-q2"
+    question="What is the functional difference between a DACL and a SACL on the same object?"
+    options={[
+      "There is no functional difference; they are two names for the same list",
+      "The DACL decides whether an access is allowed; the SACL decides whether that access attempt gets logged as a security audit event"
+      , "The SACL controls access, and the DACL controls auditing",
+      "SACLs only exist for registry keys, never for files",
+    ]}
+    answer={1}
+    explanation="DACL entries determine access outcomes; SACL entries are a structurally similar but functionally separate list that determines what gets audited, independent of whether the access itself succeeds or fails."
+  />
+  <Quiz
+    id="acls-and-the-windows-security-model-q3"
+    question="Why does reading or modifying a SACL require a separate privilege (SeSecurityPrivilege) from what's needed to manage the DACL?"
+    options={[
+      "It doesn't — the same rights control both",
+      "The ability to view or tamper with what's being audited is treated as more sensitive than managing ordinary access, so it's deliberately gated by a distinct privilege"
+      , "SeSecurityPrivilege is only relevant to Windows Services",
+      "SACLs cannot be modified by any account, including administrators"
+    ]}
+    answer={1}
+    explanation="Separating SACL access behind its own privilege reflects that tampering with audit configuration is a more sensitive operation than typical access-rights management, worth its own dedicated gate."
+  />
+  <Quiz
+    id="acls-and-the-windows-security-model-q4"
+    question="In the overall access check algorithm described, what happens before the DACL is even consulted?"
+    options={[
+      "Nothing — the DACL is always the first thing checked",
+      "The integrity-level check runs first: write access to a higher-integrity object is refused outright before the DACL is evaluated at all"
+      , "The SACL is checked first to decide whether to log the attempt",
+      "The object's owner is automatically granted access regardless of the DACL"
+    ]}
+    answer={1}
+    explanation="Mandatory integrity control acts as a gate ahead of the DACL evaluation, consistent with the earlier section's description of it as an independent, structurally separate restriction."
+  />
+  <Quiz
+    id="acls-and-the-windows-security-model-q5"
+    question="What happens during an access check if no ACE in an object's DACL matches any of the caller's token SIDs for the requested right?"
+    options={[
+      "Access is granted by default, since nothing explicitly denied it",
+      "Access is denied by default — there is no implicit allow when nothing in the DACL matches"
+      , "The check falls back to the object's SACL to decide",
+      "The request is automatically retried with elevated privileges"
+    ]}
+    answer={1}
+    explanation="Windows access checks default to deny: without a matching Allow ACE for the requested right, access fails, regardless of whether any Deny ACE was present either."
+  />
+</QuizSet>

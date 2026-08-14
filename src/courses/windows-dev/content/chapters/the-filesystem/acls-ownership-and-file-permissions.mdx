@@ -1,0 +1,104 @@
+Chapter 1 mentioned that the Security Reference Monitor checks every kernel object access against an access token and an ACL. Files are the object type you'll interact with this system on most often, and `System.Security.AccessControl` is the managed API for it — but it only makes sense once you know it's exposing a genuinely richer model than Unix's `rwx` permission bits.
+
+### DACLs: a list of rules, not three numbers
+
+Unix file permissions are nine bits: read/write/execute for owner, group, and everyone else. NTFS files carry a **DACL** (Discretionary Access Control List) — an ordered list of **Access Control Entries (ACEs)**, each one granting or denying a specific set of rights to a specific user or group. Where Unix asks "which of three buckets does this caller fall into," NTFS asks "walk this list of specific grants and denials until one applies." That's a lot more expressive — you can grant one specific user write access without touching anyone else's rights — and a lot easier to get subtly wrong, because the *order* of ACEs matters.
+
+### Reading and writing a file's ACL from C#
+
+```csharp
+var fileInfo = new FileInfo(path);
+FileSecurity security = fileInfo.GetAccessControl();
+
+// Grant a specific user read-and-execute rights
+security.AddAccessRule(new FileSystemAccessRule(
+    "DOMAIN\\someuser",
+    FileSystemRights.ReadAndExecute,
+    AccessControlType.Allow));
+
+fileInfo.SetAccessControl(security);
+```
+
+Each `FileSystemAccessRule` is one ACE: an identity, a set of rights (`FileSystemRights` — far more granular than read/write/execute, including things like `Delete`, `TakeOwnership`, and `ChangePermissions` individually), and whether it's an `Allow` or `Deny` entry.
+
+### Deny beats Allow, and explicit beats inherited
+
+Two ordering rules matter more than any specific API call:
+
+- **Deny ACEs are evaluated before Allow ACEs** at the same level of specificity, and a matching Deny wins even if an Allow for the same right also exists. This is what lets an administrator carve out an exception — "everyone in this group can read except this one user" — without restructuring group membership.
+- **Explicit ACEs on the object itself take precedence over inherited ones.** Folders can propagate their ACL down to files created inside them (inheritance), but an ACE set directly on a specific file overrides what it would have inherited from its parent folder.
+
+Getting this wrong looks like: "I granted Allow, why is access still denied?" — almost always because a Deny ACE, explicit or inherited, is present somewhere in the chain.
+
+### Ownership is a separate concept from access rights
+
+A file's **owner** is tracked independently of its DACL, and ownership carries an implicit right that no ACE grants explicitly: the owner can always modify the file's permissions, even if their current DACL entries deny them everything else. This is by design — it's the escape hatch that prevents a misconfigured DACL from permanently locking everyone out of a file, including whoever's responsible for it. `TakeOwnership`, one of the `FileSystemRights` values, is the right that lets someone *other* than the current owner claim ownership, which is why it's treated as sensitive enough to require its own explicit grant.
+
+### `icacls` and the GUI Security tab are the same ACL you're editing in code
+
+Everything `FileSecurity` exposes is the exact same DACL the Windows Explorer "Security" tab and the `icacls` command-line tool read and write — there's no separate "C# permission model." This is genuinely useful for debugging: if `security.AddAccessRule(...)` in your code doesn't seem to have taken effect, running `icacls path\to\file` from a terminal shows you the real, current ACE list, independent of whatever your C# code believes it set.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="acls-ownership-and-file-permissions-q1"
+    question="How does an NTFS DACL differ structurally from traditional Unix rwx permission bits?"
+    options={[
+      "They are functionally identical, just different terminology",
+      "A DACL is an ordered list of specific Allow/Deny grants to specific users or groups, rather than three fixed buckets (owner/group/other)"
+      , "DACLs only support denying access, never granting it",
+      "DACLs apply only to directories, never to individual files",
+    ]}
+    answer={1}
+    explanation="NTFS DACLs let you grant or deny specific rights to specific identities individually, a much more expressive model than Unix's fixed owner/group/other bit triplet."
+  />
+  <Quiz
+    id="acls-ownership-and-file-permissions-q2"
+    question="If a Deny ACE and an Allow ACE for the same right and same specificity both apply to a caller, which wins?"
+    options={[
+      "Allow always wins over Deny",
+      "Deny wins — Deny ACEs are evaluated before Allow ACEs at the same level of specificity"
+      , "Whichever ACE was added most recently wins",
+      "The result is undefined and access is granted by default",
+    ]}
+    answer={1}
+    explanation="A matching Deny ACE takes precedence over a same-level Allow, which is what lets an administrator carve out an exception without restructuring group membership."
+  />
+  <Quiz
+    id="acls-ownership-and-file-permissions-q3"
+    question="How do explicit ACEs on a file relate to inherited ACEs from its parent folder?"
+    options={[
+      "Inherited ACEs always override explicit ones",
+      "Explicit ACEs set directly on the object take precedence over ACEs inherited from the parent folder"
+      , "Explicit and inherited ACEs cannot coexist on the same file",
+      "Inheritance is not supported in NTFS"
+    ]}
+    answer={1}
+    explanation="An ACE set directly on a file overrides what it would otherwise have inherited from its parent folder's propagated permissions."
+  />
+  <Quiz
+    id="acls-ownership-and-file-permissions-q4"
+    question="Why does file ownership matter even when a file's DACL denies the owner most rights?"
+    options={[
+      "Ownership has no special rights beyond what the DACL explicitly grants",
+      "The owner can always modify the file's permissions regardless of DACL entries, acting as an escape hatch against permanent lockout"
+      , "Ownership automatically grants full read and write access, bypassing the DACL entirely",
+      "Only administrators can ever be owners of a file",
+    ]}
+    answer={1}
+    explanation="Ownership carries an implicit right to modify permissions even when the DACL itself denies other access, preventing a misconfigured ACL from permanently locking out whoever is responsible for the file."
+  />
+  <Quiz
+    id="acls-ownership-and-file-permissions-q5"
+    question="What is a reliable way to debug why a FileSecurity.AddAccessRule call in C# doesn't seem to have taken effect?"
+    options={[
+      "Rewrite the code using a different .NET version",
+      "Run icacls on the file from a terminal — it reads and writes the exact same DACL FileSecurity does, showing the real current state"
+      , "There is no way to inspect a file's DACL outside of C# code",
+      "Restart the machine, since ACL changes require a reboot to apply",
+    ]}
+    answer={1}
+    explanation="icacls and the Explorer Security tab operate on the same underlying DACL that FileSecurity exposes in code, making them a reliable independent check on what the ACL actually contains."
+  />
+</QuizSet>

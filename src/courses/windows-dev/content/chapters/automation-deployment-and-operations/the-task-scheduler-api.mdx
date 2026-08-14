@@ -1,0 +1,103 @@
+Chapter 4 mentioned the Task Scheduler as the more capable alternative to a `Run` registry key, and Chapter 5 positioned it alongside Windows Services as the right tool for per-user, logon-scoped background work. This section is that tool in full — what it can trigger on, and how to drive it from C#.
+
+### What Task Scheduler adds beyond "run this at logon"
+
+A `Run` key entry (Chapter 4) does exactly one thing: launch a program when a user logs on. Task Scheduler generalizes that into a genuine trigger-and-action system: **triggers** far beyond logon — a specific time, a recurring schedule, system startup, a specific Event Log entry appearing (tying directly back to Chapter 9), the machine going idle, a network connection becoming available — combined with **actions** beyond just "start this program" (though that remains the most common one), constrained by **conditions** (only run on AC power, only run if a specific network is available) and **settings** (retry on failure, stop if it runs too long, run with highest privileges).
+
+### Creating a scheduled task from C#
+
+The Task Scheduler has a COM-based API underneath (`Microsoft.Win32.TaskScheduler`, a popular open-source wrapper, is the practical entry point most C# code actually uses rather than driving the raw COM interfaces directly — itself a real-world instance of Chapter 6's COM interop, wrapped for convenience the way `System.Management`'s WMI wrapper does for that COM surface):
+
+```csharp
+using Microsoft.Win32.TaskScheduler;
+
+using TaskService ts = TaskService.Instance;
+TaskDefinition td = ts.NewTask();
+td.RegistrationInfo.Description = "Nightly cleanup";
+td.Triggers.Add(new DailyTrigger { StartBoundary = DateTime.Today.AddHours(2) });
+td.Actions.Add(new ExecAction("C:\\Tools\\Cleanup.exe", "--verbose"));
+td.Settings.StopIfGoingOnBatteries = false;
+
+ts.RootFolder.RegisterTaskDefinition("NightlyCleanup", td);
+```
+
+This registers a task that behaves exactly like one created through the Task Scheduler GUI or `schtasks.exe` — all three are, structurally, driving the same underlying COM/XML task definition, the same "multiple tools, one real underlying store" pattern Chapter 5 established for the SCM and Chapter 4 established for the registry.
+
+### Running with elevated privileges — declaratively, not through a UAC prompt
+
+```csharp
+td.Principal.RunLevel = TaskRunLevel.Highest;
+td.Principal.LogonType = TaskLogonType.ServiceAccount;
+td.Principal.UserId = "SYSTEM";
+```
+
+This is a genuinely different elevation path than Chapter 2's `Verb = "runas"` — a scheduled task configured to run as `SYSTEM` or with `Highest` run level launches already elevated, with no UAC consent prompt at execution time at all, because the elevation decision was made (and requires administrator rights to configure) when the task was *registered*, not when it *runs*. This is exactly why Task Scheduler is a common vector for legitimately running unattended, elevated automation — a nightly maintenance script that needs administrator rights but has no interactive user present at 2 a.m. to click "Yes" on a UAC prompt — and, less legitimately, a technique malware and privilege-escalation attacks have historically abused for the same "elevated code, no prompt" property, worth being aware of specifically because it means scheduled task creation (and the registry key backing it, `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache`) is itself a security-relevant surface worth restricting who can write to.
+
+### Task Scheduler vs. Windows Service, revisited concretely
+
+Chapter 5 covered this at a conceptual level; with the mechanics now in view, the practical distinction sharpens: a scheduled task is fundamentally about *triggering a run* — start, execute, finish, possibly on a recurring schedule — while a service is about a *continuously running process* the SCM keeps alive and restarts on failure (Chapter 5's recovery options). A nightly report generator, a periodic cleanup job, or a one-time post-deployment step fits Task Scheduler's model naturally; a process that needs to be up and responsive continuously, listening on a port or a named pipe (this chapter's earlier sections), needs the service model instead — Task Scheduler has no equivalent to "restart this if it crashes while it's supposed to be idling and waiting."
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-task-scheduler-api-q1"
+    question="What does Task Scheduler provide that a simple Run registry key entry does not?"
+    options={[
+      "Nothing meaningful — they are functionally equivalent",
+      "A genuine trigger-and-action system with triggers beyond logon (time, recurrence, startup, event log entries, idle state) combined with conditions and retry/failure settings"
+      , "Run keys support recurring schedules just as well as Task Scheduler",
+      "Task Scheduler can only launch programs, with no other action types"
+    ]}
+    answer={1}
+    explanation="Task Scheduler generalizes 'launch at logon' into a full system of triggers, actions, conditions, and settings, far beyond what a single Run key entry can express."
+  />
+  <Quiz
+    id="the-task-scheduler-api-q2"
+    question="What underlying technology does the Task Scheduler API sit on, and how do C# libraries like Microsoft.Win32.TaskScheduler relate to it?"
+    options={[
+      "A plain REST API with no COM involvement",
+      "A COM-based API; libraries like Microsoft.Win32.TaskScheduler wrap that COM surface for convenience, similar to how System.Management wraps WMI's COM interfaces"
+      , "A P/Invoke-only interface with no object model at all",
+      "An entirely managed-native .NET API with no legacy technology underneath"
+    ]}
+    answer={1}
+    explanation="Task Scheduler is COM-based underneath, and popular C# wrapper libraries provide a friendlier managed API over that same COM surface — a direct, practical instance of Chapter 6's COM interop coverage."
+  />
+  <Quiz
+    id="the-task-scheduler-api-q3"
+    question="Why does a scheduled task configured with TaskRunLevel.Highest run elevated with no UAC prompt at execution time?"
+    options={[
+      "UAC prompts are disabled globally whenever Task Scheduler is used",
+      "The elevation decision was made when the task was registered (which itself requires administrator rights), not at the moment the task actually runs, unlike Chapter 2's runas verb which prompts at launch time"
+      , "Task Scheduler always runs every task with SYSTEM privileges regardless of configuration",
+      "This scenario is not actually possible in Task Scheduler"
+    ]}
+    answer={1}
+    explanation="Configuring elevated run level happens at registration time and requires admin rights then; at actual execution the task simply launches already elevated, with no interactive consent step needed — a genuinely different elevation path than Chapter 2's runas request."
+  />
+  <Quiz
+    id="the-task-scheduler-api-q4"
+    question="Why is scheduled task creation considered a security-relevant surface worth restricting, beyond its legitimate uses?"
+    options={[
+      "It has no security implications since tasks always run unprivileged",
+      "The ability to register a task that runs elevated with no UAC prompt is exactly the 'elevated code, no prompt' property that privilege-escalation attacks have historically abused"
+      , "Task Scheduler cannot be used to run anything with elevated privileges under any configuration",
+      "This concern only applies to tasks triggered by Event Log entries"
+    ]}
+    answer={1}
+    explanation="Because a scheduled task can be configured to run elevated with no runtime prompt, the ability to create such tasks is itself a meaningful privilege-escalation surface, which is why restricting who can write to the underlying task registration is a genuine security consideration."
+  />
+  <Quiz
+    id="the-task-scheduler-api-q5"
+    question="What is the core distinction between when Task Scheduler versus a Windows Service is the appropriate tool, as sharpened in this section?"
+    options={[
+      "There is no meaningful distinction; either can be used interchangeably for any background workload",
+      "A scheduled task is about triggering a discrete run (start, execute, finish); a service is about a continuously running process the SCM keeps alive and restarts on failure — Task Scheduler has no equivalent to restarting a crashed, supposed-to-be-idling process"
+      , "Task Scheduler can only run tasks once, never on a recurring basis",
+      "Services can only be triggered by time-based schedules, never by system events"
+    ]}
+    answer={1}
+    explanation="The fundamental difference is discrete execution versus continuous operation with crash recovery — a periodic job fits Task Scheduler naturally, while a continuously listening process needs the service model's SCM-managed lifecycle instead."
+  />
+</QuizSet>

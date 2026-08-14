@@ -1,0 +1,102 @@
+A process is a container; a **thread** is what actually executes. Every process starts with one thread and can create more, each with its own stack but sharing the process's address space and handle table. C#'s `async`/`await` sits on top of this model rather than replacing it, and understanding the layer underneath is what makes `async` behavior — which thread a continuation runs on, why `Task.Run` matters, why UI code can deadlock — predictable instead of mysterious.
+
+### The kernel scheduler and thread priority
+
+Windows schedules **threads**, not processes — the process is just the address space threads happen to execute in. Each thread has a priority (combined from the process's priority class and the thread's own relative priority) that the scheduler uses to decide which ready thread runs next on an available core. You rarely touch this directly from C# (`Thread.Priority` exists but changing it is an advanced, easy-to-misuse tool), but it's worth knowing it's there: on a busy system, thread priority — not just how much work you scheduled — affects how promptly your code actually runs.
+
+### `System.Threading.Thread`: one OS thread, directly
+
+```csharp
+var t = new Thread(() => Console.WriteLine("running on its own OS thread"));
+t.Start();
+t.Join(); // block until it finishes
+```
+
+Creating a `Thread` creates a real, dedicated OS thread — with its own kernel stack, its own entry in the scheduler, real memory overhead (roughly a megabyte of reserved stack by default). This is the right tool when you genuinely need a dedicated, long-lived thread: a background loop that runs for the process's entire lifetime, or code that must run with `ApartmentState.STA` for certain COM or UI interop (Chapter 6). For short-lived, bursty work, creating a full OS thread per unit of work is wasteful — which is exactly the problem the thread pool solves.
+
+### The thread pool: reusing threads instead of creating them
+
+The **CLR thread pool** keeps a set of worker threads alive and hands them queued work items instead of spinning up a new OS thread each time. `ThreadPool.QueueUserWorkItem`, `Task.Run`, and most of the async infrastructure in .NET all ultimately queue work here. The pool grows and shrinks its thread count based on load (with a slow, deliberate ramp-up algorithm — a burst of work doesn't get a burst of new threads instantly, which is a common source of "why is my throughput low for the first second" confusion).
+
+### `async`/`await` doesn't create threads
+
+This is the point that trips up developers moving from thread-per-request thinking: `async`/`await` is about **not blocking a thread while waiting**, not about running work on another thread. An `await`ed `Task` for a genuinely async I/O operation (a file read via `FileStream` opened with `useAsync: true`, an HTTP call) completes via an I/O completion port — the calling thread is released back to the pool while the operation is in flight, and a pool thread (not necessarily the same one) picks the method back up when the I/O completes. No thread was ever blocked waiting; none was dedicated to the wait either.
+
+```csharp
+// Genuinely async I/O: no thread is blocked while this awaits
+byte[] data = await File.ReadAllBytesAsync(path);
+
+// CPU-bound work: Task.Run explicitly hands it to a pool thread
+int result = await Task.Run(() => ExpensiveComputation());
+```
+
+`Task.Run` is for the opposite case — CPU-bound work with no I/O to wait on, where you deliberately want it to run on a thread pool thread so it doesn't block the caller. Calling `Task.Run` around something that's already `await`-based I/O just burns a thread pool thread for no benefit.
+
+### `SynchronizationContext`: why UI thread deadlocks happen
+
+WinForms and WPF (Chapter 8) install a `SynchronizationContext` that captures "the UI thread" and marshals `async` continuations back onto it by default, so code after an `await` in a button-click handler runs back on the UI thread automatically, safe to touch controls. This is also the classic deadlock source: calling `.Result` or `.Wait()` synchronously on a `Task` from the UI thread blocks that thread while the continuation is waiting to run *on that same now-blocked thread* — a self-deadlock. `ConfigureAwait(false)` (common in library code, not view code) opts out of that capture, letting the continuation run on whatever pool thread is available instead.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="threads-the-thread-pool-and-async-in-c-q1"
+    question="What does the Windows scheduler actually schedule?"
+    options={[
+      "Processes as whole units",
+      "Threads — the process is just the address space they execute within",
+      "Individual C# async continuations directly",
+      "Only threads that are part of the thread pool",
+    ]}
+    answer={1}
+    explanation="The scheduler works at the thread level; a process is a container that provides the address space and resources its threads execute within."
+  />
+  <Quiz
+    id="threads-the-thread-pool-and-async-in-c-q2"
+    question="What is the practical cost of creating a new System.Threading.Thread directly, compared to queuing work on the thread pool?"
+    options={[
+      "There is no meaningful difference between the two",
+      "A dedicated Thread has real overhead — its own kernel stack (roughly a megabyte by default) and scheduler entry — making it wasteful for short-lived, bursty work",
+      "Thread pool threads use more memory than dedicated threads",
+      "Dedicated threads cannot execute any managed code",
+    ]}
+    answer={1}
+    explanation="Each Thread reserves substantial stack memory and gets its own scheduler entry, which is fine for long-lived dedicated work but wasteful when repeated for many short-lived tasks — the reason the thread pool exists."
+  />
+  <Quiz
+    id="threads-the-thread-pool-and-async-in-c-q3"
+    question="When you await a genuinely async I/O operation like File.ReadAllBytesAsync, what happens to the calling thread while the I/O is in flight?"
+    options={[
+      "It blocks until the I/O completes",
+      "It is released back to the thread pool; a pool thread resumes the method when the I/O completes, via an I/O completion port",
+      "A brand new dedicated OS thread is created to wait for the I/O",
+      "The UI thread is always used to wait for I/O",
+    ]}
+    answer={1}
+    explanation="True async I/O doesn't block or dedicate any thread to waiting — the calling thread returns to the pool, and completion is delivered via an I/O completion port, resuming on an available pool thread."
+  />
+  <Quiz
+    id="threads-the-thread-pool-and-async-in-c-q4"
+    question="When is Task.Run the appropriate tool to reach for?"
+    options={[
+      "Around any call to an already-async I/O method, to make it faster",
+      "For CPU-bound work with no I/O to wait on, to deliberately move it onto a thread pool thread so it doesn't block the caller",
+      "Only inside WPF or WinForms event handlers",
+      "It should never be used in modern async code",
+    ]}
+    answer={1}
+    explanation="Task.Run is for offloading CPU-bound work onto the thread pool. Wrapping already-async I/O in Task.Run just wastes a pool thread without benefit, since no thread was blocked to begin with."
+  />
+  <Quiz
+    id="threads-the-thread-pool-and-async-in-c-q5"
+    question="Why does calling .Result synchronously on a Task from a WPF or WinForms UI thread commonly cause a deadlock?"
+    options={[
+      "Because .Result is not a valid property on Task",
+      "Because the UI thread's SynchronizationContext schedules the awaited continuation to run back on that same thread, which is now blocked waiting for it",
+      "Because WPF disallows any use of Task entirely",
+      "Because .Result always throws an exception on UI threads",
+    ]}
+    answer={1}
+    explanation="The captured SynchronizationContext marshals the continuation back to the UI thread by default; blocking that same thread with .Result prevents the continuation from ever running, producing a self-deadlock."
+  />
+</QuizSet>

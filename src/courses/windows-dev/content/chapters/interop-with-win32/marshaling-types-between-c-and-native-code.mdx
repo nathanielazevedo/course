@@ -1,0 +1,109 @@
+The previous section mentioned marshaling without defining it precisely. This section is that definition, made concrete: the actual rules the runtime follows to convert a C# value into something a native Win32 function can read, and back.
+
+### Why marshaling has to exist at all
+
+.NET's managed types and native C types don't share a representation. A managed `string` is UTF-16 with a length prefix and lives wherever the GC decides to put it, and the GC can move it during a collection. A native `LPWSTR` is a raw pointer to a null-terminated buffer of UTF-16 characters at a fixed address, with no length prefix at all. Calling a native function with a managed string means something has to bridge that gap — pin the string (or copy it) so it has a stable address for the duration of the call, and represent it as the raw pointer the native side expects. That bridging, for every parameter and the return value, is marshaling.
+
+### Value types are simple; strings and structs are where it gets real
+
+```csharp
+[LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16)]
+internal static partial IntPtr GetModuleHandleW(string? lpModuleName);
+
+[LibraryImport("kernel32.dll")]
+internal static partial uint GetLastError();
+```
+
+Primitives like `int`, `uint`, and `bool` map close to directly — `int` and a C `int` are the same bits, no real translation needed. `bool` is a notable exception worth watching for: a C# `bool` is one byte, but the Win32 `BOOL` type is a four-byte `int`, so an unmarked `bool` parameter can silently misalign whatever comes after it in a struct, or read/write the wrong bytes as a parameter — `[MarshalAs(UnmanagedType.Bool)]`, seen in the previous section's example, is what tells the marshaler to actually use the 4-byte convention.
+
+**Strings** need `StringMarshalling` (or per-parameter `[MarshalAs]`) specified explicitly, because Win32 has two parallel families of most functions — an `A` (ANSI/multi-byte) suffix and a `W` (wide/UTF-16) suffix — and getting the encoding wrong doesn't necessarily fail loudly; it can silently corrupt non-ASCII text. Preferring the `W` functions with `StringMarshalling.Utf16` is close to always correct, since .NET strings are natively UTF-16 already, making that the marshaling path with the least conversion work and least room for encoding bugs.
+
+**Structs** passed to native functions need `[StructLayout(LayoutKind.Sequential)]` (or `Explicit`, for unions or precisely controlled offsets) so the CLR lays out the fields in memory exactly like the C struct expects — without it, the CLR is free to reorder fields for its own efficiency, which native code reading raw memory at fixed offsets cannot tolerate:
+
+```csharp
+[StructLayout(LayoutKind.Sequential)]
+internal struct POINT
+{
+    public int X;
+    public int Y;
+}
+```
+
+### Getting the actual OS error after a call fails
+
+`SetLastError = true` (seen in the previous section) tells the marshaler to capture the thread-local Win32 error code immediately after the native call returns — immediately, because any subsequent managed code (even seemingly innocuous framework internals) could otherwise overwrite that same thread-local slot before you read it. `Marshal.GetLastWin32Error()` (or the newer `Marshal.GetLastPInvokeError()`) reads that captured value back; without `SetLastError = true` on the declaration, that call would return stale or meaningless data, since the marshaler never captured anything to begin with.
+
+```csharp
+if (!MessageBeep(0))
+{
+    int error = Marshal.GetLastPInvokeError();
+    throw new Win32Exception(error);
+}
+```
+
+`Win32Exception` translates that numeric code into the actual OS-provided error message, which is generally more useful to a human than the bare integer.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="marshaling-types-between-c-and-native-code-q1"
+    question="Why can't a managed C# string simply be passed to a native function as-is?"
+    options={[
+      "Native functions cannot accept any string data under any circumstances",
+      "Managed strings have a different representation than native strings (a length-prefixed, GC-managed UTF-16 object vs. a raw pointer to a null-terminated buffer), so a bridging step is required"
+      , "C# strings are always ASCII, which native functions cannot read",
+      "Marshaling is unnecessary for strings specifically, only for structs",
+    ]}
+    answer={1}
+    explanation="The mismatch between managed strings (movable, length-prefixed) and native strings (fixed-address, null-terminated) requires marshaling to bridge the two representations."
+  />
+  <Quiz
+    id="marshaling-types-between-c-and-native-code-q2"
+    question="Why does an unmarked C# bool parameter risk misaligning a P/Invoke call?"
+    options={[
+      "bool cannot be passed to native functions at all without a wrapper type",
+      "A C# bool is one byte, while the native Win32 BOOL is a four-byte int, so without [MarshalAs(UnmanagedType.Bool)] the sizes can mismatch"
+      , "bool parameters are always marshaled as strings by default",
+      "There is no actual difference in size between the two representations",
+    ]}
+    answer={1}
+    explanation="The size mismatch between a 1-byte managed bool and a 4-byte native BOOL means explicit marshaling instructions are needed to avoid corrupting adjacent data or parameters."
+  />
+  <Quiz
+    id="marshaling-types-between-c-and-native-code-q3"
+    question="Why is preferring the W-suffixed (wide) Win32 function variants with StringMarshalling.Utf16 generally the safer choice?"
+    options={[
+      "The A-suffixed functions have been completely removed from modern Windows",
+      ".NET strings are natively UTF-16, so the W-suffixed path involves the least conversion and the least risk of encoding-related corruption of non-ASCII text"
+      , "W-suffixed functions run faster regardless of string content",
+      "A-suffixed functions cannot be called via P/Invoke at all",
+    ]}
+    answer={1}
+    explanation="Since managed strings are already UTF-16, routing through the wide (W) Win32 functions avoids the extra ANSI conversion step and the encoding bugs that step can introduce."
+  />
+  <Quiz
+    id="marshaling-types-between-c-and-native-code-q4"
+    question="What does [StructLayout(LayoutKind.Sequential)] accomplish on a struct used in P/Invoke?"
+    options={[
+      "It has no real effect and exists purely for documentation",
+      "It forces the CLR to lay out the struct's fields in memory in declared order, matching what native code reading raw memory at fixed offsets expects"
+      , "It automatically converts the struct into a managed class",
+      "It is only relevant for structs containing string fields",
+    ]}
+    answer={1}
+    explanation="Without explicit layout control, the CLR may reorder struct fields for its own efficiency — LayoutKind.Sequential guarantees the field order native code depends on."
+  />
+  <Quiz
+    id="marshaling-types-between-c-and-native-code-q5"
+    question="Why must Marshal.GetLastPInvokeError() be called immediately after a failed native call, with SetLastError = true declared on the P/Invoke signature?"
+    options={[
+      "The error code is stored permanently and can be read at any later time",
+      "The captured Win32 error code lives in a thread-local slot that subsequent managed code could overwrite, and without SetLastError = true nothing is captured at all"
+      , "GetLastPInvokeError always returns 0 if called more than once",
+      "SetLastError is only relevant for functions that return a bool",
+    ]}
+    answer={1}
+    explanation="SetLastError = true tells the marshaler to immediately capture the native error code into a thread-local value; delaying the read risks it being overwritten, and omitting the flag means nothing is captured to read at all."
+  />
+</QuizSet>

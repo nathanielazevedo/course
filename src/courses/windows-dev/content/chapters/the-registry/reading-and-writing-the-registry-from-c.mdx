@@ -1,0 +1,125 @@
+`Microsoft.Win32.Registry` and `RegistryKey` are the managed API over everything the last two sections described. The API itself is small; the parts worth spending time on are the ones that map directly onto concepts already covered — typed values, redirection, and disposal of the underlying kernel handle.
+
+### Opening a key and reading values
+
+```csharp
+using Microsoft.Win32;
+
+using RegistryKey? key = Registry.LocalMachine.OpenSubKey(
+    @"SOFTWARE\Contoso\MyApp");
+
+if (key is not null)
+{
+    string? installPath = key.GetValue("InstallPath") as string;
+    int version = (int)(key.GetValue("Version") ?? 0);
+
+    // REG_EXPAND_SZ: request expansion explicitly
+    string? expanded = key.GetValue(
+        "DataPath",
+        defaultValue: null,
+        RegistryValueOptions.None) as string; // still unexpanded
+
+    string? autoExpanded = Environment.ExpandEnvironmentVariables(
+        key.GetValue("DataPath") as string ?? "");
+}
+```
+
+`OpenSubKey` returns `null` rather than throwing if the key doesn't exist — a deliberate design that mirrors `TryGetValue`-style APIs elsewhere in .NET, and worth checking explicitly rather than assuming the key is always present, since most real-world causes of a missing key (an app that hasn't been installed, a setting that's never been changed from default) aren't exceptional conditions. `key` itself is a `SafeHandle`-backed `IDisposable`, exactly like the `Process` and `FileStream` handles from earlier chapters — the `using` isn't optional cleanliness, it's releasing a real kernel handle.
+
+### Writing values
+
+```csharp
+using RegistryKey key = Registry.CurrentUser.CreateSubKey(
+    @"SOFTWARE\Contoso\MyApp"); // creates if missing, opens if present
+
+key.SetValue("InstallPath", @"C:\Program Files\MyApp", RegistryValueKind.String);
+key.SetValue("Version", 3, RegistryValueKind.DWord);
+key.SetValue("RecentFiles", new[] { "a.txt", "b.txt" }, RegistryValueKind.MultiString);
+```
+
+`CreateSubKey` is idempotent — creating an already-existing key just opens it, which makes "ensure this key exists with these values" code straightforward to write without a separate existence check.
+
+### Writing to `HKLM` requires elevation; writing to `HKCU` doesn't
+
+This follows directly from the ACL model in Chapter 3, applied to registry keys instead of files: `HKEY_LOCAL_MACHINE` subkeys are, by default, writable only by administrators, because they affect every user on the machine. `HKEY_CURRENT_USER` subkeys are writable by the owning user without elevation, since they only affect that user's own configuration. Attempting to `SetValue` under `HKLM` from a non-elevated process throws `UnauthorizedAccessException` — the same class of failure as the elevation-dependent process operations from Chapter 2, and subject to the same fix: either the app needs to run elevated, or the setting genuinely belongs under `HKCU` instead of `HKLM`.
+
+### Choosing the right registry view
+
+Following on from the previous section's redirection discussion, `RegistryKey.OpenBaseKey` lets you explicitly pick which view to open, independent of whether your own process is 32-bit or 64-bit:
+
+```csharp
+using RegistryKey hklm64 = RegistryKey.OpenBaseKey(
+    RegistryHive.LocalMachine, RegistryView.Registry64);
+using RegistryKey key = hklm64.OpenSubKey(@"SOFTWARE\Contoso\MyApp");
+```
+
+This is the fix for the "64-bit tool can't see a 32-bit app's registry entries" trap: without specifying `RegistryView.Registry64` (or `Registry32`) explicitly, `Registry.LocalMachine` follows whatever redirection applies to the *calling* process's own bitness, not necessarily the bitness of whatever wrote the data you're looking for.
+
+### Watching for changes
+
+Unlike the filesystem, there's no first-party `RegistryWatcher` in the BCL. Watching a key for changes requires P/Invoke against `RegNotifyChangeKeyValue` (Chapter 6) — a real gap compared to `FileSystemWatcher`, and part of why registry-based configuration is more commonly read once at startup than watched live for changes in typical application code.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="reading-and-writing-the-registry-from-c-q1"
+    question="What does RegistryKey.OpenSubKey return if the specified key does not exist?"
+    options={[
+      "It throws a KeyNotFoundException",
+      "It returns null, mirroring TryGetValue-style APIs elsewhere in .NET"
+      , "It creates the key automatically and returns it",
+      "It returns an empty RegistryKey with no values",
+    ]}
+    answer={1}
+    explanation="OpenSubKey returns null for a missing key rather than throwing, since a missing key is often an expected, non-exceptional condition (e.g. an app that hasn't been installed)."
+  />
+  <Quiz
+    id="reading-and-writing-the-registry-from-c-q2"
+    question="Why is disposing a RegistryKey object (via using) important, beyond general tidiness?"
+    options={[
+      "It has no real effect since registry keys aren't backed by handles",
+      "RegistryKey wraps a real kernel handle, the same category of resource as a Process or FileStream handle, and disposal releases it"
+      , "It is only necessary when writing values, not reading them",
+      "Disposal is required to commit any pending writes to disk",
+    ]}
+    answer={1}
+    explanation="Like other kernel-object wrappers covered earlier, RegistryKey holds a real handle that should be released deterministically via disposal rather than left to the finalizer."
+  />
+  <Quiz
+    id="reading-and-writing-the-registry-from-c-q3"
+    question="Why does writing under HKEY_LOCAL_MACHINE typically require an elevated process, while HKEY_CURRENT_USER does not?"
+    options={[
+      "HKLM writes are always blocked entirely, with no exceptions",
+      "HKLM affects every user on the machine and is ACL-protected accordingly, following the same access control model covered for files in the previous chapter"
+      , "HKCU is not protected by any ACL at all",
+      "This distinction only applies to Windows Server editions",
+    ]}
+    answer={1}
+    explanation="HKLM's machine-wide impact means its subkeys are ACL-restricted to administrators by default, mirroring the general Windows security model, while HKCU only affects the owning user's own configuration."
+  />
+  <Quiz
+    id="reading-and-writing-the-registry-from-c-q4"
+    question="What problem does explicitly specifying RegistryView.Registry64 (or Registry32) with OpenBaseKey solve?"
+    options={[
+      "It has no practical effect on which data is visible",
+      "It lets code see the registry view of a specific bitness regardless of the calling process's own bitness, avoiding the WOW6432Node redirection trap"
+      , "It is required for every registry read, even on 32-bit-only systems",
+      "It only affects HKEY_CURRENT_USER, not HKEY_LOCAL_MACHINE",
+    ]}
+    answer={1}
+    explanation="Without an explicit RegistryView, Registry.LocalMachine follows the calling process's own bitness-based redirection, which can hide data written by a process of the opposite bitness."
+  />
+  <Quiz
+    id="reading-and-writing-the-registry-from-c-q5"
+    question="How can code watch a registry key for live changes, since there is no first-party RegistryWatcher in the BCL?"
+    options={[
+      "It is impossible to detect registry changes from C# at all",
+      "By using P/Invoke against RegNotifyChangeKeyValue, a real gap compared to FileSystemWatcher's built-in support for the filesystem"
+      , "By polling FileSystemWatcher pointed at the hive files themselves",
+      "The registry automatically raises .NET events for any key change without extra code",
+    ]}
+    answer={1}
+    explanation="Live registry change notification requires calling the native RegNotifyChangeKeyValue API directly via P/Invoke, since .NET provides no managed wrapper equivalent to FileSystemWatcher for the registry."
+  />
+</QuizSet>

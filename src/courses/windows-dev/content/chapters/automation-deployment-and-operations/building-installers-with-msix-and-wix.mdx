@@ -1,0 +1,107 @@
+Chapter 8 covered MSIX as a packaging format from the desktop-app framework side. This section is the deployment side of the same question, plus its longer-standing alternative: **WiX**, the toolkit behind most real-world MSI installers, and the practical guidance for choosing between the two.
+
+### What an installer actually needs to orchestrate, pulling the course together
+
+An installer for a real Windows application is, in practice, executing a checklist this course has built up piece by piece: copy files to `Program Files` (Chapter 3's filesystem and ACL model), write registry keys for settings and the uninstall entry (Chapter 4's common patterns), register a Windows Service if the app includes one (Chapter 5), request a firewall exception if it listens on a port (Chapter 10), and possibly create a scheduled task (previous section) for background maintenance. Every one of those steps needs to run with the right privileges, needs to be *reversible* on uninstall, and — critically — needs to leave the machine in a consistent state if it fails partway through. That reversibility-and-consistency requirement is exactly the problem MSI (and WiX, which authors MSI files) and MSIX solve in two structurally different ways.
+
+### WiX: authoring a real MSI, declaratively
+
+```xml
+<!-- Product.wxs, abbreviated -->
+<Package Name="MyApp" Manufacturer="Contoso" Version="1.2.0.0">
+  <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+  <MediaTemplate EmbedCab="yes" />
+
+  <Feature Id="MainFeature">
+    <ComponentRef Id="MyAppExe" />
+    <ComponentRef Id="MyAppRegistryEntries" />
+  </Feature>
+
+  <StandardDirectory Id="ProgramFiles64Folder">
+    <Directory Id="INSTALLFOLDER" Name="MyApp">
+      <Component Id="MyAppExe">
+        <File Source="$(var.MyApp.TargetPath)" />
+      </Component>
+    </Directory>
+  </StandardDirectory>
+</Package>
+```
+
+WiX compiles this XML into a real `.msi`, and the MSI format itself is what provides the reversibility guarantee: MSI's installer engine (`msiexec.exe`, part of Windows itself) tracks every file, registry key, and shortcut a package creates as individually reversible, transacted operations — an MSI that fails partway through automatically rolls back everything it had done so far, and a clean uninstall reverses exactly what install-time components declared, no more and no less, because the *components* (not an arbitrary install script) are the actual unit of installation and removal. This is meaningfully different from a raw `.exe`-based installer (Inno Setup, NSIS), which can do anything at all at install time with no structural rollback guarantee beyond whatever the installer's own script author remembered to implement.
+
+### MSIX: Chapter 8's model, from the installer's perspective
+
+MSIX (Chapter 8) takes reversibility further by removing arbitrary install-time code entirely — installation is Windows itself unpacking a declared, signed package rather than running any installer-authored logic, which is why an MSIX uninstall is unconditionally complete in a way even a well-authored MSI depends on correct component authoring to achieve. The cost, also from Chapter 8, is real: MSIX's sandboxing model constrains what an app can do at install and run time (the virtualized file/registry access, the signing requirement) in ways a traditional MSI simply doesn't restrict at all.
+
+### Choosing between them, concretely
+
+WiX/MSI remains the right choice for installers that need genuinely unrestricted install-time behavior — installing and starting a Windows Service with a specific account (Chapter 5), running custom actions that configure something outside the sandboxed model MSIX enforces, or targeting enterprise deployment tooling (SCCM/Intune) built primarily around MSI's decades of established tooling. MSIX is the right choice for a self-contained desktop application without unusual install-time requirements, where the clean-uninstall guarantee and Microsoft Store distribution path are worth the sandboxing constraints. Plenty of real products actually use both: an MSI or WiX-based installer for the core service and machine-level components, an MSIX-packaged UI companion for the parts that fit its model — there's no requirement that one application pick exactly one packaging technology throughout.
+
+### CI/CD: building the installer is a pipeline step, not a manual one
+
+Whichever format is chosen, producing the actual installer artifact belongs in the same CI/CD pipeline that builds and tests the application itself, not a manual step run by hand before a release — `wix build` (WiX's CLI, for MSI) or `MakeAppx.exe`/`msbuild` targeting an MSIX packaging project both run non-interactively and are meant to be invoked from a build server, producing a versioned, signed (Chapter 7) installer artifact as a normal output of the same pipeline that produces the application binaries themselves — the subject the final two sections of this chapter pick up directly.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="building-installers-with-msix-and-wix-q1"
+    question="What is the core requirement every real installer needs to satisfy, beyond simply copying files?"
+    options={[
+      "Installers only need to copy files; nothing else matters",
+      "Every install step needs correct privileges, must be reversible on uninstall, and must leave the machine in a consistent state if it fails partway through"
+      , "Installers must always run entirely without administrator rights",
+      "Reversibility only matters for MSIX packages, not for MSI"
+    ]}
+    answer={1}
+    explanation="Real installers touch files, the registry, services, and more — all of which need to be applied with correct privileges and cleanly reversible, and the failure-consistency guarantee is exactly what MSI and MSIX solve, each in a structurally different way."
+  />
+  <Quiz
+    id="building-installers-with-msix-and-wix-q2"
+    question="How does MSI's component model provide its rollback and clean-uninstall guarantee?"
+    options={[
+      "It doesn't provide any real guarantee beyond what the installer author scripts manually",
+      "msiexec.exe tracks every file, registry key, and shortcut as individually reversible, transacted operations tied to components, so a failed install rolls back automatically and an uninstall reverses exactly what was declared"
+      , "MSI guarantees rollback only for registry changes, never for file operations",
+      "Rollback requires a separate, manually authored uninstall script"
+    ]}
+    answer={1}
+    explanation="MSI's engine treats components as the actual unit of installation, tracking their operations transactionally, which is what enables automatic rollback on failure and precise, complete removal on uninstall."
+  />
+  <Quiz
+    id="building-installers-with-msix-and-wix-q3"
+    question="How does MSIX's approach to reversibility differ from MSI's?"
+    options={[
+      "They use the identical mechanism, just with different file extensions",
+      "MSIX removes arbitrary install-time code entirely, relying on Windows unpacking a declared, signed package rather than an installer script, making uninstall unconditionally complete rather than dependent on correct component authoring"
+      , "MSIX has no reversibility guarantee at all, unlike MSI",
+      "MSIX only supports reversibility for registry changes, not files"
+    ]}
+    answer={1}
+    explanation="MSIX takes reversibility further than MSI by eliminating arbitrary install-time code altogether, as covered in Chapter 8, making clean removal a structural guarantee rather than one dependent on correct authoring."
+  />
+  <Quiz
+    id="building-installers-with-msix-and-wix-q4"
+    question="When is WiX/MSI generally the more appropriate choice over MSIX, according to this section's guidance?"
+    options={[
+      "WiX/MSI should always be chosen over MSIX for any new application",
+      "When the installer needs genuinely unrestricted install-time behavior — installing a Windows Service with a specific account, running custom actions outside MSIX's sandboxed model, or targeting established enterprise deployment tooling"
+      , "Only when the application has no user interface at all",
+      "WiX/MSI is only appropriate for applications distributed through the Microsoft Store"
+    ]}
+    answer={1}
+    explanation="MSIX's sandboxing constraints, covered in Chapter 8, make WiX/MSI the better fit when install-time flexibility beyond what MSIX allows is genuinely required."
+  />
+  <Quiz
+    id="building-installers-with-msix-and-wix-q5"
+    question="According to the section's closing guidance, where should producing the installer artifact happen in a real software delivery process?"
+    options={[
+      "As a manual step performed by a developer immediately before each release",
+      "As part of the same CI/CD pipeline that builds and tests the application itself, run non-interactively via tools like wix build or MakeAppx.exe/msbuild"
+      , "Installer creation cannot be automated and must always be done interactively",
+      "Only WiX-based installers can be built in a CI/CD pipeline; MSIX must be built manually"
+    ]}
+    answer={1}
+    explanation="Both WiX and MSIX packaging tools are designed to run non-interactively from a build server, making installer production a normal, automated pipeline step rather than a manual release-time task."
+  />
+</QuizSet>

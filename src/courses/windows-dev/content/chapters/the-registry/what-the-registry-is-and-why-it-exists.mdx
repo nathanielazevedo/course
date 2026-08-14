@@ -1,0 +1,129 @@
+Before touching any registry API, it's worth understanding what problem the registry was actually built to solve, because that explains both its structure and most of the rules around editing it safely.
+
+### Before the registry: INI files
+
+Early Windows configuration lived in `.ini` text files — `WIN.INI`, `SYSTEM.INI`, and one per application. This scaled badly: no type system (everything was text), no access control (any process could edit any setting), name collisions between unrelated apps' files, and no efficient way to watch a specific setting for changes. Windows 95 and NT introduced the registry as a replacement: one centralized, hierarchical, typed database for machine and per-user configuration, with real security applied per-key.
+
+### A hierarchical database, not a filesystem — but shaped like one
+
+The registry organizes data as **keys** (like folders) containing **values** (like files, each with a name, a type, and data) and further nested keys. It's tempting to think of it exactly like a filesystem, and the analogy holds reasonably well — but a key is a kernel object like the ones from Chapter 1, with its own ACL, not a file on disk, and it's read from and cached by a completely separate subsystem (the Configuration Manager) rather than the filesystem drivers covered in the previous chapter.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A registry key tree: HKEY_LOCAL_MACHINE at the root, branching to SOFTWARE, which branches to a vendor key, which branches to an application key containing named values such as InstallPath (a string) and Version (a DWORD)."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="10" y="10" width="180" height="34" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="100" y="32" fontSize="11" textAnchor="middle">HKEY_LOCAL_MACHINE</text>
+    <line x1="100" y1="44" x2="100" y2="64" stroke="#000" strokeWidth="1" markerEnd="url(#a5)" />
+
+    <rect x="10" y="66" width="180" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="100" y="88" fontSize="11" textAnchor="middle">SOFTWARE</text>
+    <line x1="100" y1="100" x2="100" y2="120" stroke="#000" strokeWidth="1" markerEnd="url(#a5)" />
+
+    <rect x="10" y="122" width="180" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="100" y="144" fontSize="11" textAnchor="middle">Contoso</text>
+    <line x1="100" y1="156" x2="100" y2="176" stroke="#000" strokeWidth="1" markerEnd="url(#a5)" />
+
+    <rect x="10" y="178" width="180" height="20" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="100" y="192" fontSize="10" textAnchor="middle">MyApp (key)</text>
+
+    <g transform="translate(230, 122)">
+      <rect x="0" y="0" width="220" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      <text x="110" y="15" fontSize="9.5" textAnchor="middle">InstallPath</text>
+      <text x="110" y="27" fontSize="9" fill="#666" textAnchor="middle">REG_SZ = "C:\Program Files\..."</text>
+    </g>
+    <g transform="translate(230, 164)">
+      <rect x="0" y="0" width="220" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      <text x="110" y="15" fontSize="9.5" textAnchor="middle">Version</text>
+      <text x="110" y="27" fontSize="9" fill="#666" textAnchor="middle">REG_DWORD = 3</text>
+    </g>
+
+    <defs>
+      <marker id="a5" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+### Where the data physically lives: hives
+
+The tree you see (`HKEY_LOCAL_MACHINE`, `HKEY_CURRENT_USER`, and others — the next section covers each one) is a merged, in-memory view assembled from several **hive files** on disk — binary files like `SOFTWARE`, `SYSTEM`, and `NTUSER.DAT`, loaded by the kernel at boot or logon. Each hive is written using a transactional log so a power loss mid-write doesn't corrupt it outright, similar in spirit to a database's write-ahead log, and it's part of why registry writes are more durable than an equivalent unmanaged text-file write despite looking like a simple key/value set.
+
+### Typed values, not just strings
+
+Unlike a flat text config file, every registry value has an explicit type: `REG_SZ` (string), `REG_DWORD`/`REG_QWORD` (32/64-bit integers), `REG_BINARY` (raw bytes), `REG_MULTI_SZ` (a list of strings), and a few others. This is a real advantage over parsing text — no ambiguity about whether `"3"` means the string `"3"` or the number `3` — and it's why `Microsoft.Win32.RegistryKey` (covered fully two sections from now) has typed getters and setters rather than returning everything as a string.
+
+### What the registry is genuinely good at — and not
+
+The registry earns its place for small, frequently-read, security-sensitive configuration: application settings, install locations, feature flags, driver parameters. It is a poor fit for large data (hives are not designed to hold megabytes of blob data efficiently), for data that changes very frequently (each write goes through the transactional log), or for anything that needs to be portable as a plain file a person can diff or hand-edit — which is exactly the set of tradeoffs that led modern .NET apps toward `appsettings.json` and similar file-based configuration for application-level settings, while the registry remains the right place specifically for OS- and Windows-integration-level configuration (Chapter 4's later sections cover exactly which patterns still belong there).
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-the-registry-is-and-why-it-exists-q1"
+    question="What problem did the registry replace INI files to solve?"
+    options={[
+      "INI files were too fast to read compared to the registry",
+      "INI files had no type system, no per-setting access control, and were prone to name collisions between unrelated applications"
+      , "INI files could not be edited by any application",
+      "INI files were only usable on non-Windows operating systems",
+    ]}
+    answer={1}
+    explanation="The registry centralized configuration into one hierarchical, typed store with real per-key security, addressing the lack of structure, typing, and access control that plain INI files had."
+  />
+  <Quiz
+    id="what-the-registry-is-and-why-it-exists-q2"
+    question="Is a registry key the same kind of object as a file on disk?"
+    options={[
+      "Yes, keys are literally files managed by the same filesystem drivers as regular files",
+      "No — a key is a kernel object with its own ACL, read from and cached by a separate subsystem (the Configuration Manager), not the filesystem drivers"
+      , "Keys have no relationship to kernel objects at all",
+      "Keys are stored exclusively in RAM and never persisted to disk",
+    ]}
+    answer={1}
+    explanation="Despite the filesystem-like tree analogy, registry keys are kernel objects managed by the Configuration Manager, distinct from the file objects and drivers covered in the previous chapter."
+  />
+  <Quiz
+    id="what-the-registry-is-and-why-it-exists-q3"
+    question="What are hives, in relation to the registry tree you see in tools like regedit?"
+    options={[
+      "A deprecated legacy format no longer used on modern Windows",
+      "Binary files on disk (like SOFTWARE, SYSTEM, NTUSER.DAT) loaded at boot or logon that are merged into the in-memory registry tree"
+      , "Temporary caches that are discarded on every reboot",
+      "A synonym for individual registry values",
+    ]}
+    answer={1}
+    explanation="The visible registry tree is assembled at load time from separate hive files on disk, each written with a transactional log for durability."
+  />
+  <Quiz
+    id="what-the-registry-is-and-why-it-exists-q4"
+    question="What advantage does registry value typing (REG_SZ, REG_DWORD, etc.) provide over a flat text config file?"
+    options={[
+      "It makes the registry human-readable in a text editor",
+      "It removes ambiguity about a value's intended type, e.g. distinguishing the string \"3\" from the integer 3 explicitly"
+      , "It eliminates the need for any access control",
+      "It allows unlimited value sizes with no performance cost",
+    ]}
+    answer={1}
+    explanation="Each registry value carries an explicit type, avoiding the parsing ambiguity inherent in plain text configuration formats."
+  />
+  <Quiz
+    id="what-the-registry-is-and-why-it-exists-q5"
+    question="Where does the registry tend to be a poor fit, according to its tradeoffs?"
+    options={[
+      "Small, frequently-read, security-sensitive settings like install paths and feature flags",
+      "Large blob data, very frequently changing data, or data that needs to be a portable, human-diffable plain file"
+      , "Anything related to driver parameters",
+      "It has no meaningful limitations compared to file-based configuration",
+    ]}
+    answer={1}
+    explanation="Hives aren't designed to efficiently hold large data, and the transactional write path makes very high-frequency writes costly — which is part of why app-level settings increasingly live in files like appsettings.json instead."
+  />
+</QuizSet>

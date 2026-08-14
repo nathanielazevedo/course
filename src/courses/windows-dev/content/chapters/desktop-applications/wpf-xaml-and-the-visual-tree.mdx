@@ -1,0 +1,106 @@
+The previous section described WinForms as close to native Win32 controls, with the customization limits that closeness implies. WPF makes the opposite tradeoff on purpose: it steps away from native controls almost entirely, in exchange for a rendering and layout model powerful enough to build UI that looks like genuinely anything.
+
+### One real window, everything else drawn by WPF itself
+
+A WPF window is, underneath, still one native `HWND` — the message loop from two sections ago still applies at that outer boundary. But everything *inside* that window — every button, every piece of text, every shape — is not a separate native control at all; it's a **visual**, part of a retained-mode scene graph WPF itself owns and renders directly through DirectX, with no corresponding Win32 window object for each individual control. This is the structural reason WPF can restyle a button into literally any shape or appearance with no owner-drawing required (the previous section's WinForms limitation): there's no native Win32 button to be constrained by in the first place, just a rectangle WPF is drawing and compositing however a style or template says to.
+
+### XAML: a declarative description of that same visual tree
+
+```xml
+<Window x:Class="MyApp.MainWindow" ... Title="My App" Height="300" Width="400">
+    <StackPanel Margin="16">
+        <TextBlock Text="{Binding Greeting}" FontSize="18" />
+        <Button Content="Click me" Click="Button_Click" Margin="0,12,0,0" />
+    </StackPanel>
+</Window>
+```
+
+XAML is not a separate technology bolted onto WPF — it's a direct, declarative representation of the same object tree you could construct by hand in C#; `<Button Content="Click me" />` and `new Button { Content = "Click me" }` produce the identical object. XAML's advantage is that it makes that tree's *structure* visually apparent in a way deeply nested constructor calls in C# don't, and it's what Visual Studio's XAML designer and hot-reload tooling are built around. Unlike WinForms' generated `.Designer.cs`, XAML is meant to be hand-edited directly as often as it's edited visually.
+
+### Data binding: the visual tree reacting to your data, not the reverse
+
+`{Binding Greeting}` above is WPF's data binding system — a declared link between a UI property (`TextBlock.Text`) and a data source property (`Greeting`, on whatever object is set as the element's `DataContext`), kept synchronized automatically as long as the source implements `INotifyPropertyChanged`:
+
+```csharp
+public class MainViewModel : INotifyPropertyChanged
+{
+    private string _greeting = "Hello";
+    public string Greeting
+    {
+        get => _greeting;
+        set { _greeting = value; PropertyChanged?.Invoke(this, new(nameof(Greeting))); }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+```
+
+This is the mechanism behind the MVVM (Model-View-ViewModel) pattern WPF applications commonly use: the view (XAML) binds to a view model's properties and commands, and the view model changes those properties without ever directly touching a UI element — `PropertyChanged` does the notification, and WPF's binding infrastructure does the actual UI update, dispatched onto the message loop from two sections ago the same way any other UI mutation is.
+
+### Styles, templates, and why "restyle anything" is a real claim
+
+A **Style** sets property values (colors, fonts, margins) applied consistently across every control of a given type; a **ControlTemplate** goes further and replaces the entire visual structure a control renders with — a `Button`'s default template is itself just XAML describing a border, a content presenter, and some triggers for hover/pressed states, and nothing stops replacing that template with an entirely different visual tree while keeping the `Button`'s click behavior and keyboard handling intact underneath. This separation of a control's *behavior* (still genuine .NET code implementing focus, keyboard activation, command execution) from its *appearance* (pure XAML, freely replaceable) is the concrete mechanism behind WPF's visual flexibility, and has no direct equivalent in WinForms' native-control model.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="wpf-xaml-and-the-visual-tree-q1"
+    question="How does a WPF button's relationship to Win32 differ from a WinForms button's?"
+    options={[
+      "They are structurally identical — both wrap a native Win32 Button window",
+      "A WPF button has no corresponding native Win32 window at all — it's a visual in WPF's own retained-mode scene graph, drawn directly by WPF through DirectX, unlike WinForms' native-control wrapping"
+      , "WPF buttons are native Win32 controls, but WinForms buttons are not",
+      "Neither WPF nor WinForms controls have any relationship to a window at all"
+    ]}
+    answer={1}
+    explanation="Only the outer WPF Window is a real HWND; individual controls inside it are visuals WPF renders itself, which is structurally opposite to WinForms' native-control wrapping."
+  />
+  <Quiz
+    id="wpf-xaml-and-the-visual-tree-q2"
+    question="What is the relationship between XAML and the object tree it describes?"
+    options={[
+      "XAML is compiled into an entirely different runtime representation with no direct correspondence to C# objects",
+      "XAML is a direct, declarative representation of the same object tree you could construct by hand in C# — a Button element and a `new Button()` produce the identical object"
+      , "XAML only exists at design time and has no effect at runtime",
+      "XAML is functionally equivalent to WinForms' generated .Designer.cs files"
+    ]}
+    answer={1}
+    explanation="Unlike WinForms' generated imperative code, XAML is a first-class declarative format meant for direct hand-editing, describing exactly the same object tree that equivalent C# constructor calls would produce."
+  />
+  <Quiz
+    id="wpf-xaml-and-the-visual-tree-q3"
+    question="What does WPF's data binding system require of a source object like a view model to stay automatically synchronized with the UI?"
+    options={[
+      "Nothing special — any plain object works automatically",
+      "The source needs to implement INotifyPropertyChanged and raise the PropertyChanged event when a bound property's value changes"
+      , "The source object must itself derive from a WPF control class",
+      "Data binding requires manually polling the source object on a timer"
+    ]}
+    answer={1}
+    explanation="WPF's binding infrastructure listens for PropertyChanged notifications to know when to refresh bound UI, which is why INotifyPropertyChanged is the standard implementation for MVVM view models."
+  />
+  <Quiz
+    id="wpf-xaml-and-the-visual-tree-q4"
+    question="What is the key difference between a Style and a ControlTemplate in WPF?"
+    options={[
+      "They are two names for the exact same feature",
+      "A Style sets property values consistently across controls of a type; a ControlTemplate replaces the entire visual structure a control renders, while its underlying behavior stays intact"
+      , "ControlTemplate only works for the Button class specifically",
+      "Style can only be applied at the application level, never per-control"
+    ]}
+    answer={1}
+    explanation="A Style adjusts properties like color and margin; a ControlTemplate goes further, replacing the visual tree entirely while preserving the control's real behavior (focus, click handling, keyboard interaction)."
+  />
+  <Quiz
+    id="wpf-xaml-and-the-visual-tree-q5"
+    question="Why can a WPF button be restyled into virtually any visual appearance without owner-drawing, unlike a WinForms button?"
+    options={[
+      "WPF buttons secretly still use owner-drawing internally",
+      "There is no native Win32 button constraining its appearance in the first place — WPF is directly rendering a rectangle according to whatever style or template is applied"
+      , "WPF buttons cannot actually be restyled; this is a common misconception",
+      "WinForms and WPF use the exact same underlying rendering technology"
+    ]}
+    answer={1}
+    explanation="Because WPF controls have no native Win32 counterpart to be visually constrained by, restyling is a matter of changing the template WPF renders from, not working around a fixed native appearance."
+  />
+</QuizSet>

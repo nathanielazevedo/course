@@ -1,0 +1,97 @@
+Networking in .NET is deliberately cross-platform at the API level — `Socket`, `HttpClient`, `TcpClient` behave the same on Windows, Linux, and macOS. This section is about what's genuinely Windows-specific underneath that shared API: the network stack it calls into, and the Windows-side configuration that affects code you write identically everywhere else.
+
+### Winsock: Windows' socket implementation, under a portable API
+
+`System.Net.Sockets` on Windows calls into **Winsock** (`ws2_32.dll`, one of the Win32 DLLs from Chapter 1's kernel/Win32 map), Windows' implementation of the Berkeley sockets API most networking code's mental model traces back to. This is why the .NET socket API feels familiar even to developers coming from Unix networking — Winsock deliberately mirrors that model — while still being, underneath, a wrapper over a genuinely Windows-specific implementation with its own configuration surface, performance characteristics, and quirks:
+
+```csharp
+using var client = new TcpClient();
+await client.ConnectAsync("example.com", 443);
+using NetworkStream stream = client.GetStream();
+```
+
+For most application code, this distinction is invisible — `TcpClient` and `HttpClient` work identically regardless of platform. It becomes visible specifically when something Windows-specific intervenes between your code and the actual network — which the rest of this section is about.
+
+### IOCP: the completion-port model behind async networking
+
+Chapter 2 covered how genuinely async I/O completes through an I/O completion port rather than blocking a thread. Windows sockets opened for overlapped I/O — which `Socket.SendAsync`/`ReceiveAsync` and everything built on top of them use — are a direct instance of that same completion-port mechanism, specifically. This is why .NET's async networking APIs scale to handling thousands of concurrent connections on a modest thread pool: each pending socket operation doesn't tie up a thread while waiting, the same pattern Chapter 2 established for file I/O, applied here to sockets.
+
+### The Windows Firewall: a real, silent failure mode
+
+A socket bind or listen can succeed completely and a connection can still never arrive, because the Windows Defender Firewall silently drops the inbound traffic before it ever reaches the listening socket — no exception, no error on the listening side, just no connections ever arriving. This is a common first surprise building a server application: code that works fine connecting *out* (outbound is unrestricted by default) can appear completely broken for anyone trying to connect *in*, until an inbound rule explicitly allows it — either for the specific port, or (the more common .NET pattern) tied to the specific executable, so the rule follows the app rather than a hardcoded port number:
+
+```powershell
+New-NetFirewallRule -DisplayName "MyApp" -Direction Inbound `
+  -Program "C:\Services\MyApp\MyApp.exe" -Action Allow
+```
+
+Firewall rules like this are typically part of an installer's job (Chapter 11), not something the application configures at runtime — application code generally shouldn't be modifying firewall state itself, both because it usually requires administrator rights and because a self-modifying firewall configuration is a genuine security smell.
+
+### `HttpClient`: reuse, not per-request instantiation
+
+This is a .NET-wide guidance point, not strictly Windows-specific, but worth stating precisely because it interacts with the completion-port model above: `HttpClient` is designed to be created once and reused for the lifetime of the component using it (or managed through `IHttpClientFactory` in apps using dependency injection), not instantiated per-request. Each `HttpClient` instance owns a connection pool; creating a fresh instance per request defeats connection reuse and, under load, can genuinely exhaust available sockets through a Windows-specific mechanism — ports left in `TIME_WAIT` after connections close aren't immediately reusable, and enough short-lived `HttpClient` instances under load can exhaust the ephemeral port range faster than the OS reclaims them.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="sockets-and-httpclient-on-windows-q1"
+    question="What does System.Net.Sockets actually call into on Windows, underneath its cross-platform API surface?"
+    options={[
+      "A pure managed implementation with no native dependency at all",
+      "Winsock (ws2_32.dll), Windows' implementation of the Berkeley sockets model, which is why .NET's socket API feels familiar to developers from Unix networking backgrounds"
+      , "The same native networking code used on Linux and macOS unchanged",
+      "The registry, which stores and replays network packets"
+    ]}
+    answer={1}
+    explanation="On Windows, .NET's socket API is a portable layer over Winsock specifically, a Windows-native implementation of the Berkeley sockets model that most networking APIs' conventions trace back to."
+  />
+  <Quiz
+    id="sockets-and-httpclient-on-windows-q2"
+    question="How does async socket I/O in .NET relate to the I/O completion port mechanism covered for file I/O in Chapter 2?"
+    options={[
+      "There is no relationship; sockets use an entirely separate async mechanism",
+      "Sockets opened for overlapped I/O use the same completion-port mechanism as async file I/O, which is why .NET can scale to thousands of concurrent connections on a modest thread pool"
+      , "Async sockets always block a dedicated thread per connection",
+      "IOCP only applies to file operations, never to networking"
+    ]}
+    answer={1}
+    explanation="Async socket operations are a direct application of the same completion-port model Chapter 2 described for file I/O — pending operations don't tie up a thread while waiting."
+  />
+  <Quiz
+    id="sockets-and-httpclient-on-windows-q3"
+    question="Why can a server's listening socket bind and start successfully, yet still never receive any inbound connections?"
+    options={[
+      "This scenario cannot actually happen if the socket code is correct",
+      "The Windows Defender Firewall can silently drop inbound traffic before it reaches the listening socket, with no exception or error raised on the listening side"
+      , "Outbound connections are always blocked by default, which is the actual cause",
+      "TcpClient and Socket behave differently on Windows in a way that prevents listening at all"
+    ]}
+    answer={1}
+    explanation="A firewall block on inbound traffic is invisible to the listening code itself — the bind and listen succeed normally, but connections simply never arrive, which is a common first surprise for server-side networking code."
+  />
+  <Quiz
+    id="sockets-and-httpclient-on-windows-q4"
+    question="Why is application code generally discouraged from modifying the Windows Firewall configuration itself at runtime?"
+    options={[
+      "It's technically impossible for an application to modify firewall rules",
+      "It typically requires administrator rights and represents a security smell as self-modifying firewall configuration — this is normally an installer's responsibility instead"
+      , "Firewall rules cannot be created via PowerShell, only through the GUI",
+      "Modifying the firewall always requires a full system reboot"
+    ]}
+    answer={1}
+    explanation="Firewall rule creation is better handled during installation (with appropriate elevated context and user consent) rather than by the running application altering security configuration on its own."
+  />
+  <Quiz
+    id="sockets-and-httpclient-on-windows-q5"
+    question="Why can creating a new HttpClient instance per request, under load, lead to exhausting available network ports?"
+    options={[
+      "HttpClient instances leak memory permanently with no relation to ports",
+      "Each instance owns its own connection pool rather than reusing one; ports left in TIME_WAIT after connections close aren't immediately reusable, and enough short-lived instances can exhaust the ephemeral port range faster than the OS reclaims them"
+      , "This only happens on Linux and macOS, not on Windows",
+      "HttpClient has a hardcoded limit of exactly ten total connections"
+    ]}
+    answer={1}
+    explanation="Per-request HttpClient instantiation defeats connection pooling and, combined with TIME_WAIT port retention, can genuinely exhaust available ports under sustained load — which is why reuse (directly or via IHttpClientFactory) is the standard guidance."
+  />
+</QuizSet>

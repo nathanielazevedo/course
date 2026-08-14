@@ -1,0 +1,108 @@
+Every mechanism so far in this chapter assumes the process is still running to observe. This closing section is for the case none of them cover: the process already crashed, and whatever happened is gone unless it was captured at the moment of failure — which is exactly what a **crash dump** is for.
+
+### What a crash dump actually captures
+
+A crash dump is a snapshot of a process's memory at a specific moment — typically the instant it crashed — written to a `.dmp` file. Windows Error Reporting (WER) can be configured to generate one automatically whenever a process crashes unhandled, without any code in the application itself requesting it:
+
+```
+HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps
+DumpType (REG_DWORD) = 2   ; 2 = full dump, 1 = mini dump
+DumpFolder (REG_SZ)  = C:\Dumps
+```
+
+This registry configuration (Chapter 4's mechanisms, applied to a genuinely practical operational use) is a common production setup: crashes on a server that has no one watching it interactively still leave behind a file that can be analyzed after the fact, rather than the failure simply vanishing along with the terminated process.
+
+### Mini dumps vs. full dumps: what tradeoff the DumpType controls
+
+A **mini dump** captures the essentials — thread stacks, loaded module list, exception information — small (typically kilobytes to low megabytes) and fast to generate, sufficient for diagnosing the large majority of crashes where the immediate call stack tells you what went wrong. A **full dump** captures the entire process address space, potentially gigabytes for a large application, letting you inspect the actual contents of any object, any local variable, any field, at the cost of size and the sensitive-data exposure that implies (a full dump of a process handling user data or credentials genuinely contains that data in plain, inspectable form — treating dump files with the same care as the data the process itself handles is not optional). The practical default: mini dumps for routine crash triage, full dumps reserved for the harder cases where a stack trace alone doesn't explain the failure and inspecting actual object state is necessary.
+
+### Opening a dump in WinDbg
+
+WinDbg (part of the Windows SDK from Chapter 1's setup checklist, or available as `WinDbg Preview` from the Microsoft Store) is the standard tool for actually analyzing a dump. For managed .NET crashes specifically, the **SOS** debugging extension (`.loadby sos coreclr` in modern .NET) is what makes WinDbg — a tool that natively understands native stacks and modules — able to walk managed stacks, inspect managed objects, and understand the CLR's own internal state:
+
+```
+0:000> .loadby sos coreclr
+0:000> !clrstack          # managed call stack for the current thread
+0:000> !dumpheap -stat     # summary of every managed object type on the heap
+0:000> !pe                 # print exception details for the current exception
+```
+
+`!clrstack` is usually the first command run against a crash dump — it answers "where in managed code was this thread when it died," the direct managed equivalent of a native stack trace, and often enough on its own to diagnose the crash without needing to go further into heap inspection.
+
+### `dotnet-dump`: capturing and analyzing without WinDbg at all
+
+For .NET specifically, `dotnet-dump` (another global tool, sibling to `dotnet-trace` and `dotnet-counters` from earlier sections) can both capture a dump from a live process on demand and provide its own SOS-powered analysis interface, cross-platform, without requiring WinDbg or even a Windows-only environment for the analysis step:
+
+```bash
+dotnet-dump collect --process-id <pid>
+dotnet-dump analyze core_20240101_120000
+> clrstack
+> dumpheap -stat
+```
+
+This is genuinely useful beyond crash-after-the-fact analysis too — `dotnet-dump collect` can capture a dump of a process that's still running but behaving badly (hung, leaking memory) for later analysis, without having to wait for or force an actual crash first.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="crash-dumps-and-debugging-with-windbg-q1"
+    question="What does Windows Error Reporting's LocalDumps registry configuration accomplish?"
+    options={[
+      "It prevents crashes from occurring in the first place",
+      "It configures Windows to automatically write a memory snapshot to a .dmp file whenever a process crashes unhandled, without requiring any code in the application itself"
+      , "It only works for processes explicitly registered as Windows Services",
+      "It sends crash reports directly to Microsoft with no local file created"
+    ]}
+    answer={1}
+    explanation="LocalDumps configuration lets WER automatically capture crash dumps to a local folder for any crashing process, which is especially valuable for unattended production servers with no one watching interactively."
+  />
+  <Quiz
+    id="crash-dumps-and-debugging-with-windbg-q2"
+    question="What is the key tradeoff between a mini dump and a full dump?"
+    options={[
+      "There is no real difference; DumpType only affects file naming",
+      "A mini dump captures thread stacks, modules, and exception info compactly; a full dump captures the entire process address space, letting you inspect actual object contents at the cost of size and sensitive-data exposure"
+      , "Full dumps are always smaller than mini dumps",
+      "Mini dumps can only be analyzed with dotnet-dump, never with WinDbg"
+    ]}
+    answer={1}
+    explanation="Mini dumps are compact and sufficient for most crash triage via stack traces; full dumps capture everything, useful for deeper investigation but carrying real size and data-sensitivity costs."
+  />
+  <Quiz
+    id="crash-dumps-and-debugging-with-windbg-q3"
+    question="Why does a full crash dump require the same careful handling as the sensitive data the crashed process itself was processing?"
+    options={[
+      "Full dumps never actually contain application data, only OS metadata",
+      "A full dump captures the entire process address space, meaning any user data or credentials the process was handling at the time exist in the dump in plain, inspectable form"
+      , "This concern only applies to dumps captured with dotnet-dump, not WER",
+      "Dumps are automatically encrypted, so this is not actually a concern"
+    ]}
+    answer={1}
+    explanation="Because a full dump is a complete memory snapshot, any sensitive data the process held in memory is captured just as plainly, making dump files a genuine data-handling concern, not just a debugging artifact."
+  />
+  <Quiz
+    id="crash-dumps-and-debugging-with-windbg-q4"
+    question="What role does the SOS debugging extension play when analyzing a .NET crash dump in WinDbg?"
+    options={[
+      "It replaces WinDbg entirely with a separate standalone tool",
+      "It extends WinDbg, which natively only understands native stacks and modules, so it can walk managed stacks, inspect managed objects, and understand CLR internal state"
+      , "SOS is only used for capturing dumps, not analyzing them",
+      "SOS is required to open any dump file at all, managed or native"
+    ]}
+    answer={1}
+    explanation="WinDbg's native understanding of stacks and modules doesn't cover managed .NET state on its own — SOS bridges that gap, enabling commands like !clrstack and !dumpheap for managed diagnosis."
+  />
+  <Quiz
+    id="crash-dumps-and-debugging-with-windbg-q5"
+    question="What can dotnet-dump collect do that isn't limited to after-the-fact crash analysis?"
+    options={[
+      "It can only ever process dumps that WER has already generated",
+      "It can capture a dump of a process that's still running but behaving badly — hung or leaking memory — for later analysis, without needing to force an actual crash first"
+      , "It can only analyze dumps captured on a different machine",
+      "It requires the target process to already be attached to WinDbg"
+    ]}
+    answer={1}
+    explanation="dotnet-dump collect works on-demand against a live process, making it useful for investigating hangs or leaks in real time, not just for post-mortem analysis of an already-crashed process."
+  />
+</QuizSet>

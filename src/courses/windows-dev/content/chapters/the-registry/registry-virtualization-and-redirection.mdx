@@ -1,0 +1,114 @@
+The previous section mentioned that writing to `HKLM` without elevation throws `UnauthorizedAccessException` — for a modern, correctly-manifested app. But plenty of older software written before UAC existed writes to `HKLM` constantly and appears to work fine, non-elevated, on modern Windows. That apparent contradiction is **UAC Registry Virtualization**, a distinct mechanism from the WOW6432Node redirection covered earlier, and worth telling apart clearly since both get called "redirection."
+
+### Two different things both called "redirection"
+
+- **WOW64 redirection** (previous sections) is about **bitness** — a 32-bit process transparently sees a different physical location (`WOW6432Node`) than a 64-bit process asking for the same nominal path. It applies to both reads and writes, for every process running under WOW64, regardless of elevation.
+- **UAC Registry Virtualization** is about **compatibility for legacy, non-manifested apps**. It applies only to writes, only under `HKEY_LOCAL_MACHINE\SOFTWARE` (and a couple of other specific locations), and only for processes Windows has judged to be "legacy" — specifically, 32-bit interactive applications with **no application manifest** at all, which pre-date UAC and were never updated to handle it.
+
+### How virtualization actually works
+
+When a qualifying legacy app, running non-elevated, attempts to write under `HKLM\SOFTWARE`, Windows doesn't fail the write — it silently redirects it to a per-user shadow copy under `HKEY_CURRENT_USER\Software\Classes\VirtualStore\MACHINE\SOFTWARE\...`. Subsequent reads from that same app, at that same nominal `HKLM` path, are transparently redirected too, so the app sees its own write reflected back and has no idea anything unusual happened. Other users on the same machine — or the same app running elevated — see the *real*, unvirtualized `HKLM` data, which can be different from what the non-elevated instance believes it wrote.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 160"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A legacy app without a manifest writes to HKLM SOFTWARE. Windows silently redirects that write to a per-user VirtualStore location under HKEY_CURRENT_USER. Reads from the same app at the same nominal path are transparently redirected back to that VirtualStore copy, while other users or elevated processes see the real, unmodified HKLM data."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="16" width="180" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="110" y="40" fontSize="11" textAnchor="middle">Legacy app (no manifest)</text>
+    <line x1="200" y1="36" x2="260" y2="36" stroke="#000" strokeWidth="1" markerEnd="url(#a6)" />
+    <text x="230" y="28" fontSize="9" fill="#666" textAnchor="middle">writes to</text>
+
+    <rect x="260" y="16" width="200" height="40" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="40" fontSize="11" textAnchor="middle">HKLM\SOFTWARE\... (nominal)</text>
+    <line x1="360" y1="56" x2="360" y2="90" stroke="#000" strokeWidth="1" strokeDasharray="4 3" markerEnd="url(#a6)" />
+    <text x="410" y="76" fontSize="9" fill="#666">silently redirected</text>
+
+    <rect x="200" y="92" width="320" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="360" y="112" fontSize="10.5" textAnchor="middle">HKCU\...\VirtualStore\MACHINE\SOFTWARE\...</text>
+    <text x="360" y="128" fontSize="9" fill="#666" textAnchor="middle">actual write lands here — per user</text>
+
+    <defs>
+      <marker id="a6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+### Why modern apps opt out automatically
+
+Registry virtualization is intentionally scoped to apps without a manifest, because a manifest is a declaration that the app knows about UAC and has been written to handle it correctly. As soon as an app ships an application manifest — even one that just declares `asInvoker`, the default level covered in Chapter 2 — virtualization turns off for that process entirely, and an unprivileged `HKLM` write goes back to failing normally with `UnauthorizedAccessException`. Every modern .NET app has an implicit or explicit manifest, so virtualization essentially never applies to C# code you write today; it exists purely as a compatibility shim for old, unmanifested native applications.
+
+### Why this section matters even though it won't affect your own code
+
+The practical reason to understand this is diagnosing *other* software's behavior, not writing around it yourself: if a legacy installer or utility appears to "successfully" write a setting to `HKLM` that a different user account or an elevated session can't see, checking `HKCU\Software\Classes\VirtualStore\MACHINE\SOFTWARE\...` for that same path is often exactly where the real data landed. `regedit` shows the "Compatibility" indicator in its view for virtualized keys, which is the fastest way to confirm this is what's happening rather than something being genuinely broken.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="registry-virtualization-and-redirection-q1"
+    question="How does UAC Registry Virtualization differ from WOW64 redirection?"
+    options={[
+      "They are the same mechanism under two different names",
+      "WOW64 redirection is about process bitness and applies broadly; UAC Registry Virtualization is a compatibility shim only for legacy, non-manifested apps writing to HKLM"
+      , "UAC Registry Virtualization applies to reads only, never writes",
+      "WOW64 redirection only applies to elevated processes",
+    ]}
+    answer={1}
+    explanation="WOW64 redirection separates 32-bit and 64-bit views of the registry regardless of elevation or manifest status, while UAC Registry Virtualization specifically redirects writes for legacy apps that have no application manifest at all."
+  />
+  <Quiz
+    id="registry-virtualization-and-redirection-q2"
+    question="What happens when a qualifying legacy app writes to HKLM\\SOFTWARE without elevation?"
+    options={[
+      "The write fails immediately with UnauthorizedAccessException",
+      "The write is silently redirected to a per-user shadow copy under HKCU\\...\\VirtualStore\\MACHINE\\SOFTWARE\\..., with reads transparently redirected too"
+      , "The app is automatically elevated to complete the write",
+      "The write succeeds and modifies the real HKLM data for all users",
+    ]}
+    answer={1}
+    explanation="Rather than failing the write, Windows redirects it to a per-user VirtualStore location, and redirects subsequent reads at the same path too, so the legacy app appears to work normally."
+  />
+  <Quiz
+    id="registry-virtualization-and-redirection-q3"
+    question="What determines whether an application is eligible for UAC Registry Virtualization?"
+    options={[
+      "Whether the app is running elevated or not",
+      "Whether the app is a 32-bit interactive application with no application manifest at all"
+      , "Whether the app targets net8.0-windows",
+      "Whether the app was installed via MSIX",
+    ]}
+    answer={1}
+    explanation="Virtualization specifically targets legacy apps that predate UAC and ship with no manifest — the absence of a manifest is what signals the app hasn't been updated to handle UAC properly."
+  />
+  <Quiz
+    id="registry-virtualization-and-redirection-q4"
+    question="Why does shipping even a minimal application manifest (declaring asInvoker) disable registry virtualization for that app?"
+    options={[
+      "A manifest of any kind, including asInvoker, declares the app is UAC-aware, which turns off the legacy compatibility shim entirely"
+      , "asInvoker specifically requests virtualization to be enabled",
+      "Manifests have no effect on virtualization, only on elevation level",
+      "Only requireAdministrator manifests disable virtualization",
+    ]}
+    answer={0}
+    explanation="The presence of any manifest signals the app was written with UAC in mind, which is exactly the condition that exempts it from the legacy virtualization shim — regardless of which specific execution level it requests."
+  />
+  <Quiz
+    id="registry-virtualization-and-redirection-q5"
+    question="If a legacy app appears to successfully write a setting to HKLM that a different user account can't see, where should you check first?"
+    options={[
+      "HKEY_CLASSES_ROOT, since it merges per-user and machine settings",
+      "HKCU\\Software\\Classes\\VirtualStore\\MACHINE\\SOFTWARE\\..., where UAC Registry Virtualization likely actually stored the write"
+      , "The WOW6432Node under HKLM\\SOFTWARE",
+      "The SYSTEM hive directly",
+    ]}
+    answer={1}
+    explanation="A per-user VirtualStore copy under HKCU is where UAC Registry Virtualization actually lands the write for a legacy app, which explains why other users or elevated sessions don't see it."
+  />
+</QuizSet>

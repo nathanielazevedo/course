@@ -1,0 +1,131 @@
+Everything in this course happens inside the .NET runtime, so before going further it's worth being precise about what that runtime actually is on Windows, and where it stops being "just .NET" and starts being "Windows specifically."
+
+### From C# to running machine code
+
+A C# compiler (`csc` or Roslyn) never emits machine code. It emits **IL** (Intermediate Language) plus metadata, packaged into an **assembly** — a `.dll` or `.exe` file. Nothing about IL is Windows-specific; it's a CPU-agnostic instruction set designed for the CLR to consume. The **CLR** (Common Language Runtime) is the engine that loads an assembly, and its **JIT compiler** (just-in-time compiler) translates IL methods into real x64 or ARM64 machine code the moment they're first called, caching the result for the life of the process.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 140"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Pipeline: C# source compiles to IL and metadata in an assembly; the CLR loads the assembly; the JIT compiles IL methods to native machine code on first call; the CPU executes that native code."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      ["C# source", "0 90"],
+      ["IL + metadata\n(assembly)", "170 90"],
+      ["JIT compiles\non first call", "340 90"],
+      ["native x64 /\nARM64 code", "500 90"],
+    ].map(([label, pos], i) => {
+      const [x] = pos.split(" ").map(Number);
+      const lines = label.split("\n");
+      return (
+        <g key={label}>
+          <rect x={x + 10} y="30" width="130" height="60" fill={i === 3 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.5" />
+          {lines.map((l, li) => (
+            <text key={l} x={x + 75} y={55 + li * 16} fontSize="11" textAnchor="middle">{l}</text>
+          ))}
+          {i < 3 && (
+            <line x1={x + 140} y1="60" x2={x + 150} y2="60" stroke="#000" strokeWidth="1" markerEnd="url(#arrow2)" />
+          )}
+        </g>
+      );
+    })}
+    <defs>
+      <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+Two things fall out of this. First, IL is why a compiled DLL can, in principle, run on Windows, Linux, or macOS unchanged — the JIT, not the compiler, is what's platform-specific. Second, the JIT is why a .NET app has a brief warm-up cost the first time each method runs, and why tools like ReadyToRun and Native AOT exist to precompile some or all of that work ahead of time for startup-sensitive apps.
+
+### The BCL: the managed wrapper around the OS
+
+The **Base Class Library** (`System.*`) is the managed API surface — `File`, `Process`, `Socket`, `Dictionary<T,K>` — that C# code is written against instead of calling Win32 directly. Most of it is genuinely cross-platform: `System.Collections.Generic` doesn't care what OS it's running on. But a meaningful slice of it exists specifically to wrap Windows concepts: `Microsoft.Win32.Registry`, `System.ServiceProcess` for Windows Services, `System.Security.AccessControl` for ACLs, `System.Management` for WMI. That code compiles fine on any platform, but throws `PlatformNotSupportedException` at runtime if you call it anywhere but Windows.
+
+.NET makes this explicit at the project level with **target framework monikers**. `net8.0` targets the OS-agnostic surface; `net8.0-windows` unlocks the Windows-only APIs (and lets analyzers warn you if you call a Windows-only API from a project that doesn't declare that TFM). This is the mechanism that makes "a C# app for Windows" a distinct, declared thing rather than an accident of which machine you happened to build on.
+
+```xml
+<PropertyGroup>
+  <!-- Cross-platform surface only -->
+  <TargetFramework>net8.0</TargetFramework>
+</PropertyGroup>
+
+<PropertyGroup>
+  <!-- Unlocks Registry, WMI, WinForms/WPF, COM interop, etc. -->
+  <TargetFramework>net8.0-windows</TargetFramework>
+</PropertyGroup>
+```
+
+### .NET Framework vs. modern .NET, briefly
+
+You will still encounter **.NET Framework** (4.x, Windows-only, ships as part of Windows itself) in existing codebases, alongside modern **.NET** (5 and later, cross-platform, installed side by side, the actively developed line and what this course targets). Modern .NET on Windows has effectively the same access to Windows-specific APIs that .NET Framework always had — the difference is that on .NET Framework everything is Windows-only by default, whereas modern .NET makes you opt in to that surface explicitly via `-windows` TFMs and platform compatibility analyzers.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="net-on-windows-clr-jit-and-the-bcl-q1"
+    question="What does the C# compiler actually produce?"
+    options={[
+      "Native x64 machine code",
+      "IL (Intermediate Language) and metadata, packaged as an assembly",
+      "A Win32 executable with no further compilation needed",
+      "Bytecode that only runs inside Visual Studio",
+    ]}
+    answer={1}
+    explanation="The C# compiler emits CPU-agnostic IL plus metadata into an assembly. Native machine code is produced later, by the JIT, when the CLR runs it."
+  />
+  <Quiz
+    id="net-on-windows-clr-jit-and-the-bcl-q2"
+    question="When does the JIT compiler turn IL into native machine code?"
+    options={[
+      "At C# compile time, before the assembly is produced",
+      "The first time a given method is actually called, at runtime",
+      "Only when the developer manually triggers precompilation",
+      "Never — the CLR interprets IL directly without ever producing native code",
+    ]}
+    answer={1}
+    explanation="The JIT compiles each method to native code the first time it's called and caches the result, which is also the source of .NET's warm-up cost."
+  />
+  <Quiz
+    id="net-on-windows-clr-jit-and-the-bcl-q3"
+    question="What is the practical effect of targeting net8.0-windows instead of net8.0?"
+    options={[
+      "It makes the app run faster on Windows only",
+      "It unlocks Windows-only BCL APIs like the Registry and WMI, and lets analyzers flag Windows-only calls in cross-platform projects",
+      "It disables the JIT in favor of full ahead-of-time compilation",
+      "It is required for any C# console application to run at all",
+    ]}
+    answer={1}
+    explanation="The -windows TFM suffix exposes the Windows-specific BCL surface and enables platform-compatibility analysis, making the Windows dependency explicit and declared."
+  />
+  <Quiz
+    id="net-on-windows-clr-jit-and-the-bcl-q4"
+    question="What happens if you call a Windows-only BCL API, such as Registry access, on a non-Windows OS at runtime?"
+    options={[
+      "It silently no-ops",
+      "It throws a PlatformNotSupportedException",
+      "It automatically falls back to a cross-platform equivalent",
+      "It fails to compile, regardless of target platform",
+    ]}
+    answer={1}
+    explanation="Windows-only BCL code compiles on any platform but throws PlatformNotSupportedException at runtime if actually executed off Windows."
+  />
+  <Quiz
+    id="net-on-windows-clr-jit-and-the-bcl-q5"
+    question="What is the key structural difference between .NET Framework and modern .NET regarding Windows APIs?"
+    options={[
+      "Modern .NET cannot access any Windows-specific APIs at all",
+      ".NET Framework is Windows-only by default; modern .NET makes the same Windows-specific surface an explicit opt-in via -windows TFMs",
+      ".NET Framework runs on Linux and macOS, unlike modern .NET",
+      "There is no meaningful difference between the two",
+    ]}
+    answer={1}
+    explanation="Modern .NET is cross-platform by default and requires opting into the Windows-specific API surface explicitly, whereas .NET Framework assumed Windows throughout."
+  />
+</QuizSet>

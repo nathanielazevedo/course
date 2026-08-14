@@ -1,0 +1,118 @@
+With the structure and API covered, this section is a tour of the registry patterns you'll actually reach for in real C# applications — the specific, well-known keys Windows itself reads for startup, uninstall, and file associations, plus where an app's own settings should live.
+
+### Running at startup
+
+The most common startup mechanism for a simple app is a value under one of the `Run` keys — Windows checks these at every logon and launches whatever's listed:
+
+```csharp
+using RegistryKey run = Registry.CurrentUser.OpenSubKey(
+    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", writable: true)!;
+run.SetValue("MyApp", $"\"{Environment.ProcessPath}\"");
+```
+
+`HKCU\...\Run` starts the app for the current user only, no elevation required. `HKLM\...\Run` starts it for every user on the machine, and requires administrator rights to write. There's also `RunOnce` (same location pattern, `RunOnce` instead of `Run`) for a value that Windows automatically deletes after running it once — useful for a post-install step that should fire exactly once, not on every future logon. For anything beyond "launch this executable" — delayed start, conditional triggers, retry policy — the Task Scheduler API (Chapter 11) is the more capable tool; the `Run` key is genuinely just "launch this at logon," nothing more.
+
+### Registering an uninstaller
+
+Programs that show up in "Apps & Features" / Control Panel's "Programs and Features" do so because they've registered a subkey under:
+
+```
+HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{ProductGuid}
+```
+
+```csharp
+using RegistryKey uninstall = Registry.LocalMachine.CreateSubKey(
+    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{B3F1A1E2-...}");
+uninstall.SetValue("DisplayName", "My App");
+uninstall.SetValue("DisplayVersion", "1.2.0");
+uninstall.SetValue("Publisher", "Contoso");
+uninstall.SetValue("UninstallString", @"C:\Program Files\MyApp\uninstall.exe");
+uninstall.SetValue("EstimatedSize", 45000, RegistryValueKind.DWord); // KB
+```
+
+This is registry data Windows itself reads, not just a convention — the values above are exactly what populates the name, version, publisher, and size columns of the Programs and Features list, and `UninstallString` is what actually runs when a user clicks Uninstall. In practice this is more commonly written by an installer (MSI/MSIX/WiX, Chapter 11) than by application code directly, but knowing the shape of it explains what an installer is really doing under the hood.
+
+### File associations
+
+Associating a file extension with your app touches `HKEY_CLASSES_ROOT` (or, per-user and without elevation, `HKCU\Software\Classes`, which merges into the same `HKCR` view from earlier in this chapter):
+
+```csharp
+using RegistryKey ext = Registry.CurrentUser.CreateSubKey(
+    @"Software\Classes\.myext");
+ext.SetValue("", "Contoso.MyApp.Document"); // the default value links ext -> ProgID
+
+using RegistryKey progId = Registry.CurrentUser.CreateSubKey(
+    @"Software\Classes\Contoso.MyApp.Document\shell\open\command");
+progId.SetValue("", $"\"{Environment.ProcessPath}\" \"%1\"");
+```
+
+The **default value** of a key (the unnamed one, set with an empty-string name in `SetValue`) is doing real work here — it's the indirection that lets multiple extensions share one ProgID definition rather than duplicating the open command per extension.
+
+### Where your own app settings should — and shouldn't — go
+
+Given everything covered in this chapter, the practical guidance: put genuinely OS-integration-level data in the registry — install paths other tools need to discover, uninstall registration, file associations, startup entries, licensing/activation state that should survive a reinstall of just the app's files. Put ordinary application preferences — window size, last-opened file, feature toggles — in a config file (`appsettings.json`, or a file under `%APPDATA%`) instead, using `System.Configuration` or the `Microsoft.Extensions.Configuration` stack most modern .NET apps already use. The registry's transactional durability and access control are wasted on data nobody but your own app ever needs to read, and a JSON file is trivially easier to inspect, version, and back up.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="common-registry-patterns-startup-uninstall-app-settings-q1"
+    question="What is the difference between writing a startup entry under HKCU\\...\\Run versus HKLM\\...\\Run?"
+    options={[
+      "There is no functional difference between the two locations",
+      "HKCU starts the app for the current user only and needs no elevation; HKLM starts it for every user and requires administrator rights to write"
+      , "HKLM only works for services, never for regular applications",
+      "HKCU entries are deleted automatically after one logon, unlike HKLM",
+    ]}
+    answer={1}
+    explanation="The choice between HKCU and HKLM for a Run entry follows the same per-user vs. machine-wide, elevation-required distinction covered earlier in the chapter."
+  />
+  <Quiz
+    id="common-registry-patterns-startup-uninstall-app-settings-q2"
+    question="What is the key difference between the Run and RunOnce registry keys?"
+    options={[
+      "RunOnce requires administrator rights while Run does not",
+      "Windows automatically deletes a RunOnce value after running it once, while Run values persist and fire at every logon"
+      , "RunOnce only works for services",
+      "There is no difference; RunOnce is deprecated and ignored",
+    ]}
+    answer={1}
+    explanation="RunOnce entries are self-deleting after execution, making them suited to one-time post-install actions, unlike Run entries which fire on every logon."
+  />
+  <Quiz
+    id="common-registry-patterns-startup-uninstall-app-settings-q3"
+    question="What does the UninstallString value under an app's Uninstall registry subkey actually do?"
+    options={[
+      "It is purely informational and has no functional effect",
+      "It is the command Windows actually runs when the user clicks Uninstall in Programs and Features"
+      , "It stores the app's original install command for reference only",
+      "It is only used by third-party uninstaller tools, not Windows itself",
+    ]}
+    answer={1}
+    explanation="UninstallString is read and executed directly by Windows' Programs and Features UI, making the Uninstall registry subkey genuinely functional data rather than just a display listing."
+  />
+  <Quiz
+    id="common-registry-patterns-startup-uninstall-app-settings-q4"
+    question="In a file association setup, what role does a key's unnamed 'default value' play?"
+    options={[
+      "It has no special meaning and is just an optional extra value",
+      "For a file extension key, it links the extension to a ProgID; multiple extensions can then share one ProgID's open-command definition"
+      , "It stores the file's actual binary contents",
+      "It is only used for HKLM keys, never HKCU",
+    ]}
+    answer={1}
+    explanation="The default value acts as the indirection between an extension and its ProgID, letting several extensions reference the same shared command definition rather than duplicating it."
+  />
+  <Quiz
+    id="common-registry-patterns-startup-uninstall-app-settings-q5"
+    question="According to the chapter's guidance, where should ordinary application preferences like window size or last-opened file typically be stored, rather than the registry?"
+    options={[
+      "Always under HKLM, since it's the most durable location",
+      "In a config file such as appsettings.json or a file under %APPDATA%, using .NET's configuration stack"
+      , "In HKEY_CLASSES_ROOT alongside file associations",
+      "There is no appropriate alternative to the registry for this data",
+    ]}
+    answer={1}
+    explanation="The registry's transactional durability and ACL model are better suited to OS-integration data; ordinary app preferences are more simply and portably stored in a config file that's easy to inspect and back up."
+  />
+</QuizSet>

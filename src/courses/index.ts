@@ -7,6 +7,9 @@ import { getSectionContent as getSystemsThinkingContent } from "./systems-thinki
 import { chapterInput as labAutomationInput } from "./lab-automation/chapters";
 import { getSectionContent as getLabAutomationContent } from "./lab-automation/content";
 
+import { chapterInput as windowsDevInput } from "./windows-dev/chapters";
+import { getSectionContent as getWindowsDevContent } from "./windows-dev/content";
+
 export type { Chapter, Section } from "../lib/chapters";
 
 export type Course = {
@@ -44,6 +47,15 @@ export const courses: Course[] = [
       "How the automated laboratory works — from liquid handling and instruments through scheduling, LIMS, and validation in a regulated environment.",
     ...makeChapterHelpers(buildChapters(labAutomationInput)),
     getSectionContent: getLabAutomationContent,
+  },
+  {
+    slug: "windows-dev",
+    title: "Windows from First Principles",
+    tagline: "Systems Programming in C#",
+    description:
+      "How Windows works from a C# developer's seat — processes, the filesystem, the registry, services, Win32 interop, security, desktop apps, diagnostics, and shipping a finished install.",
+    ...makeChapterHelpers(buildChapters(windowsDevInput)),
+    getSectionContent: getWindowsDevContent,
   },
 ];
 

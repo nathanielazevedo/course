@@ -1,0 +1,97 @@
+The previous sections covered building and controlling a service. This one is the practical loop of getting one actually installed and diagnosing it when it doesn't start the way you expect — which is a genuinely different debugging experience than an ordinary console app, for reasons that follow directly from Session 0 isolation.
+
+### Publishing and registering
+
+```bash
+dotnet publish -c Release -r win-x64 --self-contained false -o C:\Services\MyService
+```
+
+```powershell
+# Elevated PowerShell — registering a service requires administrator rights
+sc.exe create MyService binPath= "C:\Services\MyService\MyService.exe" start= auto
+sc.exe description MyService "Does the thing."
+Start-Service MyService
+```
+
+The space after `binPath=` is not a typo — `sc.exe`'s argument parsing genuinely requires it; `binPath="C:\..."` with no space silently fails to parse correctly, a well-known and easy-to-hit gotcha. `sc.exe delete MyService` (service must be stopped first) is the corresponding uninstall step, worth scripting alongside `create` from the start so upgrading a service during development doesn't leave a stale registration around.
+
+### Why "it works with dotnet run but not installed" happens
+
+The single most common category of "the service won't start" problem traces back to something that was silently true during `dotnet run` and silently false once installed:
+
+- **Working directory.** `dotnet run` executes with the project directory as the working directory; a service launched by the SCM has its working directory set to wherever `services.exe` happens to be, *not* the folder containing your executable. Code using relative paths to find a config file that worked during development fails once installed, unless you explicitly resolve paths from `AppContext.BaseDirectory` instead of assuming the current directory.
+- **Identity.** As covered in Chapter 4, a service commonly runs as `LocalSystem`, `NetworkService`, or `LocalService` by default — not the developer's own account — so file, registry, and network permissions that worked interactively can be denied entirely once installed, especially `HKCU` reads, which resolve to a completely different profile.
+- **No console.** As covered in the previous section, there's nothing to catch `Console.WriteLine` or an unhandled exception's default console output — a startup failure that would have been an obvious stack trace in the terminal instead shows up only as "Error 1053: the service did not respond in a timely fashion," with no further detail unless logging is wired up.
+
+### Debugging a service that won't start
+
+The Event Log (Chapter 9) is the first stop — unhandled startup exceptions and SCM-level failures (like `1053`) are both recorded there, and `builder.Logging.AddEventLog()` from the previous section is what puts your own diagnostic output there too. For step-through debugging, Visual Studio supports attaching to an already-running service process directly (`Debug` → `Attach to Process`, selecting the running service's process) — you can't `F5`-launch a service the way you launch a console app, since the SCM has to be the one starting it, but once it's running, ordinary breakpoint debugging works against it like any other process. A common workaround for early-startup issues specifically (before you can attach in time) is a short `Task.Delay` or a `Debugger.Launch()` call gated behind a config flag, giving you a window to attach before the code you actually want to inspect runs.
+
+### Restart behavior on failure
+
+A service's **recovery options** — configurable via `sc.exe failure` or the Services console's Recovery tab — decide what the SCM does if the service process exits unexpectedly (crashes, or exits with a non-zero code the SCM treats as a failure): restart it after a delay, run a program, or take no action, with separate settings for the first, second, and subsequent failures. This is genuinely different from the app-level retry logic you might write inside `ExecuteAsync` — recovery options handle the case where the *entire process* has died, which no amount of in-process exception handling can recover from, since there's no process left running to do the recovering.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="installing-starting-and-debugging-services-q1"
+    question="What is a well-known gotcha with sc.exe's create command syntax?"
+    options={[
+      "It requires the service to already be running before it can be created",
+      "A space is required after binPath= (e.g. binPath= \"C:\\...\"), and omitting it causes the argument to silently fail to parse correctly"
+      , "It only accepts relative paths, never absolute ones",
+      "It cannot be run from PowerShell, only from cmd.exe",
+    ]}
+    answer={1}
+    explanation="sc.exe's argument syntax genuinely requires a space after binPath= (and similar options); leaving it out is a classic, easy-to-hit mistake that causes the command to misparse."
+  />
+  <Quiz
+    id="installing-starting-and-debugging-services-q2"
+    question="Why can code using relative file paths work fine with dotnet run but fail once installed as a service?"
+    options={[
+      "Relative paths are never supported in .NET at all",
+      "A service's working directory, as set by the SCM, is not the folder containing the executable, unlike dotnet run's project-directory working directory"
+      , "Services cannot read any files from disk under any circumstance",
+      "Relative paths only work when using the Worker SDK",
+    ]}
+    answer={1}
+    explanation="The SCM sets the working directory to wherever services.exe runs from, not the service's own folder, so relative paths that resolved correctly during dotnet run can point somewhere entirely different once installed — AppContext.BaseDirectory is the reliable fix."
+  />
+  <Quiz
+    id="installing-starting-and-debugging-services-q3"
+    question="Why does a service's default identity (LocalSystem, NetworkService, or LocalService) commonly cause permission issues that didn't appear during interactive development?"
+    options={[
+      "These accounts always have fewer permissions than any user account",
+      "These identities are different from the developer's own account, so file, registry, and especially HKCU access can resolve completely differently once installed"
+      , "Service accounts cannot access the filesystem at all",
+      "This only matters for services that use P/Invoke",
+    ]}
+    answer={1}
+    explanation="Since permissions and HKCU resolution are identity-dependent (as covered in Chapter 4), running under a different account than the one used for interactive testing is a common source of access failures specific to the installed service."
+  />
+  <Quiz
+    id="installing-starting-and-debugging-services-q4"
+    question="How can you use Visual Studio's debugger to step through a running Windows Service, given you can't F5-launch it directly?"
+    options={[
+      "It is not possible to debug an installed service at all",
+      "Attach to the already-running service process via Debug → Attach to Process, since the SCM (not Visual Studio) has to be what starts the service"
+      , "You must rewrite the service as a console app permanently to debug it",
+      "Only remote debugging works for services, never local",
+    ]}
+    answer={1}
+    explanation="Because the SCM must be the one launching a service, the standard approach is attaching the debugger to the already-running process rather than launching it directly from the IDE."
+  />
+  <Quiz
+    id="installing-starting-and-debugging-services-q5"
+    question="Why can't in-process retry logic inside ExecuteAsync substitute for a service's SCM-level recovery options?"
+    options={[
+      "Recovery options and in-process retries solve the same problem, so either is sufficient",
+      "Recovery options handle the case where the entire process has already died, which in-process exception handling has no ability to recover from since no process remains running"
+      , "In-process retry logic is always more reliable than recovery options",
+      "Recovery options can only be configured through C# code, never through sc.exe",
+    ]}
+    answer={1}
+    explanation="If the whole service process crashes or exits, there's no running code left to retry anything — only the SCM, watching from outside the process, can restart it, which is exactly what recovery options configure."
+  />
+</QuizSet>

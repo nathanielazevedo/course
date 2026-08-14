@@ -1,0 +1,107 @@
+This final section of the course pulls together nearly everything covered so far into the pipeline that actually ships it: building, testing, packaging, signing, and deploying a C# Windows application automatically, on every change, rather than as a sequence of manual steps someone has to remember and execute correctly by hand.
+
+### Why Windows CI specifically needs a Windows build agent
+
+Chapter 1 established that Windows-specific APIs (Registry, WMI, WinForms/WPF/WinUI, COM interop) are only available when actually running on Windows — `net8.0-windows`-targeted code and anything depending on it genuinely will not build or run correctly on a Linux CI agent, unlike plain `net8.0` cross-platform code. GitHub Actions' `windows-latest` runner, Azure DevOps' `windows-latest` pool, or a self-hosted Windows build agent are the practical options — this single requirement is why "just use whatever CI runner is cheapest" isn't a safe default for this course's subject matter the way it might be for a purely cross-platform .NET library.
+
+```yaml
+# GitHub Actions, abbreviated
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - run: dotnet build -c Release
+      - run: dotnet test -c Release
+```
+
+### What a complete pipeline actually chains together
+
+Pulling directly from this chapter's earlier sections: build and run tests, produce the installer artifact (WiX/MSI or MSIX packaging, from two sections ago) as a build output rather than a manual step, sign both the application binaries and the installer package (Chapter 7's code-signing coverage, applied here as an automated pipeline step against a certificate held in a secrets manager or HSM rather than a developer's own machine), and publish the signed, versioned artifact somewhere the update mechanism (previous section) or an installation process (Chapter 5's service registration included) can actually reach it.
+
+```yaml
+      - run: wix build Product.wxs -o dist/MyApp.msi
+      - name: Sign
+        run: signtool sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 `
+             /f $env:CERT_PATH /p $env:CERT_PASSWORD dist/MyApp.msi
+        env:
+          CERT_PATH: ${{ secrets.SIGNING_CERT_PATH }}
+          CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+```
+
+The `/tr` timestamp server flag matters specifically because of Chapter 7's certificate-expiry point: a **timestamped** signature remains valid after the signing certificate itself expires, because the timestamp proves the signature was created while the certificate was still valid — an unsigned-by-timestamp build can appear to "break" (fail signature verification) months later purely because the certificate used to sign it has since expired, even though nothing about the binary itself changed.
+
+### Testing what's genuinely hard to test without a real Windows environment
+
+Some of what this course covered resists ordinary unit testing precisely because it depends on real OS state: Windows Service installation and lifecycle (Chapter 5), actual registry writes (Chapter 4), or file ACL behavior (Chapter 3) are all more honestly tested as integration tests running on a real (or real-enough, like a Windows container) environment than mocked out entirely — a unit test asserting your code *calls* `RegistryKey.SetValue` correctly is weaker evidence than an integration test that actually writes a real key in an isolated test hive and reads it back, precisely because so much of this course's subject matter is "does the OS actually behave the way the documentation says," not just "does your code call the right method."
+
+### Deployment: pushing the artifact to where it needs to run
+
+The last mile differs by what's being shipped: a desktop app's signed installer or MSIX package gets uploaded to a release page, an internal distribution point, or the Microsoft Store; a Windows Service's deployment (building on Chapter 5's installation steps) typically means copying the published output to the target machine and running `sc.exe create`/`Update-Service`-equivalent commands remotely — via PowerShell remoting (this chapter's first section, extended across machines) or a dedicated deployment tool — rather than manually logging into each server. The specific mechanics vary by organization and scale, but the throughline across this entire final chapter, and really the entire course, holds: nearly everything Windows-specific this course covered — services, the registry, ACLs, signing, the Task Scheduler, IPC — is something real production software automates end to end, not something a person does by hand on each machine, one at a time, hoping to remember every step correctly.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="ci-cd-for-windows-apps-q1"
+    question="Why does building a project targeting net8.0-windows require an actual Windows build agent, unlike a plain net8.0 project?"
+    options={[
+      "net8.0-windows projects are simply slower to build on any platform",
+      "Windows-specific APIs (Registry, WMI, WinForms/WPF/WinUI, COM interop) are only available on Windows, so code depending on them genuinely cannot build or run correctly on a non-Windows CI agent"
+      , "GitHub Actions does not support net8.0-windows on any runner",
+      "This requirement only applies to MSIX-packaged applications"
+    ]}
+    answer={1}
+    explanation="Because the -windows TFM unlocks genuinely Windows-only APIs (as covered in Chapter 1), CI for such projects needs a real Windows environment, unlike cross-platform net8.0 code."
+  />
+  <Quiz
+    id="ci-cd-for-windows-apps-q2"
+    question="Why does a timestamped code signature (using the /tr flag with signtool) remain valid even after the signing certificate itself expires?"
+    options={[
+      "Timestamping has no effect on signature validity after certificate expiry",
+      "The timestamp proves the signature was created while the certificate was still valid, so verification later can confirm that even though the certificate has since expired"
+      , "Expired certificates are always treated as valid by Windows regardless of timestamping",
+      "Timestamping only affects the file's modification date, not its signature validity"
+    ]}
+    answer={1}
+    explanation="Timestamping anchors the signature's validity to the moment of signing rather than the moment of verification, which is why a signed-and-timestamped build doesn't suddenly fail verification once its signing certificate expires — directly following from Chapter 7's certificate expiry discussion."
+  />
+  <Quiz
+    id="ci-cd-for-windows-apps-q3"
+    question="Why are unit tests alone considered weaker evidence than integration tests for behavior like registry writes or file ACLs?"
+    options={[
+      "Unit tests are always strictly better than integration tests for every scenario",
+      "So much of this course's subject matter is genuine OS behavior, not just application logic — a unit test asserting the right method was called is weaker evidence than an integration test confirming the OS actually behaved as documented"
+      , "Integration tests cannot be automated in a CI pipeline",
+      "Unit tests cannot be written for any Windows-specific code at all"
+    ]}
+    answer={1}
+    explanation="Because topics like registry access, ACLs, and service lifecycle depend on real OS behavior rather than pure application logic, integration testing against real (or real-enough) Windows state provides stronger confidence than mocking the OS interaction away entirely."
+  />
+  <Quiz
+    id="ci-cd-for-windows-apps-q4"
+    question="Why should a code-signing certificate used in a CI pipeline be held in a secrets manager or HSM rather than checked into the repository or stored as a plain file?"
+    options={[
+      "It has no real security implication either way",
+      "This follows directly from Chapter 7's point that a leaked signing key lets an attacker produce malware that passes every trust check as if it were legitimately the real vendor's software"
+      , "signtool.exe cannot read certificates from any secure storage, only plain files",
+      "This is only a concern for MSIX packages, not for MSI installers"
+    ]}
+    answer={1}
+    explanation="The signing key protection concern raised in Chapter 7 applies directly to CI pipeline design — a leaked key checked into source control or stored insecurely undermines every trust guarantee the signature is meant to provide."
+  />
+  <Quiz
+    id="ci-cd-for-windows-apps-q5"
+    question="What common theme does the chapter's closing section identify across services, the registry, ACLs, signing, the Task Scheduler, and IPC, as covered throughout the course?"
+    options={[
+      "These topics are all rarely used in real production software",
+      "Real production software automates all of these end to end through a pipeline, rather than relying on a person to perform each step manually and correctly on every machine"
+      , "Each of these topics requires an entirely separate, unrelated toolchain with no common automation approach",
+      "Automation is only relevant for Windows Services, not for the other topics covered"
+    ]}
+    answer={1}
+    explanation="The course's closing point is that everything covered — from low-level OS mechanisms to deployment — is meant to be captured in automated, repeatable pipelines, not manual, error-prone, one-off human execution."
+  />
+</QuizSet>

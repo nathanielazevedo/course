@@ -1,0 +1,128 @@
+With declaration and marshaling covered, this section is a worked example end to end — a real, moderately involved P/Invoke call that touches several earlier chapters at once, plus the handful of patterns that show up in almost every non-trivial Win32 call.
+
+### A complete example: enumerating top-level windows
+
+```csharp
+using System.Runtime.InteropServices;
+
+internal static partial class NativeMethods
+{
+    internal delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int GetWindowTextLength(IntPtr hWnd);
+
+    [LibraryImport("user32.dll", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+}
+
+var titles = new List<string>();
+NativeMethods.EnumWindows((hWnd, _) =>
+{
+    int len = NativeMethods.GetWindowTextLength(hWnd);
+    if (len > 0)
+    {
+        var sb = new System.Text.StringBuilder(len + 1);
+        NativeMethods.GetWindowText(hWnd, sb, sb.Capacity);
+        titles.Add(sb.ToString());
+    }
+    return true; // continue enumeration
+}, IntPtr.Zero);
+```
+
+`EnumWindows` calls back into managed code once per top-level window — the `EnumWindowsProc` delegate is marshaled into a native function pointer the OS invokes directly. This is a real, common shape: many older Win32 enumeration APIs work by callback rather than returning a collection, because they predate any convention resembling `IEnumerable`.
+
+### Handles from Win32 belong in `SafeHandle`, not raw `IntPtr`
+
+Chapter 1 and Chapter 2 both leaned on the idea that Windows kernel objects are accessed through handles, and that `.NET`'s wrappers (`Process`, `FileStream`) hold those handles in a `SafeHandle` so the CLR can guarantee they're closed. Any P/Invoke call that returns a handle you're responsible for closing should follow the same pattern rather than holding a bare `IntPtr`:
+
+```csharp
+internal sealed class MyHandle : SafeHandleZeroOrMinusOneIsInvalid
+{
+    internal MyHandle() : base(ownsHandle: true) { }
+    protected override bool ReleaseHandle() => CloseHandle(handle);
+
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr hObject);
+}
+```
+
+A raw `IntPtr` handle has no finalizer and no `Dispose` — if the code that owns it throws before closing it, or simply forgets, the handle leaks for the life of the process. `SafeHandle` ties the native resource's lifetime to the CLR's own object lifetime tracking, the same mechanism that makes `using var file = new FileStream(...)` reliable, applied to a handle you obtained yourself.
+
+### `ref struct`, `Span<T>`, and avoiding unnecessary copies
+
+Modern P/Invoke code increasingly favors `Span<T>` and `ReadOnlySpan<T>` parameters over arrays for buffer-passing functions, since a span can wrap a stack-allocated or pooled buffer without the extra array allocation and copy an ordinary `byte[]` parameter would require — genuinely useful in code calling native functions in a hot loop, less relevant for a one-off startup call where a small allocation is immaterial.
+
+### When to stop and check pinvoke.net / CsWin32 instead
+
+The example above is deliberately simple. Real Win32 signatures frequently involve nested structs, unions, variable-length buffers described by a separate size parameter, and calling conventions that are easy to get subtly wrong by hand. As covered in the first section of this chapter, reaching for CsWin32 or a verified community reference for anything beyond the simplest signatures is the practical default — hand-writing a P/Invoke signature is a reasonable exercise for understanding what's happening, and a poor habit for anything going into production code you'll maintain.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="calling-win32-functions-from-c-q1"
+    question="Why does EnumWindows take a delegate parameter rather than simply returning a collection of window handles?"
+    options={[
+      "It's a .NET-specific design choice unrelated to the underlying API",
+      "Many older Win32 enumeration APIs work by invoking a callback once per item, predating conventions like IEnumerable"
+      , "Delegates are required for all P/Invoke functions regardless of purpose",
+      "EnumWindows cannot return more than one result at a time otherwise",
+    ]}
+    answer={1}
+    explanation="EnumWindows reflects an older Win32 pattern of delivering results via a callback function invoked once per item, rather than returning a collection — a shape common across many enumeration-style Win32 APIs."
+  />
+  <Quiz
+    id="calling-win32-functions-from-c-q2"
+    question="Why should a handle returned from a P/Invoke call be wrapped in a SafeHandle rather than kept as a raw IntPtr?"
+    options={[
+      "Raw IntPtr handles cannot be passed to further P/Invoke calls",
+      "A raw IntPtr has no finalizer or Dispose semantics, so if the owning code throws or forgets to close it, the handle leaks for the process's lifetime"
+      , "SafeHandle is required by the C# compiler for any handle-typed value",
+      "IntPtr values are automatically garbage collected, unlike SafeHandle",
+    ]}
+    answer={1}
+    explanation="SafeHandle ties a native resource's lifetime to the CLR's deterministic disposal and finalization machinery, the same mechanism FileStream and Process rely on, preventing handle leaks that a bare IntPtr offers no protection against."
+  />
+  <Quiz
+    id="calling-win32-functions-from-c-q3"
+    question="What practical benefit does using Span<T> or ReadOnlySpan<T> offer over an array for buffer-passing P/Invoke calls?"
+    options={[
+      "Spans are required for any function that accepts a buffer",
+      "A span can wrap a stack-allocated or pooled buffer without the extra allocation and copy an array parameter would require, useful in hot-loop scenarios"
+      , "Spans automatically marshal strings without any additional attributes",
+      "Arrays cannot be marshaled to native code at all",
+    ]}
+    answer={1}
+    explanation="Spans avoid the allocation overhead of arrays in performance-sensitive call sites, though for infrequent calls the difference is generally immaterial."
+  />
+  <Quiz
+    id="calling-win32-functions-from-c-q4"
+    question="According to the chapter's guidance, when should you reach for CsWin32 or a verified community reference instead of hand-writing a P/Invoke signature?"
+    options={[
+      "Never — hand-writing signatures is always preferred for production code",
+      "For anything beyond the simplest signatures, since real Win32 functions often involve nested structs, unions, and calling conventions that are easy to get subtly wrong by hand"
+      , "Only when the function has no return value",
+      "Only for functions in kernel32.dll specifically",
+    ]}
+    answer={1}
+    explanation="Hand-writing signatures is useful for learning, but for real production code, generated or verified signatures avoid the subtle correctness bugs that manual translation of complex native signatures is prone to."
+  />
+  <Quiz
+    id="calling-win32-functions-from-c-q5"
+    question="What is the general risk of leaving a P/Invoke-obtained handle as a plain IntPtr rather than wrapping it, in the context of this chapter's overall theme?"
+    options={[
+      "It has no risk since IntPtr and SafeHandle behave identically",
+      "It breaks the same handle-lifetime guarantee that Chapters 1 and 2 established for kernel objects accessed through .NET's own wrappers like Process and FileStream"
+      , "It only matters for handles returned from user32.dll specifically",
+      "IntPtr handles are automatically closed when the enclosing method returns",
+    ]}
+    answer={1}
+    explanation="P/Invoke-obtained handles are the same kind of kernel object handle covered throughout this course; failing to wrap them in SafeHandle abandons the deterministic cleanup guarantee that makes handle management elsewhere in .NET reliable."
+  />
+</QuizSet>

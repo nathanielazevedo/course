@@ -1,0 +1,92 @@
+The previous section introduced hives as the on-disk files behind the registry tree. This section is the map of that tree — the five root keys you'll actually see, which ones are real and which are just convenient views onto another one, and the value types you'll read and write.
+
+### The five HKEYs
+
+| Root key | Abbreviation | What it holds |
+|---|---|---|
+| `HKEY_LOCAL_MACHINE` | `HKLM` | Machine-wide settings: installed software, drivers, services — applies to every user |
+| `HKEY_CURRENT_USER` | `HKCU` | Settings for the currently logged-on user only |
+| `HKEY_USERS` | `HKU` | Every loaded user profile's settings, including HKCU's actual backing data |
+| `HKEY_CLASSES_ROOT` | `HKCR` | File associations and COM registration — a merged view, not a real hive |
+| `HKEY_CURRENT_CONFIG` | `HKCC` | The active hardware profile — a merged view, not a real hive |
+
+Only three of these — `HKLM`, `HKU`, and a fourth, `HKEY_USERS\.DEFAULT`-adjacent construct — map to actual hive files loaded at boot. `HKCU` is not its own hive; it's a per-process view that points at `HKEY_USERS\<your SID>`, swapped automatically depending on which user's token the current process is running under. This matters practically: a service running as `LocalSystem` (Chapter 5) has an `HKCU` that resolves to `LocalSystem`'s profile, not to the interactive user's — a very common source of "the setting is there when I check manually, but the service can't see it," because the developer checked `HKCU` while logged in interactively and the service checks `HKCU` while running as a completely different account.
+
+`HKCR` and `HKCC` are computed, merged views rather than real hives: `HKCR` combines `HKLM\SOFTWARE\Classes` with the current user's `HKCU\SOFTWARE\Classes`, with the per-user entries taking precedence — which is how a per-user file association override can exist without touching machine-wide settings at all.
+
+### Redirection: `WOW6432Node` and the 32-bit/64-bit split
+
+A 32-bit process running on 64-bit Windows sees `HKLM\SOFTWARE` transparently redirected to `HKLM\SOFTWARE\WOW6432Node` for most keys — the OS does this invisibly so 32-bit software doesn't have to know it's running under emulation, and doesn't collide with 64-bit software's registry entries in the same nominal path. This means the *same* registry path can resolve to genuinely different data depending on whether the calling process is 32-bit or 64-bit — a real trap when a 64-bit diagnostic tool is used to inspect settings written by a 32-bit application, or vice versa; the tool has to explicitly request the other view (`RegistryView.Registry32` / `RegistryView.Registry64` in .NET) to see it.
+
+### Value types, and what they map to in C#
+
+| Registry type | .NET representation |
+|---|---|
+| `REG_SZ` | `string` |
+| `REG_EXPAND_SZ` | `string` with unexpanded `%ENV_VAR%` references |
+| `REG_DWORD` | `int` |
+| `REG_QWORD` | `long` |
+| `REG_BINARY` | `byte[]` |
+| `REG_MULTI_SZ` | `string[]` |
+
+`REG_EXPAND_SZ` is worth calling out specifically: reading it through the standard API returns the raw, unexpanded string (`%ProgramFiles%\MyApp`) unless you explicitly request expansion — a subtlety the next section's code examples make concrete.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="hives-keys-and-values-q1"
+    question="Which HKEY holds machine-wide settings that apply to every user on the system?"
+    options={["HKEY_CURRENT_USER", "HKEY_LOCAL_MACHINE", "HKEY_CLASSES_ROOT", "HKEY_CURRENT_CONFIG"]}
+    answer={1}
+    explanation="HKEY_LOCAL_MACHINE (HKLM) holds machine-wide configuration — installed software, drivers, and services — independent of which user is logged on."
+  />
+  <Quiz
+    id="hives-keys-and-values-q2"
+    question="What is HKEY_CURRENT_USER, structurally?"
+    options={[
+      "Its own independent hive file loaded at boot",
+      "A per-process view pointing at HKEY_USERS\\<the current user's SID>, which changes depending on which account the process is running as"
+      , "A merged, computed view like HKEY_CLASSES_ROOT",
+      "A synonym for HKEY_LOCAL_MACHINE",
+    ]}
+    answer={1}
+    explanation="HKCU is not its own hive — it resolves to a subkey of HKEY_USERS matching the current process's user SID, which is why a service running as a different account sees a different HKCU."
+  />
+  <Quiz
+    id="hives-keys-and-values-q3"
+    question="Why might a setting a developer sees under HKCU while logged in interactively be invisible to a Windows Service reading HKCU?"
+    options={[
+      "Services cannot read the registry at all",
+      "The service typically runs as a different account (e.g. LocalSystem), whose HKCU resolves to that account's profile, not the interactive user's"
+      , "HKCU is read-only for services",
+      "This never happens if the registry key has the correct permissions",
+    ]}
+    answer={1}
+    explanation="Since HKCU depends on the calling process's identity, a service running under a different account sees an entirely different HKCU than the developer's interactive session did."
+  />
+  <Quiz
+    id="hives-keys-and-values-q4"
+    question="What does registry redirection to WOW6432Node accomplish?"
+    options={[
+      "It encrypts registry values for 32-bit applications",
+      "It transparently redirects a 32-bit process's view of HKLM\\SOFTWARE so 32-bit and 64-bit software don't collide in the same nominal path"
+      , "It merges 32-bit and 64-bit settings into a single unified value",
+      "It only applies to HKEY_CURRENT_USER, not HKLM",
+    ]}
+    answer={1}
+    explanation="WOW6432Node redirection lets 32-bit processes on 64-bit Windows use the same nominal registry paths as 64-bit software while actually reading/writing a separate, non-colliding location."
+  />
+  <Quiz
+    id="hives-keys-and-values-q5"
+    question="What does reading a REG_EXPAND_SZ value through the standard registry API return by default?"
+    options={[
+      "The environment variable references already expanded to their current values",
+      "The raw, unexpanded string, such as %ProgramFiles%\\MyApp, unless expansion is explicitly requested"
+      , "An error, since REG_EXPAND_SZ cannot be read directly",
+      "A byte array requiring manual decoding",
+    ]}
+    answer={1}
+    explanation="REG_EXPAND_SZ values are returned unexpanded by default — the caller must explicitly request expansion to resolve environment variable placeholders."
+  />
+</QuizSet>

@@ -1,0 +1,126 @@
+NTFS supports several ways for one path to point at another, and they are not interchangeable — each has different rules about what it can point to, whether it crosses volumes, and what rights are needed to create it. Confusing them is a common source of "this worked in my test but not in production."
+
+### Hard links: two names, one file
+
+A **hard link** is a second directory entry pointing at the same on-disk file data — not a copy, not a pointer to a path, but a second name for literally the same file. NTFS tracks a link count; the underlying data isn't freed until every hard link to it is deleted. Hard links only work within a single volume (you can't hard-link across drive letters, since the link is really just another entry referencing the same on-disk file record) and only for files, not directories.
+
+```csharp
+// No first-party BCL API — this is P/Invoke territory (Chapter 6)
+CreateHardLink(@"C:\data\alias.txt", @"C:\data\original.txt", IntPtr.Zero);
+```
+
+### Symbolic links: a path that points to a path
+
+A **symbolic link** (symlink) is closer to what Unix developers expect: a special file whose content is another path, resolved transparently by the filesystem when something opens it. Unlike a hard link, a symlink can point across volumes, can target a directory, and can point to a path that doesn't exist yet (a "dangling" symlink) — none of which a hard link can do.
+
+```csharp
+// .NET has first-party support for symlinks
+File.CreateSymbolicLink(@"C:\shortcut.txt", @"D:\real\path\data.txt");
+FileSystemInfo? target = File.ResolveLinkTarget(@"C:\shortcut.txt", returnFinalTarget: true);
+```
+
+The practical catch: **creating** a symlink has historically required either administrator rights or Developer Mode enabled (Settings → Privacy & Security → For Developers), unlike hard links or junctions, which don't. Code that calls `File.CreateSymbolicLink` and works fine on a dev machine with Developer Mode on can throw `UnauthorizedAccessException` the moment it runs somewhere that setting isn't enabled — a genuinely common deployment surprise.
+
+### Junctions: symlinks' older, directory-only, no-privilege sibling
+
+A **directory junction** (technically an NTFS reparse point, the same underlying mechanism symlinks use) points one directory to another. Unlike a symlink, creating a junction requires no special privilege — any user who can write to the parent folder can create one. Unlike a hard link, a junction can cross volumes (though not network shares — it has to be a local NTFS path). .NET has no first-party API for junctions specifically; creating one is either P/Invoke against the reparse point APIs directly, or shelling out to `mklink /J`.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Comparison table. Hard link: same volume only, files only, no elevated privilege needed. Junction: can cross volumes but not network shares, directories only, no elevated privilege needed. Symbolic link: can cross volumes and target network paths, files or directories, requires admin rights or Developer Mode."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="115" y="20" fontSize="11" fontWeight="600" textAnchor="middle"> </text>
+    {["Hard link", "Junction", "Symbolic link"].map((label, i) => (
+      <text key={label} x={190 + i * 150} y="20" fontSize="11" fontWeight="600" textAnchor="middle">{label}</text>
+    ))}
+    {[
+      ["Crosses volumes?", "No", "Yes (local only)", "Yes, incl. network"],
+      ["Targets", "Files only", "Directories only", "Files or directories"],
+      ["Privilege needed", "None", "None", "Admin or Dev Mode"],
+    ].map(([row, ...vals], ri) => (
+      <g key={row}>
+        <text x="115" y={55 + ri * 42} fontSize="10.5" textAnchor="middle">{row}</text>
+        {vals.map((v, ci) => (
+          <g key={v}>
+            <rect x={115 + ci * 150} y={40 + ri * 42} width="140" height="32" fill={ri % 2 === 0 ? "#fff" : "#f7f7f7"} stroke="#000" strokeWidth="1" />
+            <text x={185 + ci * 150} y={60 + ri * 42} fontSize="10" textAnchor="middle">{v}</text>
+          </g>
+        ))}
+      </g>
+    ))}
+  </svg>
+</figure>
+
+### Why any of this matters in real code
+
+Deployment tooling, build systems, and package managers use these constantly: `node_modules` deduplication, NuGet's package cache, Docker layer sharing, and profile redirection folders (`Documents` sometimes being a junction to a OneDrive-synced path) all rely on one of these three mechanisms. When code that copies or deletes files behaves unexpectedly on a path that turns out to be a link — deleting through a junction removes the junction, not the target; deleting through a hard link only removes that one name, leaving the data alive under its other names — the fix is almost always understanding which of the three you're actually looking at, which `File.ResolveLinkTarget` and `fsutil reparsepoint query` can both tell you.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="symbolic-links-junctions-and-hard-links-q1"
+    question="What is a hard link, precisely?"
+    options={[
+      "A shortcut file that stores a path to another file",
+      "A second directory entry pointing at the exact same on-disk file data, tracked via a link count"
+      , "A compressed reference to another file's contents",
+      "A special reparse point that only works for directories",
+    ]}
+    answer={1}
+    explanation="A hard link is literally a second name for the same underlying file data on disk — not a copy and not a path reference — which is why it only works within a single volume and only for files."
+  />
+  <Quiz
+    id="symbolic-links-junctions-and-hard-links-q2"
+    question="What can a symbolic link do that a hard link cannot?"
+    options={[
+      "Point across volumes, target a directory, or point to a path that doesn't yet exist"
+      , "Exist without administrator rights under any configuration",
+      "Avoid consuming any disk space at all",
+      "Work identically on files and be created without any special setting",
+    ]}
+    answer={0}
+    explanation="Symlinks can cross volumes, target directories, and even dangle (point to a nonexistent path) — none of which a hard link, which just references the same on-disk file record, can do."
+  />
+  <Quiz
+    id="symbolic-links-junctions-and-hard-links-q3"
+    question="What commonly causes File.CreateSymbolicLink to throw UnauthorizedAccessException on some machines but not others?"
+    options={[
+      "Symlinks are entirely unsupported on modern Windows",
+      "Creating a symlink has historically required administrator rights or Developer Mode enabled, unlike hard links or junctions"
+      , "The target file must already be marked read-only",
+      "Symbolic links can only be created inside the Windows directory",
+    ]}
+    answer={1}
+    explanation="Symlink creation requires elevated rights or Developer Mode, a requirement hard links and junctions don't share — code that works on a dev machine with Developer Mode on can fail elsewhere."
+  />
+  <Quiz
+    id="symbolic-links-junctions-and-hard-links-q4"
+    question="What distinguishes a directory junction from a symbolic link?"
+    options={[
+      "Junctions require administrator rights while symlinks do not",
+      "Junctions need no special privilege to create, are directory-only, and can't target network shares, unlike symlinks"
+      , "Junctions can target files, while symlinks cannot",
+      "Junctions and symlinks are simply two names for the same mechanism with no behavioral difference"
+    ]}
+    answer={1}
+    explanation="Junctions are privilege-free and directory-only, and can't point at network paths — differences that matter when choosing which mechanism deployment or build tooling should use."
+  />
+  <Quiz
+    id="symbolic-links-junctions-and-hard-links-q5"
+    question="What happens if you delete a directory junction itself, as opposed to deleting through it?"
+    options={[
+      "The junction and its target directory's contents are both deleted",
+      "Only the junction (the reparse point) is removed — the target directory and its contents are untouched"
+      , "Deleting a junction is not possible under any circumstance",
+      "It deletes the target directory but leaves the junction in place",
+    ]}
+    answer={1}
+    explanation="A junction is a pointer, not the data itself — removing it removes only that pointer, leaving whatever it pointed to fully intact, which is a common source of confusion during cleanup scripts."
+  />
+</QuizSet>

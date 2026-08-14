@@ -1,0 +1,90 @@
+Chapter 2 introduced access tokens in passing — the thing a process holds that decides who it's running as, and the split-token mechanism behind UAC. This section is the token itself, in enough detail to make sense of the privileges it carries and how they differ from the ACL-based access rights covered elsewhere in this chapter.
+
+### What an access token actually contains
+
+An access token is a kernel object (Chapter 1's object model, again) attached to every process and thread, holding: the user's SID, every group SID that user belongs to (the previous section's mechanism), a list of enabled and disabled **privileges**, and an integrity level (covered below). Every process gets a **primary token** at creation, inherited from whatever created it — which is the same inheritance mechanism Chapter 2 described for elevation: a child process's primary token comes from its parent, not independently negotiated at each launch.
+
+### Rights vs. privileges: two different security concepts with similar names
+
+This distinction trips up a lot of developers because the vocabulary is so close: an **access right** (Chapter 3's ACLs, generalized to registry keys and other object types in this chapter) is *object-specific* — read access to *this* file, write access to *that* registry key, checked against a specific object's DACL. A **privilege** is *system-wide* — a capability that isn't about any single object at all, like `SeDebugPrivilege` (attach a debugger to any process, including ones you don't otherwise have access rights to), `SeShutdownPrivilege` (shut down the machine), or `SeBackupPrivilege` (read any file for backup purposes, bypassing its normal ACL entirely). Privileges are assigned to accounts through Local Security Policy or Group Policy, carried in the token as a list, and each one can be independently enabled or disabled within a token that holds it — holding a privilege and having it currently *enabled* are genuinely different states.
+
+### Checking and enabling privileges from C#
+
+```csharp
+using System.Security.Principal;
+
+var identity = WindowsIdentity.GetCurrent();
+bool hasDebugPrivilege = identity.Claims.Any(
+    c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/primarysid");
+```
+
+In practice, checking and toggling specific privileges (`SeDebugPrivilege` and similar) isn't well covered by the managed BCL at all — this is P/Invoke territory (Chapter 6) against `LookupPrivilegeValue`, `AdjustTokenPrivileges`, and `OpenProcessToken`. The shape is: open a handle to your own process's token, look up the privilege's numeric LUID by name, then explicitly enable it in the token before the operation that needs it — a privilege being present but *disabled* in the token is a common, confusing failure mode, since the process technically "has" the privilege (an administrator account is typically granted `SeDebugPrivilege`) but the specific operation still fails until it's been explicitly turned on for that token.
+
+### Integrity levels: a second, independent axis of restriction
+
+Beyond the user/group/privilege model, Windows (since Vista) layers **mandatory integrity control** on top: every process and securable object also carries an integrity level — `Low`, `Medium` (the default for most user processes), `High` (elevated processes), `System`. The rule is simple and one-directional: a process cannot write to an object with a higher integrity level than its own, regardless of what its DACL would otherwise allow. This is the actual mechanism behind sandboxing a browser's renderer process at `Low` integrity — even if the renderer somehow obtained a handle to a file the user's own account has full DACL permissions on, the integrity-level check blocks the write independently, a second, structurally separate line of defense from the ACL check covered next.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="access-tokens-and-privileges-q1"
+    question="What is the key conceptual difference between an access right and a privilege in the Windows security model?"
+    options={[
+      "They are two names for exactly the same concept",
+      "An access right is object-specific, checked against a particular object's DACL; a privilege is system-wide, not tied to any single object"
+      , "Privileges only apply to files, while access rights apply to everything else",
+      "Access rights are granted per-machine, while privileges are per-user only"
+    ]}
+    answer={1}
+    explanation="Access rights govern what a caller can do to a specific object via its DACL, while privileges like SeDebugPrivilege or SeBackupPrivilege grant system-wide capabilities not scoped to any single object."
+  />
+  <Quiz
+    id="access-tokens-and-privileges-q2"
+    question="Where does a newly created process's primary token come from?"
+    options={[
+      "It is independently negotiated fresh with the SCM at every process launch",
+      "It is inherited from whatever process created it, the same inheritance mechanism behind elevated child processes covered in Chapter 2"
+      , "It is generated randomly at each process start",
+      "It is always identical to LocalSystem's token regardless of the creator"
+    ]}
+    answer={1}
+    explanation="A process's primary token is inherited from its parent at creation time, consistent with the token inheritance behavior already covered for elevation."
+  />
+  <Quiz
+    id="access-tokens-and-privileges-q3"
+    question="Why can a process that technically holds SeDebugPrivilege still fail an operation requiring it?"
+    options={[
+      "SeDebugPrivilege cannot be held by any account under any circumstance",
+      "A privilege being present in a token and being currently enabled are two different states — the privilege must be explicitly enabled (e.g. via AdjustTokenPrivileges) before use"
+      , "Privileges automatically expire after 60 seconds",
+      "This scenario cannot actually occur in practice",
+    ]}
+    answer={1}
+    explanation="Holding a privilege in the token doesn't mean it's active — many privileges are disabled by default and must be explicitly enabled via AdjustTokenPrivileges before the operation requiring them will succeed."
+  />
+  <Quiz
+    id="access-tokens-and-privileges-q4"
+    question="What is a Windows integrity level, and how does it relate to DACL-based access checks?"
+    options={[
+      "It is another name for a DACL entry with no independent effect",
+      "It's a separate, independent restriction — a process cannot write to an object with a higher integrity level than its own, regardless of what the DACL would otherwise allow"
+      , "It only applies to registry keys, never to files or processes",
+      "It replaces DACL checks entirely on modern Windows"
+    ]}
+    answer={1}
+    explanation="Mandatory integrity control operates as a second, structurally separate check layered on top of the DACL model, blocking writes to higher-integrity objects even when the DACL alone would permit them."
+  />
+  <Quiz
+    id="access-tokens-and-privileges-q5"
+    question="What real-world security mechanism relies on integrity levels as described in this section?"
+    options={[
+      "Sandboxing a browser's renderer process at Low integrity, preventing writes to higher-integrity objects even if the DACL would otherwise allow them"
+      , "Registry redirection for 32-bit applications (WOW6432Node)",
+      "UAC Registry Virtualization for legacy, non-manifested apps",
+      "The Service Control Manager's dependency ordering",
+    ]}
+    answer={0}
+    explanation="Running a process like a browser renderer at Low integrity provides an independent security boundary — even a compromised renderer with an otherwise-permitted file handle is blocked from writing to higher-integrity objects by the integrity-level check."
+  />
+</QuizSet>

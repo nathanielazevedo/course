@@ -1,0 +1,102 @@
+The last two sections covered *events* — things that happened. This section is about *state* — the current condition of the machine right now: how much disk space is free, what's the BIOS version, which processes are running, is the machine on battery power. **WMI** is Windows' longstanding answer to querying that state through one consistent, SQL-like interface, regardless of what part of the system the answer actually comes from.
+
+### One query language over a genuinely enormous data model
+
+WMI (Windows Management Instrumentation) exposes system state as a set of **classes** — `Win32_Process`, `Win32_LogicalDisk`, `Win32_OperatingSystem`, `Win32_BIOS`, and hundreds more — each with properties queryable through **WQL**, a SQL-like query language:
+
+```csharp
+using System.Management;
+
+using var searcher = new ManagementObjectSearcher(
+    "SELECT Name, FreeSpace, Size FROM Win32_LogicalDisk WHERE DriveType = 3");
+
+foreach (ManagementObject disk in searcher.Get())
+{
+    Console.WriteLine($"{disk["Name"]}: {(ulong)disk["FreeSpace"] / 1_073_741_824} GB free");
+}
+```
+
+`System.Management` (a Windows-only BCL package, following Chapter 1's `-windows` TFM pattern) is the classic managed entry point — the query above reads exactly like SQL because WQL was deliberately designed to, letting anyone who knows basic SQL start querying system state productively without learning a new syntax from scratch.
+
+### Why one interface reaches so many different subsystems
+
+WMI's classes are implemented by **providers** — separate components, often supplied by hardware vendors or Windows subsystems themselves, that translate a WQL query against their specific class into whatever underlying mechanism actually holds that data: registry reads, direct hardware queries, calls into other Windows subsystems, sometimes remote queries to other machines entirely (`ManagementScope` supports connecting to `\\remotemachine\root\cimv2` given appropriate credentials and network access, making WMI genuinely useful for querying and even controlling remote machines, not just the local one). This is why `Win32_Process` can create a new process (`Win32_Process.Create`, a WMI *method*, not just a property) — WMI isn't only read-only state querying, providers can expose actions too, following the same class/method model.
+
+### CIM: the modern PowerShell-facing equivalent
+
+Modern PowerShell scripts more commonly use `Get-CimInstance` rather than the older `Get-WmiObject`:
+
+```powershell
+Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType = 3"
+```
+
+CIM (Common Information Model) is the underlying, cross-platform-standardized data model WMI itself is built on; `Get-CimInstance` talks to the same WMI provider infrastructure through **WinRM** (Windows Remote Management) instead of WMI's older, Windows-specific DCOM-based remoting, which is faster, works better through firewalls, and is the direction Microsoft has actively moved tooling toward — `Get-WmiObject` is present for compatibility but effectively legacy at this point. From C#, the equivalent modern client is the `Microsoft.Management.Infrastructure` package rather than `System.Management`, mirroring the same WMI-vs-CIM transition PowerShell made.
+
+### When WMI/CIM is the right tool versus P/Invoke
+
+Chapter 6 covered P/Invoke as the tool for calling a specific native function directly. WMI earns its place instead when the goal is *querying a broad category of system state* through a stable, discoverable, SQL-like schema rather than one specific function call — hardware inventory, installed software, running processes with rich filtering, disk and OS configuration — where writing and maintaining a set of P/Invoke calls to gather the same breadth of information by hand would be significantly more code for a worse result. For a single, specific native operation with no natural WMI class behind it, P/Invoke remains the more direct and appropriate tool.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="wmi-and-cim-querying-system-state-q1"
+    question="What kind of information does WMI primarily expose, in contrast to the Event Log or ETW covered in the previous two sections?"
+    options={[
+      "Only historical events, identical in scope to the Event Log",
+      "Current system state — disk space, BIOS version, running processes, OS configuration — rather than discrete events that occurred over time"
+      , "Only network traffic statistics",
+      "Only data related to installed Windows Services"
+    ]}
+    answer={1}
+    explanation="Unlike the event-oriented Event Log and ETW, WMI is about querying the machine's current condition through a broad, queryable class model."
+  />
+  <Quiz
+    id="wmi-and-cim-querying-system-state-q2"
+    question="What is WQL, and why does it deliberately resemble SQL?"
+    options={[
+      "It's an unrelated proprietary format that only looks similar to SQL by coincidence",
+      "It's WMI's query language, designed to resemble SQL so that anyone already familiar with basic SQL syntax can query system state productively without learning something new"
+      , "WQL only supports single-class queries with no filtering at all",
+      "WQL is a binary protocol with no textual query syntax"
+    ]}
+    answer={1}
+    explanation="WQL's SQL-like syntax is an intentional design choice, lowering the learning curve for querying WMI's class-based data model."
+  />
+  <Quiz
+    id="wmi-and-cim-querying-system-state-q3"
+    question="How can a single WQL query against Win32_LogicalDisk end up reading data from sources as different as the registry, direct hardware queries, or other subsystems?"
+    options={[
+      "WMI always reads exclusively from a single centralized database",
+      "WMI classes are implemented by providers, separate components that translate a query against their class into whatever underlying mechanism actually holds that data"
+      , "This is not actually possible; each class maps to exactly one data source type",
+      "Providers only exist for third-party hardware, never for OS-level data"
+    ]}
+    answer={1}
+    explanation="The provider model is what lets one consistent query interface span wildly different underlying data sources, each provider handling the translation for its own class."
+  />
+  <Quiz
+    id="wmi-and-cim-querying-system-state-q4"
+    question="What is the relationship between CIM and WMI, and why has PowerShell tooling shifted toward Get-CimInstance?"
+    options={[
+      "CIM and WMI are entirely unrelated technologies",
+      "CIM is the underlying, cross-platform-standardized data model WMI is built on; Get-CimInstance talks to the same provider infrastructure via WinRM, which is faster and works better through firewalls than WMI's older DCOM-based remoting"
+      , "Get-CimInstance only works locally and cannot query remote machines at all",
+      "CIM replaced WQL as the query language used by both cmdlets"
+    ]}
+    answer={1}
+    explanation="CIM is WMI's foundational data model; the shift to Get-CimInstance reflects moving from WMI's legacy DCOM remoting to WinRM, a more modern and firewall-friendly transport, while querying the same underlying provider data."
+  />
+  <Quiz
+    id="wmi-and-cim-querying-system-state-q5"
+    question="When is WMI generally the better tool than P/Invoke for a diagnostic or system-management task?"
+    options={[
+      "WMI should always be preferred over P/Invoke for every task, without exception",
+      "When the goal is querying a broad category of system state through a stable, discoverable schema, rather than calling one specific native function directly"
+      , "P/Invoke should always be preferred, since WMI is deprecated",
+      "WMI can only be used from PowerShell, never from C#"
+    ]}
+    answer={1}
+    explanation="WMI's class-based schema is well suited to broad, structured state queries, while P/Invoke remains the more direct and appropriate choice for a single specific native operation with no natural corresponding WMI class."
+  />
+</QuizSet>

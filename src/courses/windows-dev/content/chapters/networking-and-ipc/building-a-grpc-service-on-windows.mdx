@@ -1,0 +1,122 @@
+This closing section of the chapter is the practical follow-through on gRPC's introduction as "WCF's most direct conceptual successor" — a worked example of building and consuming one, plus the specific considerations that come up running it as a Windows Service, tying together Chapter 5, the earlier sections of this chapter, and Chapter 7's security model.
+
+### Defining the contract
+
+A gRPC contract is defined in a `.proto` file, independent of any specific language — the same contract-first idea WCF had, expressed in a format meant for cross-platform code generation rather than a C# interface:
+
+```protobuf
+syntax = "proto3";
+
+service OrderService {
+  rpc GetOrder (GetOrderRequest) returns (Order);
+}
+
+message GetOrderRequest { int32 id = 1; }
+message Order { int32 id = 1; string customerName = 2; double total = 3; }
+```
+
+The .NET gRPC tooling generates a strongly-typed base class (`OrderServiceBase`) and client stub from this file automatically at build time — genuinely similar in spirit to how CsWin32 (Chapter 6) generates P/Invoke signatures from metadata, applied here to service contracts instead of native function signatures.
+
+### Implementing and hosting the service
+
+```csharp
+public class OrderServiceImpl : OrderService.OrderServiceBase
+{
+    public override Task<Order> GetOrder(GetOrderRequest request, ServerCallContext context)
+    {
+        return Task.FromResult(new Order { Id = request.Id, CustomerName = "Contoso", Total = 42.50 });
+    }
+}
+
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddGrpc();
+var app = builder.Build();
+app.MapGrpcService<OrderServiceImpl>();
+app.Run();
+```
+
+This is an ASP.NET Core app underneath — gRPC in .NET is built on Kestrel and the same hosting model as an ordinary web app, which means everything Chapter 5 covered about the Worker SDK's `Host.CreateApplicationBuilder` pattern applies with only minor adjustment: `AddWindowsService()` from Chapter 5 works the same way here, letting the identical gRPC service run interactively during development and as an installed Windows Service in production, exactly the pattern established two chapters ago.
+
+### Consuming it from a C# client
+
+```csharp
+using var channel = GrpcChannel.ForAddress("https://localhost:5001");
+var client = new OrderService.OrderServiceClient(channel);
+Order order = await client.GetOrderAsync(new GetOrderRequest { Id = 42 });
+```
+
+The generated client stub makes a remote call look like an ordinary async method call — no manual serialization, no hand-written HTTP request construction — the same strongly-typed convenience WCF's generated proxies provided, now over HTTP/2 and Protocol Buffers instead of SOAP.
+
+### Running gRPC on Windows: the pieces from earlier in this chapter, applied
+
+Everything the last four sections covered applies directly to a real gRPC deployment: the service needs a **firewall rule** (first section) if it's meant to accept connections from other machines, not just localhost; if it's installed as a **Windows Service** (Chapter 5) rather than run interactively, its **service account** (Chapter 5's account guidance) needs whatever permissions the actual `GetOrder` implementation requires, following the least-privilege principle from Chapter 7; and if the service needs to know which user is calling — not just that a call arrived — gRPC calls carry standard authentication metadata (a bearer token, commonly) rather than relying on **impersonation** (Chapter 7) the way a same-machine named pipe call more naturally could, since a network caller's Windows identity generally isn't directly available to impersonate the way a local named pipe client's is.
+
+### When gRPC is the right choice, one more time
+
+Given everything the last four sections have covered, the practical decision: named pipes (this chapter's second section) for same-machine IPC where nothing needs to leave the box; gRPC for service-to-service communication, especially between .NET services or where strong contracts and binary efficiency matter; a plain Web API when broad, simple HTTP/JSON interoperability with arbitrary clients matters more than a strict compile-time contract. None of these are mutually exclusive within one application — a service can expose a gRPC endpoint for internal service-to-service calls and a Web API for public-facing consumers simultaneously, the same multi-binding flexibility WCF offered, achieved here by simply hosting more than one endpoint rather than one framework doing both.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="building-a-grpc-service-on-windows-q1"
+    question="What is a .proto file, and what does .NET's gRPC tooling do with it?"
+    options={[
+      "A configuration file with no code-generation role",
+      "A language-independent service contract definition; .NET's tooling generates a strongly-typed base class and client stub from it automatically at build time"
+      , "A binary-only format that cannot be authored by hand",
+      "A file that only defines HTTP routing, not actual service methods"
+    ]}
+    answer={1}
+    explanation=".proto files define the contract once, independent of language, and .NET generates strongly-typed server base classes and client stubs from it — the same contract-first approach WCF used, in a cross-platform format."
+  />
+  <Quiz
+    id="building-a-grpc-service-on-windows-q2"
+    question="What underlying hosting model does a .NET gRPC service actually run on?"
+    options={[
+      "A completely separate, custom hosting stack unrelated to ASP.NET Core",
+      "It's an ASP.NET Core app built on Kestrel, using the same hosting model — including AddWindowsService() from Chapter 5 for running it as an installed Windows Service"
+      , "It requires IIS specifically and cannot self-host",
+      "It runs directly on raw Winsock with no framework involvement"
+    ]}
+    answer={1}
+    explanation="gRPC in .NET is built on the standard ASP.NET Core/Kestrel hosting model, meaning the Worker SDK patterns and AddWindowsService() approach from Chapter 5 apply directly to hosting it as a service."
+  />
+  <Quiz
+    id="building-a-grpc-service-on-windows-q3"
+    question="Why does a gRPC service accepting connections from other machines need a Windows Firewall rule, as covered in the first section of this chapter?"
+    options={[
+      "gRPC traffic is exempt from firewall rules by default",
+      "Like any other listening socket, inbound gRPC connections are subject to the same silent firewall-drop behavior described earlier in the chapter unless an inbound rule explicitly allows them"
+      , "Firewall rules only apply to named pipes, not to network services",
+      "gRPC automatically configures its own firewall exception at startup"
+    ]}
+    answer={1}
+    explanation="gRPC is ordinary network traffic over HTTP/2, subject to the exact same firewall considerations as any other listening service covered in this chapter's first section."
+  />
+  <Quiz
+    id="building-a-grpc-service-on-windows-q4"
+    question="Why would a gRPC service typically use bearer token authentication rather than Chapter 7's impersonation mechanism to identify a calling user?"
+    options={[
+      "gRPC does not support any form of authentication",
+      "A network caller's Windows identity generally isn't directly available to impersonate the way a local named pipe client's identity is, so gRPC calls carry authentication metadata like a bearer token instead"
+      , "Impersonation is only usable with WCF, never with gRPC",
+      "Bearer tokens and impersonation are functionally identical mechanisms"
+    ]}
+    answer={1}
+    explanation="Impersonation, as covered in Chapter 7, relies on access to the caller's Windows token, which is naturally available for local named pipe connections but not for a remote network caller — hence token-based authentication for network RPC."
+  />
+  <Quiz
+    id="building-a-grpc-service-on-windows-q5"
+    question="According to the chapter's overall guidance, can a single application expose both a gRPC endpoint and a plain Web API simultaneously?"
+    options={[
+      "No, an application must choose exactly one communication style",
+      "Yes — this is analogous to WCF's multi-binding flexibility, achieved by simply hosting more than one endpoint rather than one framework handling both transports"
+      , "Only if the application is not running as a Windows Service",
+      "Only gRPC-to-gRPC communication is possible within the same process"
+    ]}
+    answer={1}
+    explanation="Nothing prevents hosting both a gRPC endpoint for internal service-to-service calls and a Web API for broader interoperability in the same application, echoing WCF's original multi-binding flexibility through a different mechanism."
+  />
+</QuizSet>

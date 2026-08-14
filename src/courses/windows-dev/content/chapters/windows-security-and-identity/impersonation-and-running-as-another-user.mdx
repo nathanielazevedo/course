@@ -1,0 +1,101 @@
+Chapter 2 established that a process's token is fixed for its lifetime — no in-place elevation, no becoming a different user partway through. **Impersonation** is the real, narrower exception to that rule: a specific, temporary, thread-scoped mechanism for a piece of code to act under a different identity's token for the duration of one operation, without spawning a new process at all.
+
+### What impersonation actually changes
+
+Impersonation swaps the **effective token used for access checks on a specific thread**, temporarily, while leaving the process's own primary token untouched. This is why it's thread-scoped rather than process-scoped: other threads in the same process keep running under the process's ordinary token the entire time, and the impersonating thread reverts to that same ordinary token the moment impersonation ends. It's a narrower tool than the "launch a new elevated process" pattern from Chapter 2 — no new process, no IPC round-trip, just a temporary substitution of whose access rights the current thread checks against for whatever it does next.
+
+### The classic use case: a server acting as its client
+
+```csharp
+using System.Security.Principal;
+
+// A named pipe server (Chapter 10) that needs to perform file operations
+// with the connecting client's own permissions, not the service's own
+using WindowsIdentity clientIdentity = pipeServer.GetImpersonationUserName() is { } name
+    ? new WindowsIdentity(name)
+    : throw new InvalidOperationException();
+
+WindowsIdentity.RunImpersonated(clientIdentity.AccessToken, () =>
+{
+    // Code here runs with the client's token — file/registry access checks
+    // (Chapter 3, Chapter 4) apply as if the client itself were doing this,
+    // not the service account (Chapter 5) the server process runs as.
+    File.WriteAllText(path, data);
+});
+// Back to the process's own token automatically once RunImpersonated returns
+```
+
+This is the actual mechanism behind "a Windows Service does something on behalf of whoever's asking, using their permissions, not its own" — a print server writing to a location only the requesting user has access to, a file server enforcing the connecting user's real NTFS permissions rather than a single shared service account's. Without impersonation, the alternative would be re-implementing the entire ACL check (Chapter 3) manually inside the server's own code — comparing the caller's SID against the target's DACL by hand — which is exactly the kind of security-critical logic you don't want to reimplement when the OS already does it correctly.
+
+### Impersonation levels: how much of the client's identity you actually get
+
+Not all impersonation is equal — `SecurityImpersonationLevel` (`Identify`, `Impersonate`, `Delegate`, among others) controls how far the borrowed identity can actually be used. `Identify` lets the server merely *know* who the client is (enough to log or check identity) without being able to act as them at all. `Impersonate` — the level in the example above — lets the server act as the client for **local** resource access only. `Delegate` extends that identity across the network to a second machine (a middle-tier server impersonating a client to then authenticate to a database server *as that client*), and is deliberately the most restricted to configure, since it's also the most powerful: a service with delegation rights can act as any client it serves, to any other machine that trusts it, which is a meaningful expansion of what's at risk if that service itself is compromised.
+
+### `SeImpersonatePrivilege`: why this needs its own gate
+
+Successfully impersonating a client identity requires the impersonating process to hold `SeImpersonatePrivilege` — one of the system-wide privileges from earlier in this chapter, granted by default to `LocalSystem`, `LocalService`, `NetworkService`, and Administrators, but not to arbitrary user accounts. This isn't incidental; a process that can impersonate arbitrary callers at will is a meaningful escalation primitive (several real Windows privilege-escalation exploits over the years have specifically abused overly-broad `SeImpersonatePrivilege` grants combined with a way to trick a privileged service into impersonating a low-privilege caller), which is why it's one of the more tightly held privileges by default rather than something every process can exercise.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="impersonation-and-running-as-another-user-q1"
+    question="What does impersonation actually change, and at what scope?"
+    options={[
+      "It permanently replaces the process's primary token for its remaining lifetime",
+      "It temporarily swaps the effective token used for access checks on a specific thread, leaving the process's own primary token and other threads untouched"
+      , "It spawns an entirely new process running as the target identity",
+      "It only works for processes running as LocalSystem"
+    ]}
+    answer={1}
+    explanation="Impersonation is thread-scoped and temporary — it substitutes the access-check identity for one thread's operations without altering the process's own primary token or affecting other threads."
+  />
+  <Quiz
+    id="impersonation-and-running-as-another-user-q2"
+    question="Why is impersonation the standard mechanism for a Windows Service to act 'as its client' rather than as its own service account?"
+    options={[
+      "It avoids having to reimplement the OS's ACL-checking logic manually to enforce the connecting user's real permissions"
+      , "It permanently changes the service's own account to match the client",
+      "It is required by the SCM for all services regardless of need",
+      "It disables auditing for the duration of the operation"
+    ]}
+    answer={0}
+    explanation="Impersonation lets the OS's existing, correct access-check machinery enforce the client's real permissions directly, avoiding the security risk of hand-rolling equivalent SID/DACL comparison logic inside the service."
+  />
+  <Quiz
+    id="impersonation-and-running-as-another-user-q3"
+    question="What is the difference between the Identify and Impersonate security impersonation levels?"
+    options={[
+      "They are functionally identical, just named differently",
+      "Identify only lets the server know who the client is without acting as them; Impersonate lets the server act as the client for local resource access"
+      , "Identify is more powerful than Impersonate",
+      "Impersonate only works across a network, never locally"
+    ]}
+    answer={1}
+    explanation="Identify is the more limited level — enough to check or log identity — while Impersonate actually allows acting as the client, but only for resources on the local machine."
+  />
+  <Quiz
+    id="impersonation-and-running-as-another-user-q4"
+    question="What does the Delegate impersonation level add beyond Impersonate, and why is it more tightly restricted?"
+    options={[
+      "It adds no real capability beyond Impersonate, just a different name",
+      "It extends the borrowed identity to authenticate as the client to a second, remote machine, which meaningfully expands what's at risk if the impersonating service is compromised"
+      , "It only applies to auditing, not actual access",
+      "It removes the need for SeImpersonatePrivilege entirely"
+    ]}
+    answer={1}
+    explanation="Delegation lets a middle-tier service carry the client's identity onward to another machine, a genuinely more powerful and more dangerous capability than local-only impersonation, hence tighter default restrictions."
+  />
+  <Quiz
+    id="impersonation-and-running-as-another-user-q5"
+    question="Why is SeImpersonatePrivilege granted by default only to accounts like LocalSystem, LocalService, NetworkService, and Administrators, rather than arbitrary user accounts?"
+    options={[
+      "Impersonation has no security implications, so this is purely a legacy default",
+      "Broad impersonation ability is a meaningful privilege-escalation primitive, and has specifically been abused in real exploits when combined with tricking a privileged service into impersonating a low-privilege caller"
+      , "SeImpersonatePrivilege is deprecated and no longer enforced",
+      "It's only relevant for services using the Worker SDK"
+    ]}
+    answer={1}
+    explanation="Because impersonation lets a process act with another identity's access rights, granting it broadly would be a real security risk — this is reflected in actual historical exploits that abused this exact privilege."
+  />
+</QuizSet>

@@ -1,0 +1,132 @@
+Section 1 of this chapter mentioned that a process's access token decides who it's running as. This section is about the specific, very visible case of that: **User Account Control**, and why "just running as Administrator" is more nuanced than it sounds once you're writing code that has to deal with it.
+
+### Split tokens: even admins mostly don't run elevated
+
+When an administrator account logs in, Windows creates **two** access tokens: a full administrative token, and a **filtered** token with admin privileges stripped out. Ordinary processes — Explorer, your browser, most things you launch by double-clicking — run with the filtered token by default, even when you're logged in as an administrator. This is the actual mechanism behind UAC: being "an administrator" doesn't mean your processes run elevated, it means you're *eligible* to elevate, on request, one process at a time.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 180"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="An administrator login produces two tokens. The filtered token, with admin privileges removed, is used by default for ordinary processes like Explorer. The full token is used only when a specific process is elevated via a UAC consent prompt, such as a program launched with runas or a manifest requesting administrator execution level."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="240" y="10" width="160" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="34" fontSize="12" fontWeight="600" textAnchor="middle">Admin logon</text>
+    <line x1="290" y1="50" x2="150" y2="90" stroke="#000" strokeWidth="1" markerEnd="url(#a4)" />
+    <line x1="350" y1="50" x2="490" y2="90" stroke="#000" strokeWidth="1" markerEnd="url(#a4)" />
+
+    <rect x="40" y="90" width="220" height="76" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="150" y="112" fontSize="12" fontWeight="600" textAnchor="middle">Filtered token</text>
+    <text x="150" y="132" fontSize="10" fill="#666" textAnchor="middle">default for ordinary processes</text>
+    <text x="150" y="148" fontSize="10" fill="#666" textAnchor="middle">(Explorer, browser, most apps)</text>
+
+    <rect x="380" y="90" width="220" height="76" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="490" y="112" fontSize="12" fontWeight="600" textAnchor="middle">Full admin token</text>
+    <text x="490" y="132" fontSize="10" fill="#666" textAnchor="middle">only after a UAC consent prompt</text>
+    <text x="490" y="148" fontSize="10" fill="#666" textAnchor="middle">(runas, or a manifest request)</text>
+
+    <defs>
+      <marker id="a4" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+### Requesting elevation from a C# app
+
+There are two ways to end up with the full token: request elevation when *starting* a new process, or declare in advance that your app always needs it.
+
+```csharp
+// Request elevation for a single launched process
+var psi = new ProcessStartInfo("cmd.exe")
+{
+    UseShellExecute = true, // required for the "runas" verb to work
+    Verb = "runas",
+};
+Process.Start(psi); // triggers the UAC consent prompt
+```
+
+For an app that should *always* run elevated, the standard approach is an **application manifest** declaring `requestedExecutionLevel`:
+
+```xml
+<requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+```
+
+With this in the manifest, Windows shows the UAC prompt (and marks the icon with the shield overlay) the moment the executable is launched at all — there's no code path where it runs non-elevated. `asInvoker` (the default) inherits whatever the launching process's level already was; `highestAvailable` requests the highest level the current user could get without necessarily always demanding it.
+
+### Elevation is a process-wide, all-or-nothing decision
+
+There is no partial elevation and no elevating an already-running process. Once a process starts with the filtered token, it runs with that token for its entire life — code inside it cannot "become admin" partway through by calling some API. If your running non-elevated app hits a point where it needs admin rights (writing to a protected registry key, controlling a service), the only option is to launch a *new* elevated process (often itself, re-invoked with `Verb = "runas"`) to do that specific piece of work, and communicate the result back via some IPC mechanism (Chapter 10) — not to elevate in place.
+
+### The false comfort of "just run the terminal as admin"
+
+This explains a pattern from Chapter 1's setup checklist: if you launch Visual Studio or a terminal elevated, *everything* you run from inside it inherits that elevated token, because a child process's token comes from its parent's — this is a genuinely inherited attribute, unlike the parent-child *lifetime* relationship from earlier sections, which is not enforced. That's convenient for local development and exactly why elevation-dependent code can "work on my machine" and then fail the moment a teammate — or an end user — runs the same binary from an ordinary, non-elevated shell.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="elevation-uac-and-running-as-administrator-q1"
+    question="What actually happens when an administrator account logs into Windows, with respect to access tokens?"
+    options={[
+      "A single administrative token is created and used by every process",
+      "Two tokens are created: a full administrative token, and a filtered token with admin privileges stripped, which ordinary processes use by default",
+      "No token is created until the first elevation request",
+      "The filtered token is only created for standard (non-admin) user accounts",
+    ]}
+    answer={1}
+    explanation="Even administrator logons produce a filtered token used by default, alongside a full admin token that's only used when a specific process is elevated — this split is the actual mechanism behind UAC."
+  />
+  <Quiz
+    id="elevation-uac-and-running-as-administrator-q2"
+    question={`What does setting Verb = "runas" with UseShellExecute = true do when starting a process in C#?`}
+    options={[
+      "It silently runs the process elevated with no user interaction",
+      "It requests elevation for that launched process, triggering the UAC consent prompt",
+      "It permanently changes the current process's own token",
+      "It has no effect unless the app manifest also requests elevation",
+    ]}
+    answer={1}
+    explanation={`Verb = "runas" routed through ShellExecuteEx is how you request elevation for a newly started process, prompting the user for consent.`}
+  />
+  <Quiz
+    id="elevation-uac-and-running-as-administrator-q3"
+    question={`What does requestedExecutionLevel="requireAdministrator" in an application manifest cause?`}
+    options={[
+      "The app silently fails if the user isn't an administrator",
+      "Windows shows the UAC prompt as soon as the executable launches at all — there's no non-elevated code path",
+      "It elevates only specific methods within the app on demand",
+      "It has the same effect as asInvoker",
+    ]}
+    answer={1}
+    explanation="requireAdministrator forces elevation at launch time for the entire process; unlike asInvoker (inherits caller's level), the app never runs without the full admin token."
+  />
+  <Quiz
+    id="elevation-uac-and-running-as-administrator-q4"
+    question="Can a running non-elevated process 'become admin' partway through execution by calling an API?"
+    options={[
+      "Yes, by calling AdjustTokenPrivileges on its own token",
+      "No — elevation is decided at process start and is all-or-nothing; the only option is to launch a new elevated process for that work",
+      "Yes, but only for WPF and WinForms apps",
+      "Yes, if the process is running inside a job object",
+    ]}
+    answer={1}
+    explanation="A process's token is fixed for its lifetime. There is no in-place elevation — code needing elevated rights mid-run must spawn a separate elevated process instead."
+  />
+  <Quiz
+    id="elevation-uac-and-running-as-administrator-q5"
+    question="Why does elevation-dependent code often 'work on my machine' during development but fail for other users?"
+    options={[
+      "Because elevation status is randomly assigned per machine",
+      "Because a child process inherits its parent's token, so code run from an already-elevated terminal or IDE is elevated too — but end users typically launch the binary from a non-elevated shell",
+      "Because Visual Studio always disables UAC globally",
+      "Because elevation only applies to WinForms apps, not console apps",
+    ]}
+    answer={1}
+    explanation="Token inheritance from parent to child process means developers running an elevated terminal/IDE get elevated child processes 'for free,' masking a dependency on elevation that a normal end-user launch won't have."
+  />
+</QuizSet>

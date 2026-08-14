@@ -1,0 +1,123 @@
+The previous section drew the line between user mode and kernel mode. This one opens up what sits on each side of that line — the pieces inside the NT kernel, and the Win32 API surface that sits directly on top of it, which is what every C# program on Windows is ultimately built from.
+
+### The Executive: NT's kernel is a set of managers
+
+"The kernel" is really shorthand for two layers. The **microkernel** at the very core handles the smallest primitives — thread scheduling, interrupt dispatch, low-level synchronization. Everything else lives in the **NT Executive**, a set of cooperating components that each own one concern:
+
+- **Object Manager** — creates and tracks the typed kernel objects introduced in the last section (files, processes, sections, mutexes) and hands out handles to them.
+- **Process/Thread Manager** — creates and tears down processes and threads, and owns the scheduler's bookkeeping.
+- **Memory Manager** — virtual address spaces, paging, and the working-set logic behind every `byte[]` your GC allocates.
+- **I/O Manager** — routes read/write/control requests to device drivers, including the filesystem drivers behind `System.IO`.
+- **Security Reference Monitor** — checks every object access against the requester's access token and the object's ACL (Chapter 7).
+- **Cache Manager** — the shared page cache that makes repeated file reads fast.
+
+None of these are things you call directly from C#. They're the machinery Win32 sits on top of, and the reason certain Windows behaviors — why a locked file can't be deleted, why a process handle keeps working after the process exits, why an ACL check happens on every single file open — trace back to a specific Executive component rather than being arbitrary API rules.
+
+### The Hardware Abstraction Layer
+
+Below the Executive sits the **HAL**, a thin layer that hides CPU and chipset differences (interrupt controllers, timers, DMA) so the rest of the kernel can stay hardware-agnostic. You'll basically never touch it directly, but it's why the same NT kernel design has run on x86, x64, and ARM64 — including the ARM64 Windows machines that now run .NET natively.
+
+### Win32: the stable API in front of a moving kernel
+
+Win32 is not "the OS" — it's a **subsystem**, an API contract implemented by a set of user-mode DLLs (`kernel32.dll`, `user32.dll`, `gdi32.dll`, `advapi32.dll`, `ws2_32.dll`, and dozens more) that translate documented function calls into the syscalls the Executive actually implements. Microsoft has changed the internals of the kernel repeatedly across NT releases; Win32 is the contract that stayed backward compatible through all of it, which is why 20-year-old Win32 binaries still run on Windows 11.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A grid showing Win32 DLLs on the left mapped to the Executive components they front: kernel32 to Object Manager, Process and Thread Manager, and Memory Manager; user32 and gdi32 to the windowing and graphics subsystem; advapi32 to the Security Reference Monitor and the registry; ws2_32 to the network stack."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="24" fontSize="12" fontWeight="600" textAnchor="middle">WIN32 DLL</text>
+    <text x="480" y="24" fontSize="12" fontWeight="600" textAnchor="middle">EXECUTIVE COMPONENT</text>
+
+    {[
+      ["kernel32.dll", "Object, Process/Thread, Memory Managers"],
+      ["user32.dll / gdi32.dll", "Window Manager, graphics"],
+      ["advapi32.dll", "Security Reference Monitor, registry"],
+      ["ws2_32.dll", "Network stack (TDI / WSK)"],
+    ].map(([dll, exec], i) => (
+      <g key={dll}>
+        <rect x="40" y={40 + i * 42} width="240" height="32" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x="160" y={40 + i * 42 + 20} fontSize="11.5" textAnchor="middle">{dll}</text>
+        <line x1="280" y1={40 + i * 42 + 16} x2="360" y2={40 + i * 42 + 16} stroke="#000" strokeWidth="1" markerEnd="url(#arrow)" />
+        <rect x="360" y={40 + i * 42} width="240" height="32" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+        <text x="480" y={40 + i * 42 + 20} fontSize="10.5" textAnchor="middle">{exec}</text>
+      </g>
+    ))}
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each Win32 DLL is a facade in front of one or more Executive components. .NET's BCL calls these DLLs the same way any native Win32 program does.
+  </figcaption>
+</figure>
+
+### Why this matters for a C# developer
+
+Nearly every .NET method that touches the OS is, underneath, a call into one of these DLLs. `System.Diagnostics.Process.Start` calls `CreateProcessW` in `kernel32.dll`. `Microsoft.Win32.Registry` calls `RegOpenKeyExW` and friends in `advapi32.dll`. `System.Threading.Mutex` wraps a kernel mutant object created through `kernel32.dll`. When the BCL's documentation is vague about an edge case — what happens when two processes race to create the same named mutex, say — the Win32 documentation for the underlying function almost always has the answer, because that's genuinely where the behavior is defined. Knowing this API sits between you and the kernel is also what makes P/Invoke (Chapter 6) a normal escape hatch rather than a hack: you're just calling the same DLL the BCL calls, without waiting for a managed wrapper to exist.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-nt-kernel-and-win32-q1"
+    question="What is the NT Executive?"
+    options={[
+      "Another name for the Win32 API",
+      "A set of cooperating kernel-mode components — Object Manager, Memory Manager, I/O Manager, and others — that sit above the microkernel",
+      "The .NET runtime's just-in-time compiler",
+      "A user-mode service that manages Windows updates",
+    ]}
+    answer={1}
+    explanation="The Executive is the collection of kernel-mode managers (objects, processes/threads, memory, I/O, security, cache) built on top of NT's microkernel primitives."
+  />
+  <Quiz
+    id="the-nt-kernel-and-win32-q2"
+    question="Which Executive component checks every object access against the caller's access token and the object's ACL?"
+    options={["The I/O Manager", "The Cache Manager", "The Security Reference Monitor", "The HAL"]}
+    answer={2}
+    explanation="The Security Reference Monitor performs the access check on every kernel object access, which is what Chapter 7's ACL model ultimately relies on."
+  />
+  <Quiz
+    id="the-nt-kernel-and-win32-q3"
+    question="What role does the Hardware Abstraction Layer (HAL) play?"
+    options={[
+      "It provides the public API that applications call",
+      "It hides CPU and chipset differences so the rest of the kernel stays hardware-agnostic",
+      "It manages user account security tokens",
+      "It compiles .NET IL to native code",
+    ]}
+    answer={1}
+    explanation="The HAL is a thin layer below the Executive that abstracts hardware differences, which is part of why the same kernel design runs on x86, x64, and ARM64."
+  />
+  <Quiz
+    id="the-nt-kernel-and-win32-q4"
+    question="Why has 20-year-old Win32 software continued to run on modern Windows releases even as the kernel internals changed?"
+    options={[
+      "Win32 is emulated entirely in user mode with no kernel involvement",
+      "Win32 is a stable API contract implemented by DLLs that translate calls into whatever the current kernel actually implements",
+      "Old binaries are automatically recompiled by Windows Update",
+      "The kernel has not changed since Windows NT 3.1",
+    ]}
+    answer={1}
+    explanation="Win32 DLLs act as a stable facade; Microsoft can change what happens underneath as long as the documented contract those DLLs expose keeps working the same way."
+  />
+  <Quiz
+    id="the-nt-kernel-and-win32-q5"
+    question="Why is Win32 documentation often useful for understanding edge cases in .NET's BCL?"
+    options={[
+      "Because .NET's BCL methods are frequently thin wrappers around the same Win32 functions, so the underlying behavior is defined there",
+      "Because the BCL is written in Win32 assembly language",
+      "Because Win32 and .NET share the exact same documentation pages",
+      "It generally isn't useful, since .NET reimplements all OS behavior independently",
+    ]}
+    answer={0}
+    explanation="Methods like Process.Start or Registry access call directly into Win32 functions like CreateProcessW or RegOpenKeyExW, so their documented edge-case behavior is a reliable source of truth."
+  />
+</QuizSet>

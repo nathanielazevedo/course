@@ -1,0 +1,96 @@
+Getting an application installed once, as the previous section covered, is half the deployment problem. This section is the other half: getting it to stay current on machines you no longer have direct access to, without asking a human to manually reinstall it — and the meaningfully different amount of work that takes depending on which packaging path the previous section led you down.
+
+### MSIX: updating is mostly the platform's job
+
+Chapter 8 already established that MSIX absorbs update-checking into the platform rather than leaving it to each app. For a Store-distributed MSIX app, this is close to zero-effort: the Microsoft Store checks for and applies updates on its own schedule, entirely outside the application's own code. For MSIX distributed outside the Store, an **App Installer** file (`.appinstaller`) declares an update source URL and check interval; Windows itself periodically checks that URL and applies newer packages it finds, again without the application needing to implement any update logic of its own — the closest thing in the Windows ecosystem to "update logic you don't have to write."
+
+### MSI and plain executables: you're building this yourself
+
+Everything MSIX gives you for free, an MSI-based or plain-executable-based app has to build: a way to check for a new version, a way to download it, and a way to actually replace running files — which is a genuinely awkward problem on Windows specifically, tying back to Chapter 3's file-locking model: a running executable's own file is locked while the process is executing, so an update mechanism can't simply overwrite `MyApp.exe` while `MyApp.exe` is the thing doing the overwriting.
+
+### The standard pattern: a separate updater process
+
+```csharp
+// Running app detects an update is available, then:
+var psi = new ProcessStartInfo("Updater.exe", $"--target \"{Environment.ProcessPath}\"")
+{
+    UseShellExecute = true,
+};
+Process.Start(psi);
+Environment.Exit(0); // release the file lock on our own executable by exiting
+```
+
+The updater — a separate, small executable whose own file isn't the one being replaced — waits for the main process to actually exit (Chapter 2's process lifecycle: it can poll `Process.GetProcessById` or simply wait a moment after launching, since the main app calls `Environment.Exit` right after spawning it), then downloads and swaps the new files into place, then relaunches the main application. This two-process handoff — one process to detect and trigger, a separate process to actually perform the file replacement — is the standard shape almost every non-MSIX Windows auto-updater takes, precisely because no single process can replace its own running executable file directly.
+
+### Established libraries, rather than hand-rolling this
+
+Squirrel.Windows and Velopack (its actively maintained modern successor) are the commonly used open-source libraries that implement this pattern — delta updates (downloading only what changed between versions rather than the full package each time), atomic installation (the swap either fully completes or doesn't happen at all, avoiding a half-updated app), and the separate-updater-process handoff described above, all handled by the library rather than hand-rolled per application. For a plain-executable or MSI-distributed app, reaching for one of these is almost always a better use of time than re-implementing file-locking-aware update logic from scratch — this is exactly the kind of previously bespoke, error-prone code Chapter 8 described MSIX as absorbing into the platform, available here as a well-tested library instead for apps that aren't packaged as MSIX.
+
+### Signing matters here too
+
+Chapter 7's code-signing coverage applies directly to update packages, not just the original install: an update mechanism that downloads and executes a new version without verifying its signature is a direct code-execution vector for anyone who can intercept or spoof the update download — verifying the downloaded update's Authenticode signature (or, at minimum, its hash against a signed manifest) before replacing the running application's files is not an optional hardening step, it's the difference between an update mechanism and an unauthenticated remote code execution mechanism with a friendlier name.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="auto-updating-a-windows-application-q1"
+    question="How does MSIX distributed outside the Microsoft Store handle update checking?"
+    options={[
+      "It cannot be updated at all without manual reinstallation",
+      "An App Installer (.appinstaller) file declares an update source URL and check interval; Windows itself periodically checks and applies newer packages, with no update logic needed in the application's own code"
+      , "The application must implement its own polling loop to check for updates",
+      "Only Store-distributed MSIX apps can ever receive updates"
+    ]}
+    answer={1}
+    explanation="Even outside the Store, MSIX's App Installer mechanism lets Windows itself handle update checking and application, continuing the platform-absorbed update model Chapter 8 described."
+  />
+  <Quiz
+    id="auto-updating-a-windows-application-q2"
+    question="Why can't a running executable simply overwrite its own file to apply an update?"
+    options={[
+      "This is technically possible and is the standard approach",
+      "A running executable's own file is locked while the process is executing, following the file-sharing model from Chapter 3, so it cannot overwrite itself while still running"
+      , "Windows prevents any file replacement operations entirely",
+      "This only applies to files signed with a code-signing certificate"
+    ]}
+    answer={1}
+    explanation="File locking behavior covered in Chapter 3 means a running process's own executable file can't be replaced while that same process is still executing and holding it open."
+  />
+  <Quiz
+    id="auto-updating-a-windows-application-q3"
+    question="What is the standard architectural pattern for auto-updating a non-MSIX Windows application?"
+    options={[
+      "The main application downloads and overwrites its own executable file directly while continuing to run",
+      "A separate updater process is launched; the main app exits to release its file lock, and the separate updater then downloads, swaps the files, and relaunches the app"
+      , "Updates require the user to manually download and run a new installer every time",
+      "The Windows kernel handles file replacement automatically for any signed executable"
+    ]}
+    answer={1}
+    explanation="Because a running process can't replace its own locked executable file, the standard pattern uses a separate small updater process that performs the actual file swap only after the main app has exited."
+  />
+  <Quiz
+    id="auto-updating-a-windows-application-q4"
+    question="What do libraries like Squirrel.Windows or Velopack provide over hand-rolling an update mechanism from scratch?"
+    options={[
+      "They provide no meaningful advantage over a custom implementation",
+      "Delta updates, atomic installation, and the separate-updater-process handoff, all as a well-tested implementation rather than bespoke, error-prone code written per application"
+      , "They only work for MSIX-packaged applications",
+      "They eliminate the need for code signing entirely"
+    ]}
+    answer={1}
+    explanation="These libraries implement the tricky, error-prone parts of update mechanics (delta downloads, atomicity, file-lock-aware process handoff) as reusable, tested code, similar in spirit to how MSIX absorbs update logic into the platform."
+  />
+  <Quiz
+    id="auto-updating-a-windows-application-q5"
+    question="Why is verifying an update package's signature before applying it a critical security requirement, not just a nice-to-have?"
+    options={[
+      "Signature verification only matters for the original installer, not for subsequent updates",
+      "An update mechanism that downloads and executes new code without verifying its signature is a direct code-execution vector for anyone who can intercept or spoof the update download"
+      , "Updates are inherently safe as long as they're delivered over HTTPS, regardless of signing",
+      "Signature verification is only relevant for MSI-based applications"
+    ]}
+    answer={1}
+    explanation="Without signature verification, an update channel is effectively an unauthenticated remote code execution path — Chapter 7's code-signing model applies just as critically to update delivery as to the original install."
+  />
+</QuizSet>

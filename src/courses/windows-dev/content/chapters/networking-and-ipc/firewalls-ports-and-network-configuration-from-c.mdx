@@ -1,0 +1,112 @@
+The first section of this chapter introduced the Windows Firewall as a silent failure mode for inbound connections; this section is about actually inspecting and managing that configuration, and the broader network configuration surface C# code sometimes legitimately needs to read or adjust.
+
+### Querying firewall state with `NetFwTypeLib` (COM interop, in practice)
+
+Programmatic firewall management on Windows is COM-based (`HNetCfg.FwPolicy2`), not a native BCL API — a direct, practical use of Chapter 6's COM interop coverage:
+
+```csharp
+using System.Runtime.InteropServices;
+
+Type? fwPolicyType = Type.GetTypeFromProgID("HNetCfg.FwPolicy2");
+dynamic fwPolicy = Activator.CreateInstance(fwPolicyType!)!;
+bool firewallEnabled = fwPolicy.FirewallEnabled[NET_FW_PROFILE_TYPE2_.NET_FW_PROFILE2_DOMAIN];
+
+foreach (dynamic rule in fwPolicy.Rules)
+{
+    if (rule.Name == "MyApp")
+        Console.WriteLine($"Enabled: {rule.Enabled}, Direction: {rule.Direction}");
+}
+```
+
+This is genuinely COM interop with an RCW involved (Chapter 6's exact model), which is why `Marshal.ReleaseComObject` discipline applies here too for anything longer-lived than a quick script. In practice, most application code that needs to *create* a firewall rule shells out to `netsh advfirewall` or uses the `NetFirewallRule` PowerShell cmdlets (as shown in the first section) from an installer, rather than driving the COM API directly — the COM interface is more commonly useful for *querying* current state diagnostically than for ongoing rule management.
+
+### Enumerating network interfaces and adapters
+
+For reading network configuration rather than firewall rules specifically, `System.Net.NetworkInformation` is a first-party, cross-platform BCL API, no COM or P/Invoke needed:
+
+```csharp
+using System.Net.NetworkInformation;
+
+foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+{
+    if (nic.OperationalStatus != OperationalStatus.Up) continue;
+    Console.WriteLine($"{nic.Name}: {nic.Description}");
+    foreach (var addr in nic.GetIPProperties().UnicastAddresses)
+        Console.WriteLine($"  {addr.Address}");
+}
+```
+
+`NetworkChange.NetworkAvailabilityChanged` and `NetworkChange.NetworkAddressChanged` are the corresponding event-based way to react to connectivity changes live (a laptop moving from Wi-Fi to Ethernet, a VPN connecting) rather than polling `GetAllNetworkInterfaces()` repeatedly — genuinely useful for an app that needs to behave differently depending on current network reachability, a background sync service pausing while offline, for instance.
+
+### Proxy configuration: Windows has its own, separate from your code's
+
+Windows maintains system-wide (or per-user) proxy settings, configurable through `netsh winhttp` (for WinHTTP-based traffic, which includes most system-level and many application HTTP calls) separately from the browser-facing proxy settings in Settings → Network. `HttpClient` respects the system proxy configuration by default through `HttpClientHandler.UseProxy` (true by default) unless explicitly overridden, which is why HTTP code that works fine on a home network can behave completely differently inside a corporate network with an enforced proxy — not because the code is wrong, but because it's transparently routing through infrastructure that wasn't present during local development. `netsh winhttp show proxy` from a terminal is the fastest way to check what the *system* believes the proxy configuration actually is, independent of what any specific application's own settings claim.
+
+### Ports: what "port already in use" actually means, and how to check
+
+`SocketException` with `WSAEADDRINUSE` (or the more readable `.NET` message "Only one usage of each socket address...") when binding a listener means another process already holds that port — `netstat -ano | findstr :5000` (or the more modern `Get-NetTCPConnection -LocalPort 5000`) shows exactly which process ID owns it, which `Process.GetProcessById` (Chapter 2) can then resolve to a name. This is a common source of confusion specifically with .NET's development server tooling, where a previous `dotnet run` that wasn't cleanly terminated can leave a port bound well after the terminal that started it appears to have closed.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="firewalls-ports-and-network-configuration-from-c-q1"
+    question="What kind of API is HNetCfg.FwPolicy2, the interface used for programmatic Windows Firewall inspection?"
+    options={[
+      "A native BCL class in System.Net",
+      "A COM interface, requiring the same RCW-based interop model (and Marshal.ReleaseComObject discipline) covered in Chapter 6"
+      , "A P/Invoke-only native DLL function with no COM involvement",
+      "A REST API exposed by the local machine over HTTP"
+    ]}
+    answer={1}
+    explanation="Firewall policy management is COM-based, making it a direct, practical instance of Chapter 6's COM interop coverage, including the same reference-counting considerations."
+  />
+  <Quiz
+    id="firewalls-ports-and-network-configuration-from-c-q2"
+    question="What does NetworkChange.NetworkAvailabilityChanged provide that repeatedly calling NetworkInterface.GetAllNetworkInterfaces() does not?"
+    options={[
+      "It provides no additional capability over polling",
+      "An event-based way to react live to connectivity changes (like switching from Wi-Fi to Ethernet, or a VPN connecting) without needing to poll interface state repeatedly"
+      , "It can only be used from Windows Services, not other app types",
+      "It automatically reconfigures the firewall when connectivity changes"
+    ]}
+    answer={1}
+    explanation="NetworkChange events let code react to connectivity changes as they happen, which is more efficient and responsive than polling network interface state on a timer."
+  />
+  <Quiz
+    id="firewalls-ports-and-network-configuration-from-c-q3"
+    question="Why can HTTP code that works fine during local development behave differently once deployed inside a corporate network?"
+    options={[
+      "HttpClient never respects any system-level proxy configuration",
+      "HttpClient respects the system's WinHTTP-based proxy configuration by default, and a corporate network's enforced proxy transparently routes traffic in a way that wasn't present during local development"
+      , "Corporate networks disable HttpClient entirely",
+      "This only happens if the application explicitly sets UseProxy to true"
+    ]}
+    answer={1}
+    explanation="Since UseProxy defaults to true and Windows' system proxy settings are separate from the application's own code, an enforced corporate proxy changes HTTP behavior transparently, without the application code itself changing."
+  />
+  <Quiz
+    id="firewalls-ports-and-network-configuration-from-c-q4"
+    question="What does the SocketException commonly described as 'port already in use' actually indicate, and how can you find the responsible process?"
+    options={[
+      "It indicates a firewall block, resolvable only by disabling the firewall",
+      "Another process already holds that port; tools like netstat -ano or Get-NetTCPConnection reveal the owning process ID, which Process.GetProcessById can then resolve to a name"
+      , "It always means the port number itself is invalid",
+      "It indicates a DNS resolution failure unrelated to any specific process"
+    ]}
+    answer={1}
+    explanation="A bind failure with this error means the port is already bound by another process; standard OS tools can identify exactly which process ID holds it, connecting back to Chapter 2's process-inspection APIs."
+  />
+  <Quiz
+    id="firewalls-ports-and-network-configuration-from-c-q5"
+    question="Why do most applications typically shell out to netsh advfirewall or PowerShell cmdlets rather than driving the firewall COM API directly for rule creation?"
+    options={[
+      "The COM API cannot create rules at all, only query them",
+      "In practice, the COM interface is more commonly used for diagnostic querying, while actual rule creation is more commonly handled by an installer using netsh or PowerShell cmdlets"
+      , "netsh and PowerShell are the only tools capable of reading firewall state",
+      "COM interop is disabled by default on modern Windows"
+    ]}
+    answer={1}
+    explanation="While the COM API can be used for both querying and management, the practical convention leans on netsh/PowerShell tooling from installers for rule creation, reserving direct COM interop mainly for diagnostic inspection."
+  />
+</QuizSet>

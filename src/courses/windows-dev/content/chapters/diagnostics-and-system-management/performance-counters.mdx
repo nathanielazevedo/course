@@ -1,0 +1,113 @@
+Chapter 2 mentioned `Process.WorkingSet64` as a way to read a live counter the kernel already maintains. This section generalizes that idea properly: **Performance Counters**, the OS-wide system for tracking continuously-changing numeric metrics — CPU usage, memory, disk queue length, and thousands more, including ones your own application can publish — accessible through the same infrastructure `perfmon.exe` and Task Manager themselves read from.
+
+### Counters, categories, and instances
+
+Performance data is organized into **categories** (`Processor`, `Memory`, `PhysicalDisk`, `.NET CLR Memory`), each containing one or more **counters** (`% Processor Time`, `Available MBytes`), and some categories are further split by **instance** — `Processor` has an instance per logical CPU core plus a `_Total` aggregate, `Process` has one instance per running process, distinguished by name. This structure is why a counter path looks like `\Processor(_Total)\% Processor Time` — category, instance, counter — and it's the same three-part addressing scheme `perfmon.exe`'s counter picker UI, `typeperf.exe`, and the managed API below all share.
+
+```csharp
+using System.Diagnostics;
+
+using var cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+using var memCounter = new PerformanceCounter("Memory", "Available MBytes");
+
+Thread.Sleep(1000); // first NextValue() call for a rate-based counter needs a baseline
+Console.WriteLine($"CPU: {cpuCounter.NextValue()}%");
+Console.WriteLine($"Available memory: {memCounter.NextValue()} MB");
+```
+
+The initial `Thread.Sleep` isn't incidental — many counters (anything measuring a *rate*, like `% Processor Time`) require two samples to compute a meaningful value, since a rate is inherently a difference over an interval; the very first `NextValue()` call on a fresh `PerformanceCounter` object typically returns 0 or a meaningless value for exactly this reason.
+
+### Publishing your own counters
+
+An application can define and publish its own performance counters, making its internal metrics visible to `perfmon.exe`, monitoring agents, and any other tool that reads the standard counter infrastructure, without those tools needing any application-specific integration at all:
+
+```csharp
+if (!PerformanceCounterCategory.Exists("MyApp"))
+{
+    var counters = new CounterCreationDataCollection
+    {
+        new CounterCreationData("Requests/sec", "Requests processed per second",
+            PerformanceCounterType.RateOfCountsPerSecond32),
+    };
+    PerformanceCounterCategory.Create("MyApp", "Custom counters for MyApp",
+        PerformanceCounterCategoryType.SingleInstance, counters);
+}
+
+using var requestsCounter = new PerformanceCounter("MyApp", "Requests/sec", readOnly: false);
+requestsCounter.Increment(); // called once per handled request, elsewhere in the app
+```
+
+Like `EventLog.CreateEventSource` from earlier in this chapter, category creation requires administrator rights and is meant as a one-time setup step, not something run repeatedly at every application startup.
+
+### Where this fits alongside ETW and Event Log
+
+The three mechanisms in this chapter so far answer genuinely different questions: the Event Log is for discrete, human-relevant occurrences; ETW is for high-volume, low-overhead detailed tracing of what's happening; Performance Counters are for a continuously sampled numeric snapshot of how much of something exists or is happening right now — not what happened, but what the current rate or level *is*. A monitoring dashboard graphing request throughput over time is a natural fit for performance counters; a record of exactly which requests failed and why belongs in the Event Log or a structured log sink instead — the three genuinely complement rather than duplicate each other.
+
+### `dotnet-counters`: the modern, cross-platform equivalent for .NET metrics
+
+For .NET-specific runtime metrics specifically (GC, thread pool, exceptions/sec), `dotnet-counters` (another .NET global tool, sibling to `dotnet-trace` from the previous section) reads the same underlying `EventCounter`/`System.Diagnostics.Metrics` data live from a running process, cross-platform, without needing the older classic Windows Performance Counter infrastructure at all — the modern direction for .NET's own metrics, layered alongside (not replacing) the OS-wide Performance Counter system for everything outside the .NET runtime itself.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="performance-counters-q1"
+    question="What is the three-part addressing structure a performance counter path like \\Processor(_Total)\\% Processor Time reflects?"
+    options={[
+      "Machine name, drive letter, and file path",
+      "Category, instance, and counter — the same structure shared by perfmon.exe, typeperf.exe, and the managed PerformanceCounter API"
+      , "Log name, source, and event ID",
+      "Provider, session, and event level"
+    ]}
+    answer={1}
+    explanation="Performance counters are organized as category > instance > counter, which is exactly the addressing scheme reflected in a counter path and used consistently across all the tools that read them."
+  />
+  <Quiz
+    id="performance-counters-q2"
+    question="Why does the very first NextValue() call on a fresh PerformanceCounter for a rate-based metric like % Processor Time often return 0 or a meaningless value?"
+    options={[
+      "It's a bug in the PerformanceCounter class that requires a workaround",
+      "Rate-based counters require two samples to compute a meaningful value, since a rate is inherently a difference measured over an interval — the first call has no prior baseline"
+      , "PerformanceCounter objects must be recreated before every read",
+      "This only happens for custom counters, never for built-in system counters"
+    ]}
+    answer={1}
+    explanation="Computing a rate requires comparing two points in time; the first NextValue() call establishes the baseline and typically doesn't yet reflect a meaningful rate."
+  />
+  <Quiz
+    id="performance-counters-q3"
+    question="Why does creating a custom performance counter category require administrator rights and one-time setup, similar to EventLog.CreateEventSource?"
+    options={[
+      "It doesn't — custom counters can be created freely at every app startup with no restrictions",
+      "Category creation is a privileged, machine-wide registration step, meant to happen once (typically during install) rather than repeatedly from an unprivileged running instance"
+      , "Only Windows Services are permitted to create custom counters",
+      "Custom counters require a code-signing certificate to register"
+    ]}
+    answer={1}
+    explanation="Like event source registration, performance counter category creation is a privileged, one-time setup operation rather than something safe to repeat at every ordinary application launch."
+  />
+  <Quiz
+    id="performance-counters-q4"
+    question="How do Performance Counters, ETW, and the Event Log differ in the kind of question each is meant to answer?"
+    options={[
+      "They are functionally interchangeable and any one could replace the others",
+      "The Event Log records discrete, human-relevant occurrences; ETW captures high-volume, low-overhead detailed tracing; Performance Counters provide a continuously sampled numeric snapshot of current rate or level"
+      , "All three exist solely to record error conditions",
+      "Performance Counters are only usable from PowerShell, not from C#"
+    ]}
+    answer={1}
+    explanation="Each of the three diagnostic mechanisms in this chapter serves a genuinely distinct purpose — events, detailed tracing, and continuous numeric state — and they complement rather than duplicate each other."
+  />
+  <Quiz
+    id="performance-counters-q5"
+    question="What does dotnet-counters offer for .NET-specific metrics that distinguishes it from the classic Windows Performance Counter infrastructure?"
+    options={[
+      "It is simply a GUI wrapper around perfmon.exe with no functional difference",
+      "It reads EventCounter/System.Diagnostics.Metrics data live from a running process, cross-platform, without depending on the older Windows-specific Performance Counter infrastructure"
+      , "It can only be used to create new performance counter categories, not read them",
+      "It replaces performance counters entirely for all system-wide metrics, not just .NET ones"
+    ]}
+    answer={1}
+    explanation="dotnet-counters represents the modern, cross-platform direction for .NET's own runtime metrics, complementing rather than replacing the OS-wide Performance Counter system for metrics outside the .NET runtime."
+  />
+</QuizSet>

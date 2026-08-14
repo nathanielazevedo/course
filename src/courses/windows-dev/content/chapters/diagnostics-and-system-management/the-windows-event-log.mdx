@@ -1,0 +1,111 @@
+Chapter 5 mentioned the Event Log as where a service's diagnostics belong once there's no console to write to. This section is that mechanism in full — the actual structure behind `builder.Logging.AddEventLog()`, and why it's the right home for durable, queryable diagnostic history rather than just "another place logs can go."
+
+### Not a text file — a structured, queryable store
+
+Unlike a rolling text log file, the Windows Event Log is a structured database (backed by `.evtx` files, but not meant to be read as plain text) where every entry carries a source, a level (Information, Warning, Error, Critical), a numeric event ID, a timestamp, and structured data fields — not just a free-text message string. This structure is what makes Event Viewer's filtering genuinely useful ("show me every Error from this source in the last 24 hours") rather than a `grep` over a text file, and it's what lets other tools (Chapter 9's later sections, monitoring agents, SIEM ingestion pipelines) query it programmatically without parsing free text at all.
+
+### Logs and sources: where an event actually lands
+
+Events are organized into named **logs** — `Application`, `System`, `Security` (the SACL-driven audit destination from Chapter 7), and any number of custom logs an application can register — and within a log, tagged with a **source**, the string identifying which component wrote the entry (your app's name, typically). Writing to the Security log requires the `SeAuditPrivilege`-gated path most application code never touches directly (Chapter 7's audit mechanism handles that); ordinary application diagnostics belong in `Application` or, for a component significant enough to warrant it, a custom log created specifically for that purpose.
+
+```csharp
+using System.Diagnostics;
+
+if (!EventLog.SourceExists("MyService"))
+    EventLog.CreateEventSource("MyService", "Application"); // requires admin rights, one-time setup
+
+using var log = new EventLog("Application") { Source = "MyService" };
+log.WriteEntry("Startup completed.", EventLogEntryType.Information, eventId: 1000);
+log.WriteEntry("Failed to connect to database.", EventLogEntryType.Error, eventId: 5000);
+```
+
+`CreateEventSource` needs to run once, with administrator rights, typically as part of installation rather than at every application startup — attempting it repeatedly from an unprivileged running instance is a common source of confusing `UnauthorizedAccessException`s in code that assumes it can always self-register its own source.
+
+### `ILogger` and the Event Log: the same sink Chapter 5 introduced
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Logging.AddEventLog(settings =>
+{
+    settings.SourceName = "MyService";
+});
+```
+
+Once wired up this way, ordinary `ILogger<T>` calls throughout the application — `_logger.LogWarning(...)`, `_logger.LogError(exception, ...)` — are automatically written to the Event Log with an appropriate severity mapping (`LogError` becomes `EventLogEntryType.Error`, and so on), with no separate `EventLog` object management needed anywhere else in the application's code. This is the practical reason to prefer `ILogger` over a raw `EventLog` instance directly: the same logging calls can simultaneously feed the Event Log, the console (during interactive `dotnet run` testing, per Chapter 5), and any other configured sink, from one consistent API.
+
+### Reading events back
+
+```csharp
+using var log = new EventLog("Application");
+foreach (EventLogEntry entry in log.Entries.Cast<EventLogEntry>().TakeLast(20))
+{
+    Console.WriteLine($"{entry.TimeGenerated} [{entry.EntryType}] {entry.Source}: {entry.Message}");
+}
+```
+
+For anything beyond casual inspection, `Microsoft.Extensions.Logging`'s `EventLog` reading is thin — `wevtutil.exe` (query with structured XPath-like filters) or PowerShell's `Get-WinEvent` are the more capable tools for real querying, and the ones worth reaching for when diagnosing a problem interactively rather than iterating `EventLogEntry` objects in code.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-windows-event-log-q1"
+    question="How does the Windows Event Log differ structurally from a plain rolling text log file?"
+    options={[
+      "There is no real difference; Event Viewer just displays a text file",
+      "It's a structured, queryable store where every entry carries a source, severity level, numeric event ID, timestamp, and structured data fields, not just a free-text message"
+      , "The Event Log can only store a single entry per application",
+      "Text log files support filtering while the Event Log does not"
+    ]}
+    answer={1}
+    explanation="The Event Log's structured fields are what enable genuine filtering and programmatic querying, unlike a plain text file that requires parsing free-form lines."
+  />
+  <Quiz
+    id="the-windows-event-log-q2"
+    question="Why does calling EventLog.CreateEventSource repeatedly at every application startup often cause UnauthorizedAccessException?"
+    options={[
+      "CreateEventSource always requires network connectivity",
+      "Creating an event source requires administrator rights and is meant as a one-time setup step, typically during installation, not something an unprivileged running instance should repeat"
+      , "Event sources expire automatically after 24 hours",
+      "This exception is unrelated to permissions and indicates a bug in .NET"
+    ]}
+    answer={1}
+    explanation="Source registration is a privileged, one-time operation; code that assumes it can silently self-register on every launch will fail once running without administrator rights, which is the normal case for most application launches."
+  />
+  <Quiz
+    id="the-windows-event-log-q3"
+    question="What is the practical advantage of wiring up builder.Logging.AddEventLog() over managing a raw EventLog object directly?"
+    options={[
+      "AddEventLog is strictly faster at writing individual entries",
+      "Ordinary ILogger calls throughout the app automatically feed the Event Log (with severity mapping) alongside any other configured sink, from one consistent logging API"
+      , "AddEventLog eliminates the need for any event source registration",
+      "It only works for services, not for console or WinForms/WPF apps"
+    ]}
+    answer={1}
+    explanation="Routing through ILogger lets the same logging calls simultaneously target the Event Log and other sinks (console, etc.) without separate management code for each destination."
+  />
+  <Quiz
+    id="the-windows-event-log-q4"
+    question="Why does writing to the Security log require a different, more restricted path than writing to the Application log?"
+    options={[
+      "The Security log doesn't actually exist as a separate log",
+      "It's the SACL-driven audit destination from Chapter 7, gated by SeAuditPrivilege, distinct from ordinary application diagnostics which belong in Application or a custom log"
+      , "Security log writes require no privileges at all, unlike Application",
+      "Only WinUI 3 apps are permitted to write to the Security log"
+    ]}
+    answer={1}
+    explanation="The Security log is tied to the audit mechanism covered in Chapter 7, requiring the specific SeAuditPrivilege gate, which is why ordinary application code writes to Application or a custom log instead."
+  />
+  <Quiz
+    id="the-windows-event-log-q5"
+    question="What tools are better suited than iterating EventLogEntry objects in C# for real, interactive querying of the Event Log?"
+    options={[
+      "There are no better tools; C# iteration is the only reliable option",
+      "wevtutil.exe with structured filters, or PowerShell's Get-WinEvent, both offering more capable querying than the thin managed EventLog reading API"
+      , "Only Event Viewer's GUI supports any kind of filtering",
+      "The registry directly, bypassing the Event Log APIs entirely"
+    ]}
+    answer={1}
+    explanation="For real diagnostic querying, wevtutil and Get-WinEvent offer significantly more capable filtering than manually iterating EventLogEntry objects through the thin managed reading API."
+  />
+</QuizSet>

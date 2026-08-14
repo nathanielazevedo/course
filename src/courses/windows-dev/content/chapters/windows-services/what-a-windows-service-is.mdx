@@ -1,0 +1,108 @@
+Chapter 1 introduced the idea that Windows was built assuming an interactive user at a graphical console. A Windows Service is the answer to the obvious follow-up question: what runs the things that need to run *without* a user logged in at all — before anyone signs in, after everyone signs out, or on a machine with no one signed in, ever?
+
+### A process with no desktop, managed by the OS itself
+
+A service is, underneath, an ordinary process — but one started by the OS itself (specifically, the Service Control Manager, next section) rather than by a logged-in user double-clicking something, and one that by default runs with **no desktop, no window station, and no interactive session** attached to it at all. This isn't a permissions restriction you can lift; it's a structural fact about how services are launched. Code that assumes it can show a message box or read `Console.ReadLine()` will not work as a service — there is no console or desktop for that code to attach to (Session 0 isolation, covered next, is the specific mechanism behind this).
+
+### Why services exist instead of just "run at startup"
+
+Chapter 4 covered the `Run` registry key as a way to launch something at logon. A service solves a different, harder problem: something that must be running **before any user logs in** (network infrastructure, drivers-adjacent components, anything another service depends on), that must **keep running across every logon and logoff** without restarting, that should **restart itself automatically if it crashes** (Section 5 of this chapter), and that runs under an identity chosen for the task rather than tied to whichever human happens to be signed in.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Timeline: machine boot starts services before any logon happens. A user logs on, then logs off, then a different user logs on — the service keeps running continuously underneath all of these session changes, unaffected by any of them."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="20" y1="110" x2="620" y2="110" stroke="#000" strokeWidth="1.5" />
+    {[
+      [20, "Boot"],
+      [180, "User A logs on"],
+      [340, "User A logs off"],
+      [500, "User B logs on"],
+    ].map(([x, label]) => (
+      <g key={label}>
+        <line x1={x} y1="105" x2={x} y2="115" stroke="#000" strokeWidth="1.5" />
+        <text x={x} y="132" fontSize="9.5" textAnchor="middle">{label}</text>
+      </g>
+    ))}
+    <rect x="20" y="40" width="600" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="60" fontSize="11" fontWeight="600" textAnchor="middle">the service keeps running, unaffected, the entire time</text>
+  </svg>
+</figure>
+
+### Not every background process needs to be a service
+
+It's worth being precise about when a service is actually the right tool, because it's easy to reach for one by default: an app that just needs to run while a specific user is logged in (a system tray helper, an autostart companion app) fits the `Run` key or the Task Scheduler (Chapter 11) fine, and is *simpler* to build, debug, and update than a service — it can show UI, it inherits the user's own permissions naturally, and it doesn't need the Service Control Manager machinery this chapter covers. Services earn their complexity specifically for machine-wide, logon-independent, must-survive-a-crash workloads: a monitoring agent, a local API that other machines depend on, a database engine, a print spooler.
+
+### What a service can't easily do
+
+The Session 0 isolation that lets a service run before any logon also means, on modern Windows (post–Vista's "Session 0 isolation" change), a service **cannot directly show UI on a user's desktop** — no message boxes, no windows, nothing the interactively logged-on user would actually see appear. Older services that displayed dialogs to whoever was logged in ("interactive services") were a genuine security problem — a non-elevated user's desktop showing a dialog from a `LocalSystem`-level process was an escalation vector — and Windows closed that off structurally rather than relying on services to behave. A service that needs to communicate with a logged-on user has to do it through IPC (Chapter 10) to a separate, ordinary user-mode app that *can* show UI.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-a-windows-service-is-q1"
+    question="What structurally distinguishes a Windows Service process from an ordinary user-launched process?"
+    options={[
+      "Services always run faster due to a special scheduling priority",
+      "A service is started by the Service Control Manager rather than a logged-in user, and by default has no desktop, window station, or interactive session attached"
+      , "Services can only be written in C++, never in C#",
+      "There is no real structural difference; the term is purely organizational",
+    ]}
+    answer={1}
+    explanation="Services are launched by the OS itself outside any user session and run with no attached interactive desktop, which is a structural fact rather than a permission that can simply be granted."
+  />
+  <Quiz
+    id="what-a-windows-service-is-q2"
+    question="What can a service do that a Run-key startup entry (Chapter 4) cannot?"
+    options={[
+      "Nothing — they are functionally identical",
+      "Start before any user logs in, keep running across every logon/logoff, and restart automatically after a crash"
+      , "Show interactive UI more easily than a Run-key app",
+      "Run without needing to be registered anywhere",
+    ]}
+    answer={1}
+    explanation="Services solve for logon-independent, continuously-running, crash-resilient workloads — needs a simple Run-key startup entry, tied to a specific user's logon, doesn't address."
+  />
+  <Quiz
+    id="what-a-windows-service-is-q3"
+    question="When is a Run-key entry or the Task Scheduler generally the better fit than a full Windows Service?"
+    options={[
+      "Whenever the app needs to run with elevated privileges",
+      "For an app that only needs to run while a specific user is logged in and may need to show UI, since it's simpler and inherits the user's permissions naturally"
+      , "Only for apps that never need to start automatically",
+      "Services are always the better choice regardless of the workload",
+    ]}
+    answer={1}
+    explanation="For per-user, UI-capable, logon-scoped needs, a Run entry or scheduled task avoids the extra complexity of the Service Control Manager machinery a true service requires."
+  />
+  <Quiz
+    id="what-a-windows-service-is-q4"
+    question="Why can't a modern Windows Service simply show a message box on the logged-on user's desktop?"
+    options={[
+      "It's technically possible but considered bad style",
+      "Session 0 isolation structurally separates services from any user's interactive desktop, closing off a real security escalation vector that older 'interactive services' created"
+      , "Message boxes are deprecated in modern .NET entirely",
+      "It's only disallowed for services running as LocalSystem",
+    ]}
+    answer={1}
+    explanation="Post-Vista Session 0 isolation removed services' ability to interact with a user desktop directly, specifically because interactive services from privileged accounts were a genuine privilege-escalation risk."
+  />
+  <Quiz
+    id="what-a-windows-service-is-q5"
+    question="How must a service communicate something to a logged-on user, given it can't show UI directly?"
+    options={[
+      "It cannot communicate with a logged-on user under any circumstances",
+      "Through IPC to a separate, ordinary user-mode application that is capable of showing UI"
+      , "By writing directly to the user's screen buffer",
+      "By temporarily disabling Session 0 isolation for itself",
+    ]}
+    answer={1}
+    explanation="Since a service has no attached interactive session, reaching a logged-on user requires IPC to a companion app running in that user's own session, which can display UI on their behalf."
+  />
+</QuizSet>

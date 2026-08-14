@@ -1,0 +1,104 @@
+This closing section pulls together three configuration choices every real service needs made deliberately rather than left at their defaults: what happens when it fails, what it needs running before it, and whose identity it runs under.
+
+### Recovery actions, in detail
+
+The previous section introduced recovery options as the SCM's answer to a crashed service process. The actual configuration is three independent slots — first failure, second failure, subsequent failures — each with its own action and delay:
+
+```powershell
+sc.exe failure MyService reset= 86400 actions= restart/5000/restart/30000/run/60000
+```
+
+This configures: restart after 5 seconds on the first failure, restart after 30 seconds on the second, and run a specified recovery program after 60 seconds on the third and any further failure, with the failure count itself resetting to zero after 86400 seconds (24 hours) of continuous good behavior. The escalating delays are a deliberate pattern — a service crash-looping every few seconds from a bad config or a corrupted dependency benefits from backing off rather than hammering the same failure indefinitely, and the third-strike "run a program" slot is commonly wired to something that pages an on-call engineer or captures diagnostic state, on the theory that two automatic restarts is a reasonable number of free attempts before a human should know.
+
+### Dependencies: ordering the SCM enforces for you
+
+A service can declare other services (or, for driver-level dependencies, device driver groups) it depends on:
+
+```powershell
+sc.exe config MyService depend= Tcpip/MySharedService
+```
+
+The SCM guarantees a service's dependencies are already running before it attempts to start that service, and — the direction developers forget — refuses to stop a service that other running services still depend on, until those dependents are stopped first. This is meaningfully different from handling the ordering yourself inside `ExecuteAsync` with retry loops against a dependency that might not be up yet: declared dependencies are enforced by the SCM before your code runs at all, rather than being a race your own code has to survive.
+
+### Choosing a service account
+
+Three built-in identities cover most cases, in increasing order of network exposure:
+
+- **`LocalService`** — minimal local privileges, presents no network credentials at all (connects to network resources anonymously). Right for a service that only touches local resources.
+- **`NetworkService`** — similar local privileges to `LocalService`, but presents the *computer's own* machine account credentials when accessing network resources. Right for a service that needs to authenticate to another machine as "this computer," not as a specific person.
+- **`LocalSystem`** — full local machine privileges, effectively unrestricted on the local machine, but (like `LocalService`) has no real network identity of its own. This is the account with the most local power and, correspondingly, the one to avoid defaulting to out of convenience — a compromised `LocalSystem` service is a compromised machine, full stop.
+
+For a service that genuinely needs a specific network identity — authenticating to a database or another server as a particular account, rather than as the machine itself — a **Managed Service Account** (a domain account whose password Active Directory rotates automatically, so nothing in your deployment scripts ever has to know or store it) is the modern answer, ahead of a manually managed domain service account whose password someone has to remember to rotate and redeploy.
+
+```powershell
+sc.exe config MyService obj= "NT AUTHORITY\NetworkService"
+```
+
+### The guiding principle across all three
+
+Recovery, dependencies, and account choice all point at the same underlying idea this chapter has been building toward: a service is meant to run unattended, for long stretches, without a human present to notice or fix things — which is exactly why the SCM, not your own code, is the layer responsible for restarting it, sequencing it against what it needs, and constraining what it's allowed to touch if something does go wrong.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="service-recovery-dependencies-and-accounts-q1"
+    question="What is the purpose of configuring separate actions for the first, second, and subsequent service failures, with escalating delays?"
+    options={[
+      "It has no practical effect and is purely cosmetic",
+      "It lets a crash-looping service back off rather than restarting instantly and repeatedly, with a later slot (like running a diagnostic program) reserved for after automatic restarts have already been tried"
+      , "It is required syntax with no configurable meaning",
+      "Only the first failure action is ever actually used by the SCM",
+    ]}
+    answer={1}
+    explanation="Escalating restart delays avoid hammering a repeatedly-failing service, and a later action like running a recovery program gives a deliberate escalation path once automatic restarts haven't resolved the problem."
+  />
+  <Quiz
+    id="service-recovery-dependencies-and-accounts-q2"
+    question="What does declaring a service dependency via sc.exe config .../depend= actually guarantee?"
+    options={[
+      "Nothing enforced — it's purely documentation for administrators",
+      "The SCM ensures the dependency is running before starting the dependent service, and refuses to stop a service that other running services still depend on"
+      , "It only affects the order services appear in the Services console",
+      "Dependencies only apply to services from the same installer package",
+    ]}
+    answer={1}
+    explanation="Dependency declarations are enforced by the SCM itself in both directions — start ordering and stop refusal — removing the need to handle that ordering with retry logic inside the service's own code."
+  />
+  <Quiz
+    id="service-recovery-dependencies-and-accounts-q3"
+    question="What distinguishes NetworkService from LocalService when accessing network resources?"
+    options={[
+      "They behave identically on the network",
+      "NetworkService presents the computer's own machine account credentials on the network, while LocalService connects to network resources anonymously"
+      , "LocalService has more network privileges than NetworkService",
+      "Only NetworkService can access local files",
+    ]}
+    answer={1}
+    explanation="NetworkService authenticates to network resources as the machine's own account, whereas LocalService has no real network identity at all — the key differentiator between the two otherwise similarly-scoped local accounts."
+  />
+  <Quiz
+    id="service-recovery-dependencies-and-accounts-q4"
+    question="Why is defaulting a service to run as LocalSystem out of convenience discouraged?"
+    options={[
+      "LocalSystem cannot run background services at all",
+      "LocalSystem has effectively unrestricted local machine privileges, so a compromised LocalSystem service represents a fully compromised machine"
+      , "LocalSystem services are slower than other identities",
+      "LocalSystem is deprecated in modern Windows versions",
+    ]}
+    answer={1}
+    explanation="LocalSystem's broad local privileges make it the highest-risk default choice — a service only needs the privileges required for its actual job, and LocalSystem grants far more than most services need."
+  />
+  <Quiz
+    id="service-recovery-dependencies-and-accounts-q5"
+    question="What advantage does a Managed Service Account offer over a manually managed domain service account?"
+    options={[
+      "It requires no network connectivity at all",
+      "Active Directory automatically rotates its password, so nothing in deployment scripts or configuration ever needs to know or store a static password"
+      , "It grants LocalSystem-equivalent privileges by default",
+      "It can only be used by services running as LocalService",
+    ]}
+    answer={1}
+    explanation="Managed Service Accounts remove the operational burden and risk of manually rotating and redistributing a static service account password, since Active Directory handles rotation automatically."
+  />
+</QuizSet>

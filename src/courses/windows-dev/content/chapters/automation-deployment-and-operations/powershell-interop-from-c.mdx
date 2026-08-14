@@ -1,0 +1,128 @@
+This closing chapter is about the last mile from "code that works" to "code that's actually running, deployed, and maintained on real machines." It starts here, with PowerShell — because a genuinely large amount of Windows automation, deployment tooling, and operational scripting is PowerShell, and knowing how C# and PowerShell actually relate (rather than treating PowerShell as just "another CLI to shell out to") opens up a more direct, more capable path.
+
+### PowerShell is built on .NET — this isn't a coincidence
+
+PowerShell (specifically PowerShell 7+, the modern, cross-platform, open-source line, as distinct from the legacy Windows PowerShell 5.1 built into every Windows install) is itself a .NET application, and its object pipeline passes real .NET objects between cmdlets, not text — a `Get-Process` result is a genuine `System.Diagnostics.Process`-adjacent object, not a text table parsed after the fact the way piping between Unix shell commands typically works. This is why PowerShell and C# interop cleanly in both directions: C# can host and drive PowerShell directly through the `System.Management.Automation` API, and PowerShell can load and call directly into any .NET assembly, including one you wrote yourself.
+
+### Shelling out to `pwsh.exe`: the simple, lossy option
+
+```csharp
+var psi = new ProcessStartInfo("pwsh", "-NoProfile -Command \"Get-Service -Name Spooler\"")
+{
+    RedirectStandardOutput = true,
+    UseShellExecute = false,
+};
+using var process = Process.Start(psi)!;
+string output = await process.StandardOutput.ReadToEndAsync();
+```
+
+This is the Chapter 2 `Process` pattern, applied to launching PowerShell as a subprocess — straightforward, but lossy in exactly the way piping between two separate processes always is: the rich `.NET` objects PowerShell's pipeline uses internally get serialized to text for the redirected output, and parsing that text back into structured data in C# is real, brittle work (`ConvertTo-Json` on the PowerShell side helps, but it's still a serialization round-trip you're managing yourself).
+
+### Hosting PowerShell directly: the richer option
+
+```csharp
+using System.Management.Automation;
+
+using var ps = PowerShell.Create();
+ps.AddCommand("Get-Service").AddParameter("Name", "Spooler");
+Collection<PSObject> results = ps.Invoke();
+
+foreach (PSObject result in results)
+{
+    var status = result.Properties["Status"]?.Value;
+    Console.WriteLine($"Spooler status: {status}");
+}
+```
+
+`System.Management.Automation` (the `Microsoft.PowerShell.SDK` NuGet package) runs PowerShell **in-process** rather than as a subprocess — no serialization round-trip, no text parsing, direct access to the same `PSObject` results a PowerShell script itself would see, with each property accessible by name rather than reconstructed from formatted text output. This is the right tool when a C# application needs to run PowerShell logic as a genuine, structured part of its own execution — an installer or management tool that needs to call cmdlets from modules like `ActiveDirectory` or `AzureAD` that have no direct C# equivalent, for instance, without paying the subprocess-and-text-parsing cost of shelling out.
+
+### Calling C# from PowerShell: the reverse direction
+
+```powershell
+Add-Type -Path "C:\Tools\MyLibrary.dll"
+[Contoso.MyLibrary.Helpers]::DoSomething()
+```
+
+`Add-Type` loads a .NET assembly directly into the running PowerShell process, after which any public type is callable exactly as shown — this is how a good deal of real-world Windows deployment and automation tooling is actually built: PowerShell scripts as the orchestration layer, calling into purpose-built C# libraries for anything that's more naturally expressed as compiled code (complex parsing, performance-sensitive work, P/Invoke-heavy Win32 interaction from Chapter 6) than as script.
+
+### Writing a PowerShell cmdlet in C#
+
+For the deepest integration, a C# class can *be* a cmdlet, not just something a script calls:
+
+```csharp
+[Cmdlet(VerbsCommon.Get, "ContosoStatus")]
+public class GetContosoStatusCmdlet : PSCmdlet
+{
+    protected override void ProcessRecord()
+    {
+        WriteObject(new { Status = "Running", Uptime = TimeSpan.FromHours(3) });
+    }
+}
+```
+
+Packaged into a PowerShell module (a `.psd1` manifest referencing the compiled assembly), `Get-ContosoStatus` then behaves as a first-class cmdlet indistinguishable from a built-in one — participating fully in the pipeline, tab completion, and help system — which is the standard approach for shipping genuinely reusable Windows management tooling rather than a one-off script.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="powershell-interop-from-c-q1"
+    question="What passes between cmdlets in PowerShell's pipeline, and why does this matter for interop with C#?"
+    options={[
+      "Plain text, parsed by each cmdlet the same way Unix shell pipes work",
+      "Real .NET objects, not text — which is why PowerShell and C# can interoperate cleanly in both directions, since PowerShell is itself a .NET application"
+      , "XML documents exclusively",
+      "Only primitive types like strings and integers, never complex objects"
+    ]}
+    answer={1}
+    explanation="PowerShell's object pipeline carries genuine .NET objects between cmdlets, a fundamental difference from text-based Unix pipes, and the reason deep, structured interop with C# is possible."
+  />
+  <Quiz
+    id="powershell-interop-from-c-q2"
+    question="What is the main drawback of shelling out to pwsh.exe as a subprocess to run PowerShell commands from C#?"
+    options={[
+      "It is not possible to capture any output this way",
+      "The rich .NET objects PowerShell uses internally get serialized to text for the redirected output, requiring real, brittle parsing work to reconstruct structured data in C#"
+      , "Subprocess-based PowerShell execution requires administrator rights",
+      "pwsh.exe cannot accept any command-line parameters"
+    ]}
+    answer={1}
+    explanation="Redirecting a subprocess's output captures text, losing the structured object data PowerShell's pipeline normally preserves, making the round-trip lossy compared to in-process hosting."
+  />
+  <Quiz
+    id="powershell-interop-from-c-q3"
+    question="What advantage does using System.Management.Automation (the PowerShell SDK) provide over shelling out to pwsh.exe?"
+    options={[
+      "It runs faster purely because it uses less CPU",
+      "It runs PowerShell in-process, giving direct access to structured PSObject results with properties accessible by name, avoiding the serialization/text-parsing round-trip of a subprocess"
+      , "It is the only way to call any cmdlet from C# at all",
+      "It automatically converts all PowerShell scripts into compiled C# code"
+    ]}
+    answer={1}
+    explanation="In-process hosting via the PowerShell SDK preserves PowerShell's structured object results directly, eliminating the lossy text serialization involved in shelling out to a subprocess."
+  />
+  <Quiz
+    id="powershell-interop-from-c-q4"
+    question="What does Add-Type -Path in a PowerShell script accomplish?"
+    options={[
+      "It compiles a new PowerShell script into a .NET assembly",
+      "It loads a .NET assembly directly into the running PowerShell process, after which its public types are callable directly from the script"
+      , "It converts a C# DLL into a PowerShell module manifest automatically",
+      "It only works with assemblies signed by Microsoft"
+    ]}
+    answer={1}
+    explanation="Add-Type loads a compiled .NET assembly directly into the PowerShell session, enabling scripts to call into purpose-built C# code as a natural part of the orchestration layer."
+  />
+  <Quiz
+    id="powershell-interop-from-c-q5"
+    question="What is the benefit of implementing a C# class as a PSCmdlet, packaged into a PowerShell module, over just exposing a callable method via Add-Type?"
+    options={[
+      "There is no functional difference between the two approaches",
+      "A proper cmdlet participates fully in the pipeline, tab completion, and help system, behaving indistinguishably from a built-in cmdlet — the standard approach for shipping reusable management tooling"
+      , "PSCmdlet classes can only be used interactively, never in scripts",
+      "Cmdlets cannot return structured objects, only plain text"
+    ]}
+    answer={1}
+    explanation="A true PSCmdlet integrates with PowerShell's full feature set — pipeline participation, discoverability, tab completion — making it the more complete and idiomatic way to ship reusable tooling compared to a plain callable method."
+  />
+</QuizSet>

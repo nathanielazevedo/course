@@ -1,0 +1,106 @@
+Starting a process sounds like it should be one operation. In practice, `Process.Start` hides a handful of decisions — how the process is created, how it inherits (or doesn't) resources from you, and what "killing" it actually guarantees — that matter the moment you're doing anything beyond launching Notepad.
+
+### Two very different ways to start something
+
+```csharp
+// ShellExecute-style: uses file associations, can elevate, can't redirect I/O
+Process.Start(new ProcessStartInfo("report.pdf") { UseShellExecute = true });
+
+// CreateProcess-style: direct executable launch, full control over I/O
+Process.Start(new ProcessStartInfo("cmd.exe", "/c dir")
+{
+    UseShellExecute = false,
+    RedirectStandardOutput = true,
+    RedirectStandardError = true,
+});
+```
+
+`UseShellExecute` is the pivot point. `true` routes the request through the shell (`ShellExecuteEx`), which is what lets you "start" a document by its file association, request elevation with `Verb = "runas"`, or open a URL in the default browser — but it hands you no standard I/O streams to redirect. `false` calls `CreateProcess` directly: you get real control over the child's standard handles, working directory, and environment, but no shell resolution — the target has to be an actual executable, and if it needs elevation you have to have started *your own* process elevated already (the next section covers this properly).
+
+### What "killing" a process actually does
+
+`Process.Kill()` calls `TerminateProcess`, which is abrupt by design: it stops every thread in the target process immediately, at whatever point they happened to be executing, and tears down the address space. There is no `finally` block, no `using` disposal, no chance for the target to flush a file or release a lock cleanly — from the target's perspective, it simply stops existing mid-instruction. This is different from asking a process to exit gracefully (closing its main window, or signaling it through whatever IPC mechanism it listens for, covered in Chapter 10), which gives it a chance to clean up. `Kill()` is a last resort for exactly the situations where clean shutdown has already failed or isn't available.
+
+`Process.Kill(entireProcessTree: true)`, added in modern .NET, walks the process's recorded children and kills them too — useful, but worth remembering it's walking the same informational parent-child bookkeeping from the previous section, not a kernel-enforced tree, so a child that has re-parented itself (rare, but possible) won't be caught by it.
+
+### Monitoring: polling vs. events vs. waiting
+
+Three different ways to know what a process is doing, each suited to a different question:
+
+- **`Process.Exited` event** — fires once, when the process terminates, if you set `EnableRaisingEvents = true`. Best for "tell me when this is done" without blocking.
+- **`Process.WaitForExit()`** — blocks the calling thread (or, with the `Task`-returning overload, awaits) until the process ends. Best when your own logic can't proceed until the child is finished.
+- **Polling `Process.GetProcesses()` / `Process.GetProcessById()`** — a live snapshot of currently running processes, refreshed each time you call it, useful for "is *some* process matching this name currently running" rather than tracking one process you started yourself.
+
+```csharp
+using var proc = Process.Start(startInfo)!;
+proc.EnableRaisingEvents = true;
+proc.Exited += (_, _) => Console.WriteLine($"Process {proc.Id} exited with {proc.ExitCode}");
+await proc.WaitForExitAsync();
+```
+
+A property worth knowing about for monitoring resource use rather than lifetime: `Process.WorkingSet64`, `PrivateMemorySize64`, and `TotalProcessorTime` read live counters the kernel already maintains per process — the same data Task Manager's Details tab shows, just through the managed API instead of the GUI.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="starting-killing-and-monitoring-processes-q1"
+    question="What is the main practical tradeoff of setting UseShellExecute to true when starting a process?"
+    options={[
+      "It's always faster than CreateProcess-based launching",
+      "It enables shell features like file-association launching and elevation requests, but you lose the ability to redirect standard I/O",
+      "It disables the ability to pass command-line arguments",
+      "It only works for launching .exe files, not documents",
+    ]}
+    answer={1}
+    explanation="Shell-based launching (ShellExecuteEx) supports file associations, URLs, and the runas verb for elevation, but does not expose the redirectable standard handles that direct CreateProcess-based launching does."
+  />
+  <Quiz
+    id="starting-killing-and-monitoring-processes-q2"
+    question="What does Process.Kill() actually do to the target process?"
+    options={[
+      "Sends a graceful shutdown request that the process can decline",
+      "Calls TerminateProcess, immediately stopping every thread and tearing down the address space with no chance for cleanup",
+      "Waits for the process to finish its current operation before stopping it",
+      "Only suspends the process rather than ending it",
+    ]}
+    answer={1}
+    explanation="TerminateProcess is abrupt by design — no finally blocks run, no handles are cleanly released by the target itself. It's meant for cases where graceful shutdown isn't available or has failed."
+  />
+  <Quiz
+    id="starting-killing-and-monitoring-processes-q3"
+    question="What limitation does Process.Kill(entireProcessTree: true) have?"
+    options={[
+      "It cannot kill more than one process at a time",
+      "It walks the informational parent-child bookkeeping .NET records, not a kernel-enforced tree, so a re-parented child could be missed",
+      "It requires administrator rights even for the caller's own child processes",
+      "It only works on processes started with UseShellExecute set to true",
+    ]}
+    answer={1}
+    explanation="The process tree it walks is based on the same non-enforced parent-child relationship Process.Start records, not a guaranteed kernel structure, so unusual re-parenting can escape it."
+  />
+  <Quiz
+    id="starting-killing-and-monitoring-processes-q4"
+    question="What is the difference between using the Process.Exited event and calling Process.WaitForExit()?"
+    options={[
+      "They are functionally identical in every way",
+      "Exited fires asynchronously without blocking the caller; WaitForExit() blocks (or awaits) the calling code until the process ends",
+      "Exited only works for processes not started by the current app",
+      "WaitForExit() can only be used with UseShellExecute set to true",
+    ]}
+    answer={1}
+    explanation="Exited is an event-driven notification for 'don't block, tell me later'; WaitForExit() is for code that genuinely cannot proceed until the child process has finished."
+  />
+  <Quiz
+    id="starting-killing-and-monitoring-processes-q5"
+    question="What does Process.WorkingSet64 represent?"
+    options={[
+      "The command-line arguments passed to the process",
+      "A live kernel-maintained counter of the process's memory usage, the same data shown in Task Manager's Details tab",
+      "The number of threads the process has spawned",
+      "The process's exit code once it terminates",
+    ]}
+    answer={1}
+    explanation="WorkingSet64 and similar properties read live per-process counters the kernel already tracks, exposing the same resource-usage data Task Manager displays, through the managed API."
+  />
+</QuizSet>

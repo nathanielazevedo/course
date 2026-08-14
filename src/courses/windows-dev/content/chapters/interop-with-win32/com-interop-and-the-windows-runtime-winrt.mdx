@@ -1,0 +1,92 @@
+P/Invoke is for calling loose functions in a DLL. A large and important slice of Windows — Office automation, the shell, media APIs, and much of the modern Windows App SDK — isn't exposed as loose functions at all, but as **COM objects**: a different, older interop model with its own rules, and its own newer descendant, WinRT.
+
+### COM: interfaces, not functions
+
+**Component Object Model (COM)** predates .NET entirely and is Windows' original answer to language-agnostic, binary-compatible object interfaces. A COM object exposes one or more **interfaces** — each a fixed, versioned table of function pointers (a vtable) — identified by a GUID, and every COM interface derives from `IUnknown`, which provides `QueryInterface` (ask an object whether it also implements a different interface you want), `AddRef`, and `Release` (COM's own reference counting, independent of the .NET GC entirely). Where P/Invoke calls a specific DLL export by name, COM interop involves the runtime locating and activating an object (often via the registry — COM objects register their class ID and implementing DLL under `HKCR\CLSID`, tying back to Chapter 4) and then calling through its interface's vtable.
+
+### .NET's COM interop: RCWs and CCWs
+
+```csharp
+using System.Runtime.InteropServices;
+
+// Common in older code — using a COM object registered as a type library reference
+dynamic excel = Activator.CreateInstance(
+    Type.GetTypeFromProgID("Excel.Application")!)!;
+excel.Visible = true;
+excel.Workbooks.Add();
+```
+
+When managed code calls into a COM object, .NET wraps it in a **Runtime Callable Wrapper (RCW)** — a managed proxy that translates .NET method calls into the underlying `QueryInterface`/vtable calls, and participates in COM's reference counting on your behalf as the RCW itself gets garbage collected. The reverse direction — native COM code calling into a managed object — goes through a **COM Callable Wrapper (CCW)**, letting a C# class be consumed as if it were a native COM object at all. Most application-level code only deals with RCWs; CCWs matter when you're building a component meant to be *consumed* by unmanaged code (a COM add-in for Office, for instance).
+
+### Why COM interop specifically needs careful disposal
+
+COM objects are reference-counted independently of the .NET GC — an RCW being garbage collected eventually calls `Release` through its finalizer, but "eventually" is doing real work in that sentence: until a GC actually runs, the underlying COM object (and, in the Excel example, the entire Excel process it may represent) can stay alive well past when the code appeared to be "done" with it. `Marshal.ReleaseComObject` (or `Marshal.FinalReleaseComObject` to force the count fully to zero) exists specifically to force that release deterministically, which is why Office automation code in particular has a long-standing convention of explicitly releasing every COM object it touches, rather than trusting the GC's timing — a genuinely common cause of "Excel.exe processes pile up in Task Manager after my script runs."
+
+### WinRT: COM's modern, better-behaved descendant
+
+The **Windows Runtime (WinRT)**, introduced with Windows 8 and still the foundation of WinUI 3 and the modern Windows App SDK (Chapter 8), is built on COM underneath — WinRT interfaces are COM interfaces — but adds a metadata system (`.winmd` files, structurally similar to .NET assembly metadata) that describes types precisely enough for tooling to generate strongly-typed projections automatically, rather than relying on `dynamic` or hand-written interop code. Modern .NET's WinRT interop (via `CsWinRT`, the spiritual sibling of CsWin32 from earlier in this chapter) generates these projections at build time, which is why calling a WinRT API from C# today looks like calling an ordinary strongly-typed .NET API — the COM machinery underneath is real, but almost entirely invisible.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="com-interop-and-the-windows-runtime-winrt-q1"
+    question="What is the fundamental structural difference between what P/Invoke calls and what COM interop calls?"
+    options={[
+      "There is no real difference; both call the same kind of target",
+      "P/Invoke calls loose exported functions in a DLL by name; COM interop calls into objects exposing versioned interfaces (vtables) identified by GUID"
+      , "COM interop only works with 32-bit processes",
+      "P/Invoke can only call functions that return void",
+    ]}
+    answer={1}
+    explanation="P/Invoke targets named DLL exports directly, while COM interop involves locating and activating an object and calling through its interface's function-pointer table, a fundamentally different model."
+  />
+  <Quiz
+    id="com-interop-and-the-windows-runtime-winrt-q2"
+    question="What does IUnknown, which every COM interface derives from, provide?"
+    options={[
+      "A way to convert a COM object into a P/Invoke-compatible struct",
+      "QueryInterface (to ask for a different supported interface), AddRef, and Release — COM's own independent reference counting mechanism"
+      , "Automatic marshaling of .NET strings to native strings",
+      "A registry key lookup mechanism for locating DLLs"
+    ]}
+    answer={1}
+    explanation="IUnknown is the base COM interface providing interface discovery (QueryInterface) and COM's own reference counting (AddRef/Release), independent of the .NET garbage collector."
+  />
+  <Quiz
+    id="com-interop-and-the-windows-runtime-winrt-q3"
+    question="What is a Runtime Callable Wrapper (RCW)?"
+    options={[
+      "A native wrapper that lets unmanaged code consume a C# class as a COM object",
+      "A managed proxy .NET creates when calling into a COM object, translating .NET calls into the object's vtable calls and participating in COM reference counting"
+      , "A tool for generating P/Invoke signatures automatically",
+      "A synonym for a WinRT projection"
+    ]}
+    answer={1}
+    explanation="An RCW is the managed-side proxy for a COM object being consumed from .NET; the reverse direction (a managed object exposed to native COM code) is a CCW, not an RCW."
+  />
+  <Quiz
+    id="com-interop-and-the-windows-runtime-winrt-q4"
+    question="Why does Office automation code commonly call Marshal.ReleaseComObject explicitly rather than relying on the GC?"
+    options={[
+      "ReleaseComObject is required by the C# compiler for all COM code",
+      "An RCW's finalizer eventually calls Release, but GC timing is nondeterministic, so the underlying COM object (and process, e.g. Excel.exe) can stay alive well past when the code is logically done with it"
+      , "The .NET GC cannot collect RCWs at all without explicit intervention",
+      "ReleaseComObject is only needed for WinRT objects, not classic COM"
+    ]}
+    answer={1}
+    explanation="Because COM's reference counting is separate from and only eventually triggered by GC finalization, explicit release is the standard way to guarantee timely cleanup rather than an unpredictable delay — a common source of leaked Excel.exe processes when omitted."
+  />
+  <Quiz
+    id="com-interop-and-the-windows-runtime-winrt-q5"
+    question="What is WinRT's relationship to COM?"
+    options={[
+      "WinRT completely replaces COM and shares no underlying mechanism with it",
+      "WinRT interfaces are built on COM underneath, with an added metadata system (.winmd files) that lets tooling generate strongly-typed projections automatically"
+      , "WinRT is unrelated to COM and predates it",
+      "WinRT only works with dynamic typing, never strongly-typed projections",
+    ]}
+    answer={1}
+    explanation="WinRT is COM-based at its core, but its metadata system allows tools like CsWinRT to generate strongly-typed, ordinary-looking .NET APIs at build time, hiding the underlying COM machinery from everyday code."
+  />
+</QuizSet>

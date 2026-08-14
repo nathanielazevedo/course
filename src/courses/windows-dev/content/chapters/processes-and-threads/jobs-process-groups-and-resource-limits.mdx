@@ -1,0 +1,107 @@
+The last two sections established that Windows doesn't automatically kill children when a parent dies, and doesn't cap how much memory or CPU a process consumes on its own. **Job objects** are the mechanism that adds both of those guarantees back, by grouping multiple processes so the kernel manages them as one unit.
+
+### What a job object is
+
+A **job object** is a kernel object (yes, another one from Chapter 1's object model) that one or more processes can be assigned to. Once a process is in a job, several things become true for it — and for any child process it spawns, which is automatically added to the same job — that were not true for a lone process:
+
+- **Termination is grouped.** Calling `TerminateJobObject` kills every process currently in the job in one call, closing the "the child outlived the parent" gap from earlier in this chapter.
+- **Resource limits become enforceable.** A job can cap total committed memory, per-process memory, CPU rate, and the number of active processes, with violations either throttled or the offending process killed automatically by the kernel.
+- **Accounting is aggregated.** Total CPU time and page faults across every process in the job are available as one figure, rather than having to sum per-process counters yourself.
+
+This is the actual mechanism behind Windows containers and behind tools like Docker Desktop's process isolation on Windows — a container is, among other things, a job object with tight limits assigned to it.
+
+### A job object from C#
+
+.NET has no first-party wrapper for job objects — this is P/Invoke territory (Chapter 6 covers the mechanics), but the shape of the code is worth seeing now because it's a genuinely common real-world need: making sure a tree of helper processes dies with your app.
+
+```csharp
+// Create the job, configure it to kill all member processes when the
+// job handle itself closes, then assign a child process to it.
+IntPtr job = CreateJobObject(IntPtr.Zero, null);
+
+var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+{
+    BasicLimitInformation = { LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE },
+};
+SetInformationJobObject(job, JobObjectExtendedLimitInformation, ref info, ...);
+
+using var child = Process.Start("worker.exe")!;
+AssignProcessToJobObject(job, child.Handle);
+// When `job` is closed (e.g., your app exits), `worker.exe` is killed too —
+// even if it spawned its own children in the meantime.
+```
+
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is the flag that turns "the parent forgot to clean up" into "the OS cleans up for you" — it's the single most commonly used job object flag for exactly the process-tree-lifetime problem Section 1 raised.
+
+### Process groups: a lighter-weight sibling
+
+Separately from job objects, Windows has **process groups**, created with `CREATE_NEW_PROCESS_GROUP` at process creation. Their scope is much narrower: they exist mainly so `Ctrl+C`/`Ctrl+Break` console signals can be delivered to a specific set of console processes rather than every process attached to the console. If you've ever needed a child console process to *not* receive the same Ctrl+C that's shutting down its parent, this is the mechanism — not job objects, which don't concern themselves with console signals at all.
+
+### Why this matters day to day
+
+Most C# developers never construct a job object explicitly, but plenty run inside one without knowing it: Windows Sandbox, Docker containers on Windows, and IIS application pools all use job objects to enforce the CPU and memory limits you configure through their higher-level settings UI. When a hosted process mysteriously gets killed after crossing a memory threshold you didn't set anywhere in your own code, a job object limit configured by the host is a common explanation worth checking before assuming it's a bug in your app.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="jobs-process-groups-and-resource-limits-q1"
+    question="What problem from earlier in this chapter do job objects primarily solve?"
+    options={[
+      "The lack of a graphical process monitor",
+      "The fact that Windows doesn't automatically kill child processes when their parent exits, and doesn't cap resource usage on its own",
+      "The inability to start a process at all without shell execute",
+      "The overhead of creating too many dedicated OS threads",
+    ]}
+    answer={1}
+    explanation="Job objects group processes so termination and resource limits can be enforced across the whole group by the kernel, closing the gap left by Windows' loose parent-child process relationships."
+  />
+  <Quiz
+    id="jobs-process-groups-and-resource-limits-q2"
+    question="What happens to a child process spawned by a process that is already a member of a job object?"
+    options={[
+      "It is excluded from the job by default and must be added manually",
+      "It is automatically added to the same job object as its parent",
+      "It automatically becomes a job object itself",
+      "Job membership is not inherited under any circumstance",
+    ]}
+    answer={1}
+    explanation="Child processes are automatically added to their parent's job, which is what lets a single job's kill-on-close or resource limits apply to an entire process tree, not just the immediate process."
+  />
+  <Quiz
+    id="jobs-process-groups-and-resource-limits-q3"
+    question="What does the JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE flag do?"
+    options={[
+      "It prevents the job object from ever being closed",
+      "It kills every process currently in the job automatically when the job object handle itself is closed",
+      "It limits the job to a single process at a time",
+      "It disables resource limit enforcement for the job",
+    ]}
+    answer={1}
+    explanation="This flag ties the lifetime of every process in the job to the job handle's own lifetime — closing the job (e.g. on app exit) terminates the whole process tree automatically."
+  />
+  <Quiz
+    id="jobs-process-groups-and-resource-limits-q4"
+    question="What is the primary purpose of a Windows process group (CREATE_NEW_PROCESS_GROUP), as distinct from a job object?"
+    options={[
+      "Enforcing memory and CPU limits across multiple processes",
+      "Controlling which console processes receive Ctrl+C / Ctrl+Break signals",
+      "Aggregating CPU accounting across processes",
+      "Automatically killing child processes when the parent exits",
+    ]}
+    answer={1}
+    explanation="Process groups exist specifically to scope console control signal delivery (like Ctrl+C), not to manage resource limits or termination — that's the job object's role."
+  />
+  <Quiz
+    id="jobs-process-groups-and-resource-limits-q5"
+    question="What is a realistic explanation if a hosted process is unexpectedly killed after crossing a memory threshold you never configured in your own code?"
+    options={[
+      "A random OS bug with no discoverable cause",
+      "A job object limit configured by the host environment — such as an IIS app pool, Windows Sandbox, or a Docker container — enforcing that limit automatically",
+      "The .NET garbage collector terminating the process directly",
+      "It indicates the process group signal was misconfigured",
+    ]}
+    answer={1}
+    explanation="Hosting environments like IIS app pools and Windows containers commonly enforce their configured resource limits using job objects under the hood, which can kill a process without any explicit code in the app itself."
+  />
+</QuizSet>

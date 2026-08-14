@@ -1,0 +1,132 @@
+Chapter 1 introduced the Worker Service template as "a console app in disguise" — the shape most services start from. This section makes that concrete: the same code, tested as an ordinary console process, becomes an installable Windows Service with a small, well-defined set of additions.
+
+### Start as a console app — genuinely
+
+```bash
+dotnet new worker -n MyService
+```
+
+```csharp
+// Worker.cs
+public class Worker : BackgroundService
+{
+    private readonly ILogger<Worker> _logger;
+    public Worker(ILogger<Worker> logger) => _logger = logger;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Working at {time}", DateTimeOffset.Now);
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+        }
+    }
+}
+```
+
+`ExecuteAsync` is where the actual work lives, and `stoppingToken` is how the host tells it to wind down — more on that below. Run this with `dotnet run` and it behaves like any console app: logs to the terminal, exits on `Ctrl+C`. That's deliberate — you can develop and debug the entire logic of a service without installing it as one at all, which is a real advantage over editing-and-reinstalling a service on every change.
+
+### The three additions that make it installable as a service
+
+```csharp
+// Program.cs
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "MyService";
+});
+
+builder.Services.AddHostedService<Worker>();
+
+var host = builder.Build();
+host.Run();
+```
+
+`AddWindowsService()`, from the `Microsoft.Extensions.Hosting.WindowsServices` package, does the actual bridging work: when the process detects it was launched by the Service Control Manager (rather than interactively), it swaps in a `WindowsServiceLifetime` that speaks the SCM's start/stop/pause protocol (next section covers that protocol directly) instead of the console-oriented default lifetime. When run interactively — `dotnet run`, or double-clicking the exe — it's a no-op, and the app behaves exactly like the plain console app from the last step. This is what makes the same binary correctly serve both roles without an `#if` or a separate build.
+
+Two more pieces the project file needs:
+
+```xml
+<PropertyGroup>
+  <OutputType>Exe</OutputType>
+  <TargetFramework>net8.0-windows</TargetFramework>
+  <!-- lets logging write to the Windows Event Log, covered in Chapter 9 -->
+</PropertyGroup>
+<ItemGroup>
+  <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+</ItemGroup>
+```
+
+### Handling stop requests correctly
+
+The SCM expects a service to stop within a bounded time (roughly 30 seconds by default) once it's asked to — a service that ignores `stoppingToken` and keeps running is exactly what produces the "stopping..." spinner that eventually gives up in the Services console. The pattern above — checking `stoppingToken.IsCancellationRequested` in the loop and passing it into `Task.Delay` so the delay itself is cancelled promptly rather than run to completion — is the correct shape; a version of this loop that used `Thread.Sleep(30000)` instead of `Task.Delay(..., stoppingToken)` would leave the service unresponsive to a stop request for up to 30 seconds at a time.
+
+### Logging: where it goes matters more for a service
+
+`ILogger` calls that would print to a console window in an interactive run have nowhere to go once there's no console attached — which is the normal case for a running service. `Microsoft.Extensions.Logging.EventLog` (added via `builder.Logging.AddEventLog()`) routes the same `ILogger` calls to the Windows Event Log instead, which Chapter 9 covers as the actual durable, queryable place service diagnostics belong; relying on `Console.WriteLine` debugging that worked during `dotnet run` is a common first surprise once the same code is actually installed and running as a service.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="building-a-service-with-the-net-worker-sdk-q1"
+    question="What is the practical advantage of developing a Worker Service by running it with `dotnet run` before installing it as an actual service?"
+    options={[
+      "It runs faster than when installed as a service",
+      "It behaves like an ordinary console app, letting you develop and debug the service's logic without repeatedly installing and reinstalling it"
+      , "It automatically generates the service installer",
+      "dotnet run is the only way to test a BackgroundService at all",
+    ]}
+    answer={1}
+    explanation="Because a Worker Service is structurally a console app until AddWindowsService detects otherwise, it can be run and debugged interactively, avoiding the slower install/uninstall cycle during development."
+  />
+  <Quiz
+    id="building-a-service-with-the-net-worker-sdk-q2"
+    question="What does AddWindowsService() actually do?"
+    options={[
+      "It always forces the app to run as a service, even when launched interactively",
+      "It detects whether the process was launched by the Service Control Manager and, if so, swaps in a lifetime that speaks the SCM's start/stop/pause protocol; otherwise it's a no-op"
+      , "It installs the service into the Service Control Manager automatically at first run",
+      "It replaces the need for a Main method entirely",
+    ]}
+    answer={1}
+    explanation="AddWindowsService conditionally activates SCM-aware lifetime handling only when actually launched by the SCM, which is what lets the same binary work correctly both interactively and as an installed service."
+  />
+  <Quiz
+    id="building-a-service-with-the-net-worker-sdk-q3"
+    question="Why does using Thread.Sleep(30000) instead of Task.Delay(..., stoppingToken) inside ExecuteAsync cause a problem when the service is asked to stop?"
+    options={[
+      "There is no difference between the two in this context",
+      "Thread.Sleep can't be interrupted by the cancellation token, so the service stays unresponsive to a stop request for up to the full sleep duration"
+      , "Thread.Sleep causes a compile error inside a BackgroundService",
+      "Task.Delay is slower than Thread.Sleep and causes timeouts",
+    ]}
+    answer={1}
+    explanation="Task.Delay accepts the cancellation token and returns promptly when it's triggered; Thread.Sleep ignores it entirely, leaving the service unable to respond to a stop request until the sleep finishes on its own."
+  />
+  <Quiz
+    id="building-a-service-with-the-net-worker-sdk-q4"
+    question="Why do Console.WriteLine calls that worked fine during dotnet run often produce no visible output once the app is installed and running as an actual service?"
+    options={[
+      "Console.WriteLine is disabled automatically inside BackgroundService",
+      "A running service has no attached console — there's nowhere for that output to go, which is why routing logs to the Windows Event Log instead is the standard approach"
+      , "Services cannot use the ILogger interface at all",
+      "It's a bug in the Worker SDK that requires a workaround",
+    ]}
+    answer={1}
+    explanation="As covered earlier in the chapter, a service runs with no interactive session or console attached, so console output has nowhere to be displayed — Chapter 9's Event Log integration is the intended replacement."
+  />
+  <Quiz
+    id="building-a-service-with-the-net-worker-sdk-q5"
+    question="Roughly how long does the SCM expect a service to finish stopping once a stop request is issued, before giving up?"
+    options={[
+      "There is no time limit at all",
+      "Around 30 seconds by default, which is why promptly responding to stoppingToken matters"
+      , "Exactly 5 seconds, non-configurable",
+      "Services are expected to stop instantly with zero cleanup time",
+    ]}
+    answer={1}
+    explanation="The SCM enforces a bounded stop timeout (roughly 30 seconds by default), which is why ExecuteAsync needs to actually observe and respond to stoppingToken rather than ignoring it."
+  />
+</QuizSet>

@@ -1,0 +1,91 @@
+WPF's XAML, data binding, and template-based styling model, from the previous section, is genuinely powerful — powerful enough that Microsoft's next-generation native UI framework kept the same core ideas rather than replacing them. WinUI 3 is best understood as WPF's model, rebuilt on Chapter 6's WinRT foundation instead of WPF's older rendering stack, with the visual language of modern Windows built in from the start.
+
+### Same mental model, different foundation
+
+If you know WPF, WinUI 3's XAML will look immediately familiar — `<StackPanel>`, `<Button Content="..." Click="...">`, `{Binding}`, styles and control templates all carry over conceptually, and for good reason: WinUI 3 is a continuation of the XAML platform's lineage that originated with WPF and continued through the Universal Windows Platform (UWP), not a clean-slate redesign. The real difference is underneath: WinUI 3 apps are built on the **Windows App SDK**, decoupled from the OS's own UI framework version (unlike UWP, which shipped as part of Windows itself and was pinned to the OS's release cadence) and delivered as a NuGet package your app carries with it — meaning a WinUI 3 app can pick up framework updates and bug fixes on your own schedule rather than waiting on a Windows OS update to reach end users.
+
+```xml
+<Window x:Class="MyApp.MainWindow" ...>
+    <StackPanel Padding="16" Spacing="12">
+        <TextBlock Text="Hello, WinUI 3" Style="{ThemeResource TitleTextBlockStyle}" />
+        <Button Content="Click me" Click="Button_Click" />
+    </StackPanel>
+</Window>
+```
+
+### Fluent Design, built in rather than styled on top
+
+WinUI 3 ships Microsoft's current **Fluent Design** visual language as its default control appearance — acrylic/mica material effects, reveal highlighting, rounded corners, and automatic light/dark theme support that follows the OS setting without extra code. WPF *can* be made to look this way, but it requires deliberately building or adopting that styling; WinUI 3 starts from it. This is the practical reason a from-scratch Windows app started today commonly defaults to WinUI 3 — matching current Windows visual conventions costs nothing extra, where it would be real, ongoing work in WPF.
+
+### What WinUI 3 gives up, for now
+
+The tradeoff is ecosystem maturity: WPF has been shipping since 2006, with a correspondingly enormous body of third-party controls, Stack Overflow answers, and battle-tested patterns; WinUI 3 is younger, with a smaller (though actively growing) third-party ecosystem and a few WPF capabilities that took time to reach full parity (certain complex printing and document scenarios, for instance). For greenfield apps prioritizing the modern look and long-term platform direction, WinUI 3 is generally the right default; for apps that need something WPF's mature ecosystem specifically provides, or that already have a large existing WPF codebase, that maturity gap is a real, practical factor rather than a purely aesthetic preference.
+
+### Where MAUI fits, briefly
+
+.NET MAUI extends this same XAML/binding lineage further, adding a cross-platform abstraction layer on top so one codebase can target Windows (via WinUI 3 underneath), macOS, iOS, and Android. It's the right tool specifically when cross-platform reach is a requirement; for a Windows-only application, WinUI 3 directly (without MAUI's additional abstraction layer) is simpler and gives more direct access to Windows-specific capability, which is why this course treats WinUI 3, not MAUI, as the default recommendation for native Windows desktop UI.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="winui-3-and-modern-windows-apps-q1"
+    question="What is WinUI 3's relationship to WPF's programming model?"
+    options={[
+      "WinUI 3 is a completely unrelated framework with a different declarative syntax",
+      "WinUI 3 continues the same XAML/data-binding/template lineage as WPF and UWP, carrying the same core mental model forward onto a new foundation"
+      , "WinUI 3 replaced XAML entirely with a JSON-based UI format",
+      "WinUI 3 is simply WPF renamed with no technical differences"
+    ]}
+    answer={1}
+    explanation="WinUI 3 is a continuation of the XAML platform lineage originating with WPF, not a clean-slate redesign — familiar WPF concepts carry over directly."
+  />
+  <Quiz
+    id="winui-3-and-modern-windows-apps-q2"
+    question="What is the key structural difference between WinUI 3 (via the Windows App SDK) and its predecessor UWP?"
+    options={[
+      "WinUI 3 is delivered as a NuGet package decoupled from the OS release cycle, whereas UWP shipped as part of Windows itself and was pinned to OS updates"
+      , "UWP is delivered via NuGet, while WinUI 3 ships as part of Windows",
+      "There is no meaningful difference between the two",
+      "WinUI 3 cannot be updated independently of a full app reinstall"
+    ]}
+    answer={0}
+    explanation="Decoupling the framework from the OS via the Windows App SDK's NuGet-based distribution lets WinUI 3 apps pick up framework updates on their own schedule, unlike UWP's OS-cadence-bound model."
+  />
+  <Quiz
+    id="winui-3-and-modern-windows-apps-q3"
+    question="What does WinUI 3 provide by default that WPF requires deliberate extra effort to achieve?"
+    options={[
+      "Data binding support",
+      "Microsoft's current Fluent Design visual language — acrylic/mica materials, reveal highlighting, and automatic OS-following light/dark theming — built in as the default appearance"
+      , "The ability to use XAML at all",
+      "Support for control templates"
+    ]}
+    answer={1}
+    explanation="WinUI 3 ships Fluent Design as its out-of-the-box default, whereas achieving that same modern visual language in WPF requires deliberately building or adopting the styling yourself."
+  />
+  <Quiz
+    id="winui-3-and-modern-windows-apps-q4"
+    question="What is the main practical tradeoff of choosing WinUI 3 over WPF today?"
+    options={[
+      "WinUI 3 has no tradeoffs; it is strictly superior in every respect",
+      "WinUI 3's ecosystem is younger and smaller than WPF's long-established third-party ecosystem, though it's actively growing and closing remaining capability gaps"
+      , "WinUI 3 cannot use data binding or styles at all",
+      "WPF is no longer supported on any modern Windows version"
+    ]}
+    answer={1}
+    explanation="WPF's maturity — nearly two decades of third-party controls and community knowledge — is a real advantage WinUI 3, being newer, hasn't fully matched yet, even as it becomes the preferred choice for new development."
+  />
+  <Quiz
+    id="winui-3-and-modern-windows-apps-q5"
+    question="When is .NET MAUI the more appropriate choice over using WinUI 3 directly?"
+    options={[
+      "Always, since MAUI is a strict superset of WinUI 3's capabilities on Windows",
+      "Specifically when cross-platform reach (macOS, iOS, Android, in addition to Windows) is a requirement, since a Windows-only app gets simpler, more direct platform access from WinUI 3 alone"
+      , "MAUI and WinUI 3 solve entirely unrelated problems and are never substitutes for each other",
+      "Only when building console applications"
+    ]}
+    answer={1}
+    explanation="MAUI adds a cross-platform abstraction layer on top of platform-specific frameworks like WinUI 3; that extra layer is worthwhile only when targeting multiple platforms, not for a Windows-only app."
+  />
+</QuizSet>

@@ -1,0 +1,136 @@
+The Event Log is built for discrete, relatively infrequent, human-relevant occurrences — a service started, a connection failed. **ETW (Event Tracing for Windows)** solves a different problem: extremely high-volume, low-overhead tracing capable of capturing what's happening inside the OS and applications at a rate the Event Log was never designed for, without meaningfully slowing anything down.
+
+### Why ETW exists as a separate system
+
+ETW is the mechanism behind capturing tens of thousands of events per second — every disk I/O, every context switch, every .NET GC — with overhead low enough to run in production, all the time, on live systems, which the Event Log's structured-database-write model simply isn't built for. The core design that makes this possible: **providers** write events, but only if a **session** has actually enabled that provider and is actively listening — an ETW provider call in code that has no active session listening is a cheap, near-zero-cost check-and-return, not a write. This is fundamentally different from the Event Log, where a `log.WriteEntry` call always performs the write, listener or not.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 150"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Providers, such as the CLR, the kernel, and application code, write events only when a session has enabled them. A trace session controls which providers are active and at what verbosity, and consumers such as PerfView or a custom listener read events from that session."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["CLR provider", "Kernel provider", "App's own provider"].map((label, i) => (
+      <g key={label} transform={`translate(20, ${20 + i * 38})`}>
+        <rect x="0" y="0" width="150" height="28" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x="75" y="18" fontSize="9.5" textAnchor="middle">{label}</text>
+        <line x1="150" y1="14" x2="220" y2="55" stroke="#000" strokeWidth="1" markerEnd="url(#a9)" />
+      </g>
+    ))}
+    <rect x="230" y="40" width="180" height="34" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="62" fontSize="10.5" fontWeight="600" textAnchor="middle">Trace session (enables providers)</text>
+    <line x1="410" y1="57" x2="470" y2="57" stroke="#000" strokeWidth="1" markerEnd="url(#a9)" />
+    <rect x="470" y="40" width="150" height="34" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="545" y="62" fontSize="10.5" textAnchor="middle">Consumer (PerfView, etc.)</text>
+    <defs>
+      <marker id="a9" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+</figure>
+
+### The .NET runtime is itself a rich ETW provider
+
+Everything the CLR does internally — garbage collections, JIT compilation events, exceptions thrown, thread pool activity — is instrumented as ETW events under the `Microsoft-Windows-DotNETRuntime` provider, entirely independent of anything an application developer writes. This is genuinely useful without any code changes at all: capturing a trace with a tool like **PerfView** against a running .NET process (no code changes, no restart required — a session can attach live) surfaces GC pause times, allocation rates, and JIT overhead directly, which is a much deeper and more accurate picture than instrumenting the same information by hand with a stopwatch and log statements.
+
+### Writing your own ETW events from C#
+
+```csharp
+using System.Diagnostics.Tracing;
+
+[EventSource(Name = "Contoso-MyApp")]
+public sealed class MyAppEventSource : EventSource
+{
+    public static readonly MyAppEventSource Log = new();
+
+    [Event(1, Level = EventLevel.Informational)]
+    public void RequestStarted(string requestId) => WriteEvent(1, requestId);
+
+    [Event(2, Level = EventLevel.Error)]
+    public void RequestFailed(string requestId, string error) => WriteEvent(2, requestId, error);
+}
+
+// Elsewhere in the app:
+MyAppEventSource.Log.RequestStarted(requestId);
+```
+
+`EventSource` is .NET's managed wrapper for defining a custom ETW provider — `RequestStarted` and `RequestFailed` above become real, independently-enabled ETW events, filterable and collectible with the exact same tools used for the CLR's own built-in provider, without needing a session actively listening to pay any meaningful cost when no one's collecting.
+
+### Capturing and reading traces
+
+`dotnet-trace` (a .NET global tool) is the modern, cross-platform-friendly way to capture a trace from a running .NET process without needing PerfView's full Windows-specific tooling:
+
+```bash
+dotnet-trace collect --process-id <pid> --providers Contoso-MyApp
+```
+
+The resulting `.nettrace` file (or a converted `.etl` for Windows-specific tools) can be opened in PerfView, Visual Studio's diagnostic tools, or analyzed programmatically — the same underlying ETW data, read through whichever tool best fits the question being asked.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="event-tracing-for-windows-etw-q1"
+    question="What structural difference lets ETW handle tens of thousands of events per second with low overhead, unlike the Event Log?"
+    options={[
+      "ETW compresses every event before writing it",
+      "An ETW provider only actually writes an event if a session has enabled it and is actively listening; with no active session, the call is a cheap check-and-return rather than a real write"
+      , "ETW events are always written to a RAM disk instead of physical storage",
+      "There is no real difference; ETW simply uses faster disks"
+    ]}
+    answer={1}
+    explanation="ETW's near-zero-cost check for an active listening session, versus the Event Log's always-write model, is what makes it viable for extremely high-frequency, always-on production tracing."
+  />
+  <Quiz
+    id="event-tracing-for-windows-etw-q2"
+    question="What can capturing an ETW trace against a running .NET process with a tool like PerfView reveal, with zero code changes?"
+    options={[
+      "Nothing useful without first adding custom instrumentation",
+      "GC pause times, allocation rates, and JIT overhead, since the CLR itself is instrumented as a rich ETW provider (Microsoft-Windows-DotNETRuntime) independent of any application code"
+      , "Only exceptions the application explicitly logs",
+      "Only network traffic, not internal runtime behavior"
+    ]}
+    answer={1}
+    explanation="The CLR emits detailed ETW events about its own internal operation automatically, letting tools like PerfView surface deep runtime diagnostics from any running .NET process without requiring instrumentation to be added first."
+  />
+  <Quiz
+    id="event-tracing-for-windows-etw-q3"
+    question="What is EventSource used for in .NET?"
+    options={[
+      "Reading entries back from the Windows Event Log",
+      "Defining a custom ETW provider from managed code, so application-specific events become filterable and collectible with the same tools used for the CLR's built-in provider"
+      , "Creating a new event source registration for the Event Log",
+      "Sending events over a network socket"
+    ]}
+    answer={1}
+    explanation="EventSource is the managed API for authoring custom ETW providers, letting application-defined events participate in the same low-overhead, session-gated tracing infrastructure as the runtime's own events."
+  />
+  <Quiz
+    id="event-tracing-for-windows-etw-q4"
+    question="What does dotnet-trace provide that distinguishes it from PerfView for capturing traces?"
+    options={[
+      "It can only capture traces from already-terminated processes",
+      "It's a .NET global tool offering a more modern, cross-platform-friendly way to capture a trace from a running .NET process without needing PerfView's full Windows-specific tooling"
+      , "It replaces EventSource entirely as the way to define custom providers",
+      "It only works with the Event Log, not with ETW"
+    ]}
+    answer={1}
+    explanation="dotnet-trace offers a lighter, more portable capture path for .NET processes specifically, complementing (not replacing) tools like PerfView for opening and analyzing the resulting trace data."
+  />
+  <Quiz
+    id="event-tracing-for-windows-etw-q5"
+    question="Why is ETW generally the more appropriate choice than the Windows Event Log for capturing very high-frequency diagnostic data like every disk I/O or context switch?"
+    options={[
+      "The Event Log cannot technically store that much data at all",
+      "The Event Log's structured-database-write model isn't designed for that volume or overhead, while ETW's provider/session model is specifically built to sustain that rate with minimal cost"
+      , "ETW and the Event Log are fully interchangeable for this use case",
+      "High-frequency data can only be captured by third-party tools, not by any Windows-native mechanism"
+    ]}
+    answer={1}
+    explanation="ETW's design goal is specifically low-overhead, high-volume tracing suitable for always-on production use, a role the Event Log's discrete, human-relevant event model was never intended to fill."
+  />
+</QuizSet>

@@ -1,0 +1,97 @@
+Windows file paths look simple until code written for one OS meets a path from another, or a path gets long enough, or a filename collides with a device name from 1981. This section is about the parts of the Windows path model that .NET normalizes for you most of the time — and the parts it doesn't.
+
+### Drive letters and the volume namespace, briefly
+
+Unix has one filesystem tree rooted at `/`; Windows has a **volume namespace** — `C:\`, `D:\`, network shares as `\\server\share\` — each drive letter a separate root. This isn't a historical accident you can ignore: it's why `Path.GetPathRoot` returns something meaningfully different on Windows than on Linux, and why code that assumes "there is one root" breaks the moment it meets a second drive or a UNC path.
+
+### Separators, and why `Path.Combine` isn't optional
+
+Windows accepts both `\` and `/` as path separators in most APIs, but `\` is the native one, and `System.IO.Path` is written around that assumption:
+
+```csharp
+string p = Path.Combine("C:\\Users\\nate", "projects", "app.exe");
+// => C:\Users\nate\projects\app.exe
+```
+
+`Path.Combine` isn't just a convenience for concatenation — it correctly handles a rooted second argument (`Path.Combine("a", @"C:\b")` returns `C:\b`, discarding `a`, matching how Windows actually resolves an absolute path appearing mid-sequence), which naive string concatenation with `+` silently gets wrong.
+
+### The 260-character limit, and why it mostly isn't one anymore
+
+Historically, `MAX_PATH` capped most Win32 file APIs at 260 characters for a full path. Modern Windows (10 1607+) can lift this with a per-machine opt-in (`LongPathsEnabled` in the registry) plus an app manifest declaring `longPathAware`, and .NET on modern Windows generally handles long paths transparently once that's set — but this is exactly the kind of thing that works fine on your dev machine (where the setting may already be on) and fails on a locked-down deployment target where it isn't. Code that builds deeply nested paths (build output directories are a classic offender) should not assume the limit is gone everywhere it runs.
+
+### Reserved names and characters
+
+A handful of filenames are reserved at the OS level regardless of extension — `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` — a holdover from when these named physical devices. `report.txt` is fine; `con.txt` will fail to create, on any drive, in any folder. Similarly, `< > : " / \ | ? *` and control characters are disallowed in filenames (some, like `:`, are disallowed because they have their own meaning — see Alternate Data Streams below). `Path.GetInvalidFileNameChars()` gives you the actual disallowed set for validation before you try to create something that will otherwise throw.
+
+### NTFS extras most developers never touch
+
+NTFS supports a few features `System.IO` mostly hides:
+
+- **Alternate Data Streams** — a file can have additional named streams beyond its default content, addressed as `file.txt:streamname`. Windows itself uses this for the "this file came from the internet" mark-of-the-web tag on downloaded files.
+- **Case-insensitive, case-preserving names** — `Report.txt` and `report.txt` refer to the same file, but the casing you typed is preserved for display. Code that assumes case sensitivity (common in ported Unix tooling) will misbehave subtly rather than fail outright.
+- **The `\\?\` prefix** — passed to the underlying Win32 APIs, this disables path normalization and extends the length limit, which is part of how .NET handles long paths under the hood without you writing it yourself.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="paths-drives-and-the-windows-filesystem-q1"
+    question="What is the key structural difference between the Windows and Unix filesystem namespace?"
+    options={[
+      "Windows has no concept of a root directory at all",
+      "Windows has multiple roots — one per drive letter or UNC share — rather than a single tree rooted at /",
+      "Windows filesystems cannot be nested in subdirectories",
+      "There is no meaningful difference between the two",
+    ]}
+    answer={1}
+    explanation="Windows organizes storage into a volume namespace with a separate root per drive letter (or network share), unlike Unix's single tree rooted at /."
+  />
+  <Quiz
+    id="paths-drives-and-the-windows-filesystem-q2"
+    question="Why is Path.Combine preferred over string concatenation with + for building paths?"
+    options={[
+      "It is purely a stylistic preference with no functional difference",
+      "It correctly handles a rooted (absolute) second argument by discarding earlier segments, matching how Windows actually resolves such a path"
+      , "It automatically creates the directories in the resulting path",
+      "It only works with forward slashes, never backslashes",
+    ]}
+    answer={1}
+    explanation="Path.Combine has real behavior beyond concatenation — notably that combining with an absolute path discards the preceding segments, which naive string concatenation gets wrong."
+  />
+  <Quiz
+    id="paths-drives-and-the-windows-filesystem-q3"
+    question="What is required to reliably use paths longer than the historical 260-character MAX_PATH limit on Windows?"
+    options={[
+      "Nothing — the limit was fully removed in every Windows version automatically",
+      "A per-machine registry opt-in (LongPathsEnabled) plus an app manifest declaring longPathAware, which may not be set on every deployment target",
+      "Switching to a different filesystem entirely",
+      "Using only relative paths"
+    ]}
+    answer={1}
+    explanation="Long path support is an opt-in on modern Windows, not a universal default — code that assumes it's always available can fail on machines where it hasn't been enabled."
+  />
+  <Quiz
+    id="paths-drives-and-the-windows-filesystem-q4"
+    question="Why does creating a file named con.txt fail on Windows regardless of folder or drive?"
+    options={[
+      "The .txt extension is not permitted for that filename",
+      "CON is a reserved device name at the OS level, a holdover from when such names referred to physical devices",
+      "It is a bug specific to NTFS that only affects certain drives",
+      "It only fails if the file already exists"
+    ]}
+    answer={1}
+    explanation="Names like CON, PRN, AUX, and NUL are reserved regardless of extension or location, dating back to when they addressed physical devices directly."
+  />
+  <Quiz
+    id="paths-drives-and-the-windows-filesystem-q5"
+    question="What is an NTFS Alternate Data Stream?"
+    options={[
+      "A backup copy of a file stored on a different drive",
+      "An additional named stream of data attached to a file beyond its default content, addressed as file.txt:streamname"
+      , "A compressed version of a file's content",
+      "A feature exclusive to network shares, not local drives"
+    ]}
+    answer={1}
+    explanation="NTFS allows files to carry additional named data streams beyond the default one — Windows itself uses this for the mark-of-the-web tag on downloaded files."
+  />
+</QuizSet>

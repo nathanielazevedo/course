@@ -1,0 +1,93 @@
+Chapter 1 established that the BCL is a managed wrapper over Win32 — `File`, `Process`, `Registry` each call through to specific native functions. This chapter is about what happens when the wrapper you need doesn't exist: **P/Invoke**, the mechanism that lets C# call a native DLL function directly, no different in principle from what `System.IO.File` itself does internally.
+
+### The BCL doesn't wrap everything, and was never going to
+
+Win32 is enormous — thousands of functions across hundreds of DLLs, accumulated over three decades. The BCL wraps the slice that's common enough, cross-platform-relevant enough, or important enough to justify a managed API and Microsoft's ongoing maintenance of it. Plenty of real, useful Win32 surface never got that treatment: less common shell operations, specific hardware or driver interactions, older APIs nobody's prioritized wrapping, and brand-new APIs that ship in a Windows release before .NET catches up. P/Invoke isn't a workaround for a gap in .NET — it's the intended path for exactly this situation, and it's the same path the BCL's own implementation takes.
+
+### What a P/Invoke declaration actually is
+
+```csharp
+using System.Runtime.InteropServices;
+
+internal static partial class NativeMethods
+{
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool MessageBeep(uint uType);
+}
+```
+
+This is a **declaration**, not an implementation — there's no C# method body because the actual code lives in `user32.dll`, already loaded (or loadable) by Windows. The attribute and signature tell the runtime everything it needs to find the function and call it correctly: which DLL, what the native function's real name is (defaults to the C# method name, overridable), and — critically — how to translate each parameter and the return value between managed and native representations. That translation step is called **marshaling**, and it's the entire reason a P/Invoke signature isn't just "copy the C header" — the next section covers it directly.
+
+### `DllImport` vs. the modern `LibraryImport`
+
+Older code (and most existing tutorials) uses `[DllImport]`, which relies on the runtime generating a marshaling stub at call time via reflection-like mechanisms. Modern .NET (7+) added `[LibraryImport]`, shown above, which is a source generator: it emits the actual marshaling code at compile time, as a real, debuggable, trimming-and-AOT-friendly C# method the compiler can see and verify — genuinely faster and safer, not just a style preference. `LibraryImport` requires the class and method to be `partial`, since the source generator is filling in the actual body. New code should default to `LibraryImport`; `DllImport` still works and is common in existing code and community references, so recognizing both is necessary even if you only write one.
+
+### Finding the right signature
+
+Nobody derives a correct P/Invoke signature from the raw Win32 documentation from scratch every time — that documentation is written in C, and translating calling conventions, struct layouts, and pointer semantics by hand is exactly the kind of error-prone work worth avoiding. [pinvoke.net](https://www.pinvoke.net) is a long-standing community reference of pre-translated signatures for common Win32 functions. More reliably, Microsoft's own **CsWin32** source generator (`Microsoft.Windows.CsWin32`) reads the official Win32 metadata Microsoft publishes and generates the correct `LibraryImport` declarations for you from a plain list of function names — the recommended approach for anything beyond a one-off call, since it's generated from the same metadata Microsoft's own tools use, not a hand-maintained community translation that can drift out of date.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="why-you-need-p-invoke-q1"
+    question="Why does .NET's BCL not wrap every Win32 function?"
+    options={[
+      "Because Win32 functions cannot be called from managed code at all",
+      "Win32 is enormous, having accumulated over decades, and the BCL only wraps the slice that's common or important enough to justify ongoing managed maintenance"
+      , "Because Microsoft intends for all native functionality to eventually be removed",
+      "Because P/Invoke is faster than any managed wrapper could be",
+    ]}
+    answer={1}
+    explanation="The BCL deliberately wraps a practical subset of the vast Win32 surface; P/Invoke is the intended, expected path for the rest, not a workaround for an oversight."
+  />
+  <Quiz
+    id="why-you-need-p-invoke-q2"
+    question="What is a P/Invoke declaration, structurally?"
+    options={[
+      "A full C# reimplementation of the native function's logic",
+      "A declaration with no method body — the real code lives in the native DLL, and the signature tells the runtime how to find and call it correctly"
+      , "A compiled copy of the native DLL embedded into the assembly",
+      "A wrapper that only works for functions with no parameters",
+    ]}
+    answer={1}
+    explanation="P/Invoke declarations describe how to locate and correctly invoke an already-existing native function; they contain no implementation of their own."
+  />
+  <Quiz
+    id="why-you-need-p-invoke-q3"
+    question="What is the key practical advantage of LibraryImport over the older DllImport?"
+    options={[
+      "LibraryImport can call functions DllImport cannot",
+      "LibraryImport is a compile-time source generator producing real, debuggable, trimming-and-AOT-friendly marshaling code, rather than relying on a runtime-generated stub"
+      , "DllImport has been completely removed from modern .NET",
+      "LibraryImport does not require any marshaling attributes at all",
+    ]}
+    answer={1}
+    explanation="LibraryImport generates actual C# marshaling code at compile time as a source generator, which is faster, more debuggable, and compatible with trimming/AOT scenarios that DllImport's runtime-generated stubs handle less well."
+  />
+  <Quiz
+    id="why-you-need-p-invoke-q4"
+    question="Why must a class and method using [LibraryImport] be declared partial?"
+    options={[
+      "It's an arbitrary stylistic requirement with no functional purpose",
+      "Because LibraryImport is a source generator that fills in the actual method body at compile time, requiring the partial method/class pattern"
+      , "Partial classes are required for all P/Invoke code regardless of attribute used",
+      "It has nothing to do with source generation and is purely for organizing code",
+    ]}
+    answer={1}
+    explanation="Since LibraryImport generates real marshaling code at compile time, the method needs to be partial so the generator can supply its implementation alongside the developer's declared signature."
+  />
+  <Quiz
+    id="why-you-need-p-invoke-q5"
+    question="What does the CsWin32 source generator (Microsoft.Windows.CsWin32) provide, compared to manually writing P/Invoke signatures?"
+    options={[
+      "It replaces the need to call any native functions at all",
+      "It generates correct LibraryImport declarations automatically from official Win32 metadata, based on a plain list of function names"
+      , "It only works with the older DllImport attribute",
+      "It requires rewriting all Win32 headers by hand first",
+    ]}
+    answer={1}
+    explanation="CsWin32 generates P/Invoke signatures directly from Microsoft's own published Win32 metadata, avoiding the error-prone manual translation that hand-written or community-sourced signatures are prone to."
+  />
+</QuizSet>

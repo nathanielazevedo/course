@@ -1,0 +1,106 @@
+Every security decision in the rest of this chapter — every ACL check, every token, every impersonation — ultimately comes down to comparing one identifier against another. This section is about that identifier: the **SID**, and why Windows uses it instead of the names you actually see in the UI.
+
+### Names are for humans; SIDs are what the OS actually compares
+
+A **Security Identifier (SID)** is a variable-length structure that uniquely identifies a security principal — a user, a group, or a computer account — and it's what every access check in Windows actually compares, never the display name. A SID looks like `S-1-5-21-3623811015-3361044348-30300820-1013`: a version, an authority, and a series of sub-authority values that together are guaranteed unique, generated once when the account is created and never reused, even if the account is later deleted and a new account gets the same username.
+
+This is why renaming a user account doesn't touch that user's file permissions or group memberships at all — every ACE and every group membership record references the SID, not the name, and the name is just a label looked up for display. It's also why deleting a user and creating a new one with the identical username does **not** inherit the old user's permissions — the new account gets a brand-new SID, unrelated to the old one, no matter how identical the username looks.
+
+### Well-known SIDs: identities that are the same on every Windows machine
+
+Most SIDs are unique per-machine or per-domain, but a set of **well-known SIDs** are fixed and identical across every Windows installation, because they represent structural roles rather than specific people:
+
+| Well-known SID | Meaning |
+|---|---|
+| `S-1-1-0` | Everyone |
+| `S-1-5-18` | LocalSystem |
+| `S-1-5-19` | LocalService |
+| `S-1-5-20` | NetworkService |
+| `S-1-5-32-544` | Administrators (local group) |
+| `S-1-5-32-545` | Users (local group) |
+
+Chapter 5's `LocalSystem`, `LocalService`, and `NetworkService` service accounts, from a security-checking perspective, are these exact fixed SIDs — every Windows machine's `LocalSystem` is the literal same SID, `S-1-5-18`, which is part of why code that hardcodes a check against that SID behaves identically across every machine it runs on, unlike checking against a specific domain user's SID, which is naturally different per environment.
+
+### Users, groups, and how C# reads them
+
+```csharp
+using System.Security.Principal;
+
+var identity = WindowsIdentity.GetCurrent();
+Console.WriteLine(identity.Name);      // DOMAIN\username
+Console.WriteLine(identity.User);      // the SID itself
+
+var principal = new WindowsPrincipal(identity);
+bool isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
+```
+
+`WindowsIdentity` represents a specific security principal (backed by, and constructible from, an access token — the next section covers tokens directly); `WindowsPrincipal` wraps an identity with role-checking convenience, `IsInRole` internally comparing the current identity's group SIDs against the well-known Administrators SID rather than doing any string-based role lookup.
+
+### Groups: SIDs a user's token carries in addition to their own
+
+A group membership doesn't change a user's own SID — it adds the group's SID to the list of SIDs that user's access token carries (Chapter 7's next section), and an access check succeeds if *any* SID in that list — the user's own, or any group's — matches an ACE granting the requested access. This "any SID in the list" semantics is why adding a user to a group takes effect only the *next* time that user's token is created (typically at their next logon) — the token is a snapshot of group membership at creation time, not a live query re-evaluated on every access check.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="users-groups-and-sids-q1"
+    question="What does every ACE and group membership record in Windows actually reference — a username or a SID?"
+    options={[
+      "The display username, resolved to a SID only when needed",
+      "The SID — usernames are just a display label looked up separately, which is why renaming an account doesn't affect its permissions"
+      , "A hash of the username and password combined",
+      "Neither — Windows uses email addresses for identity in modern versions"
+    ]}
+    answer={1}
+    explanation="SIDs are the actual identifier every security check compares; usernames are purely a display convenience, which is why renaming a user leaves their permissions and group memberships completely intact."
+  />
+  <Quiz
+    id="users-groups-and-sids-q2"
+    question="If a user account is deleted and a new account is created with the exact same username, does the new account inherit the old one's permissions?"
+    options={[
+      "Yes, since the username is identical",
+      "No — the new account receives a brand-new, unrelated SID, so it has none of the deleted account's permissions"
+      , "Only administrator permissions transfer automatically",
+      "Only if the accounts are in the same domain"
+    ]}
+    answer={1}
+    explanation="Because SIDs, not usernames, are the real identity, a new account with a matching name gets a completely new SID with no relationship to the old one's ACEs or group memberships."
+  />
+  <Quiz
+    id="users-groups-and-sids-q3"
+    question="What makes a well-known SID like S-1-5-18 (LocalSystem) different from a typical user account's SID?"
+    options={[
+      "Well-known SIDs are randomly generated just like user SIDs, but happen to be documented",
+      "Well-known SIDs are fixed and identical across every Windows installation, since they represent structural roles rather than specific people or machines"
+      , "Well-known SIDs only exist on domain-joined machines",
+      "Well-known SIDs change every time the machine reboots"
+    ]}
+    answer={1}
+    explanation="Well-known SIDs like LocalSystem, LocalService, and NetworkService are the same fixed value on every Windows machine, unlike per-machine or per-domain user and group SIDs."
+  />
+  <Quiz
+    id="users-groups-and-sids-q4"
+    question="How does WindowsPrincipal.IsInRole(WindowsBuiltInRole.Administrator) actually determine the result?"
+    options={[
+      "It queries a remote Active Directory server every time it's called",
+      "It compares the current identity's group SIDs against the well-known Administrators SID, rather than doing any string-based name comparison"
+      , "It checks whether the username contains the word admin",
+      "It reads a flag from the registry set at logon"
+    ]}
+    answer={1}
+    explanation="Role checks like this ultimately reduce to SID comparison — checking whether the well-known Administrators SID appears among the SIDs the current identity's token carries."
+  />
+  <Quiz
+    id="users-groups-and-sids-q5"
+    question="Why does adding a user to a new group not immediately grant that access to a process the user already has running?"
+    options={[
+      "Group membership changes are applied instantly to all running processes",
+      "A user's access token is a snapshot of their group memberships taken at token creation (typically logon), so a running process's token doesn't reflect a group change until a new token is created"
+      , "Group membership never affects access checks in Windows",
+      "This only applies to domain accounts, never local ones"
+    ]}
+    answer={1}
+    explanation="Since the token holds a fixed list of SIDs captured at creation time, a group membership change takes effect only when a new token is built, typically at the next logon, not retroactively for already-running processes."
+  />
+</QuizSet>

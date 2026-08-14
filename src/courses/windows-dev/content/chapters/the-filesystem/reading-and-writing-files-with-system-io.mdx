@@ -1,0 +1,109 @@
+`System.IO` is where most C# developers spend the bulk of their time on Windows, and most of it — `File.ReadAllText`, `StreamReader`, `Directory.EnumerateFiles` — behaves exactly as documented with no OS-specific surprises. This section is about the parts that do carry Windows-specific behavior worth knowing before it surprises you: sharing, locking, and buffering.
+
+### File sharing: Windows locks by default, Unix mostly doesn't
+
+This is the single biggest behavioral difference developers hit moving from Unix-family systems. On Unix, one process can delete or rename a file another process still has open — the open handle keeps working against the old inode, and the directory entry is just gone. On Windows, whether that's allowed is decided **at open time**, by the `FileShare` flags each opener requested:
+
+```csharp
+using var fs = new FileStream(
+    path,
+    FileMode.Open,
+    FileAccess.Read,
+    FileShare.Read); // other readers OK, but writers/deleters are blocked
+```
+
+`File.OpenRead` defaults to `FileShare.Read`. If any process has the file open without `FileShare.Delete`, a second process's attempt to delete or rename it fails with a sharing violation — `IOException: The process cannot access the file because it is being used by another process` is one of the most common exceptions in Windows file code, and it is a *policy* decision baked in at open time, not a bug. Log files, config files being hot-reloaded, and anything a background watcher (next section) has open are the usual sources.
+
+### Buffering and flushing: what "written" actually means
+
+`FileStream` buffers writes in user-mode memory before they reach the OS. `Flush()` pushes that buffer down to the OS, but the OS itself buffers too (the Cache Manager from Chapter 1) — data can survive an application crash once `Flush()` returns, but not necessarily a power loss, unless you go further:
+
+```csharp
+using var fs = new FileStream(path, FileMode.Create, FileAccess.Write,
+    FileShare.None, bufferSize: 4096, FileOptions.WriteThrough);
+fs.Write(data);
+fs.Flush(flushToDisk: true); // forces the OS cache to physical media too
+```
+
+`FileOptions.WriteThrough` at open time, plus `Flush(flushToDisk: true)`, is what actually gets a guarantee past the OS cache. Ordinary code writing logs or user documents doesn't need this — it matters specifically for data that must survive an unexpected power loss, like a database's write-ahead log.
+
+### Async file I/O and why the FileOptions matter
+
+Chapter 2 covered how genuinely async I/O avoids blocking a thread by completing through an I/O completion port. For file I/O specifically, that only actually happens if the handle was opened for overlapped (asynchronous) I/O in the first place:
+
+```csharp
+using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+    FileShare.Read, bufferSize: 4096, useAsync: true);
+byte[] buffer = await fs.ReadAsync(memory);
+```
+
+Without `useAsync: true` (or the modern `FileStreamOptions.Options` including `FileOptions.Asynchronous`), `ReadAsync` still compiles and runs — but under the hood .NET falls back to running the synchronous read on a thread pool thread, which is exactly the thread-blocking behavior async I/O is supposed to avoid. This is a common, silent performance gap: code that looks async and is functionally correct, but is quietly burning a pool thread per concurrent file operation instead of using completion ports.
+
+### Enumerating large directories
+
+`Directory.GetFiles` materializes the entire result as an array before returning; `Directory.EnumerateFiles` streams results lazily as it walks the directory. For a directory with thousands of entries, or when you only need the first few matches, `EnumerateFiles` avoids allocating and waiting for the full listing up front — a small API choice with a real difference on large or slow (e.g., network) file shares.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="reading-and-writing-files-with-system-io-q1"
+    question="What is the key difference between Windows and Unix regarding whether one process can delete a file another process has open?"
+    options={[
+      "There is no difference — both systems behave identically",
+      "On Windows, this is decided at open time via FileShare flags each opener requested; on Unix it's generally allowed regardless"
+      , "Windows never allows deleting an open file under any circumstance",
+      "Unix requires explicit FileShare flags just like Windows"
+    ]}
+    answer={1}
+    explanation="Windows enforces sharing policy at file-open time through FileShare flags; without FileShare.Delete granted by every opener, a delete or rename attempt fails with a sharing violation — unlike Unix's typical unlink-while-open behavior."
+  />
+  <Quiz
+    id="reading-and-writing-files-with-system-io-q2"
+    question="What does calling Flush() on a FileStream guarantee, without flushToDisk: true or FileOptions.WriteThrough?"
+    options={[
+      "The data is guaranteed to survive a power loss immediately",
+      "The data is pushed from the user-mode buffer to the OS, which may still hold it in its own cache rather than physical media"
+      , "Nothing — Flush() has no effect without WriteThrough",
+      "It forces a full disk sync across all open files system-wide",
+    ]}
+    answer={1}
+    explanation="Flush() moves data out of FileStream's own buffer into the OS, which can survive an app crash, but the OS Cache Manager may still hold it before it reaches physical media unless WriteThrough/flushToDisk is used."
+  />
+  <Quiz
+    id="reading-and-writing-files-with-system-io-q3"
+    question="What happens if you call ReadAsync on a FileStream that was NOT opened with useAsync: true (or FileOptions.Asynchronous)?"
+    options={[
+      "It throws an exception immediately",
+      "It still compiles and runs, but falls back to running the synchronous read on a thread pool thread rather than using an I/O completion port"
+      , "It silently reads zero bytes",
+      "It automatically reopens the file handle asynchronously"
+    ]}
+    answer={1}
+    explanation="Without an overlapped-I/O handle, ReadAsync degrades to blocking a thread pool thread for the synchronous read, defeating the purpose of using async I/O in the first place — a common silent performance gap."
+  />
+  <Quiz
+    id="reading-and-writing-files-with-system-io-q4"
+    question="What is the practical advantage of Directory.EnumerateFiles over Directory.GetFiles for a directory with thousands of entries?"
+    options={[
+      "EnumerateFiles returns results in a different sort order",
+      "EnumerateFiles streams results lazily rather than materializing the entire array before returning, avoiding upfront allocation and wait time"
+      , "GetFiles cannot handle more than 1000 files",
+      "There is no functional difference between the two methods",
+    ]}
+    answer={1}
+    explanation="EnumerateFiles yields entries as it walks the directory instead of building the full array first, which matters for large directories or slow file shares where you may not need every result."
+  />
+  <Quiz
+    id="reading-and-writing-files-with-system-io-q5"
+    question="What commonly causes the 'The process cannot access the file because it is being used by another process' IOException?"
+    options={[
+      "A corrupted file system requiring immediate repair",
+      "Another process has the file open without granting the FileShare access mode the current operation needs"
+      , "The file does not actually exist on disk",
+      "The .NET runtime encountering an internal bug",
+    ]}
+    answer={1}
+    explanation="This exception reflects Windows' open-time sharing policy: some other process's open handle didn't grant the sharing mode (like FileShare.Delete or FileShare.Write) that the current attempt requires."
+  />
+</QuizSet>

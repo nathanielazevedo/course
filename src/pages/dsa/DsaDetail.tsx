@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   Box,
   Container,
@@ -13,11 +14,23 @@ import { Link as RouterLink, useParams, Navigate } from "react-router-dom";
 import { dataStructures } from "../../courses/dsa/dataStructures";
 import { getQuestionsForDataStructure } from "../../courses/dsa/questions";
 import Tag from "../../components/Tag";
+import ArrayVisual from "../../components/dsa/ArrayVisual";
+import LinkedListVisual from "../../components/dsa/LinkedListVisual";
+import StackVisual from "../../components/dsa/StackVisual";
+
+// Maps a data structure's id to its interactive visual. Structures without
+// an entry simply skip the "Visualize" section below.
+const visuals: Record<string, ComponentType> = {
+  array: ArrayVisual,
+  "linked-list": LinkedListVisual,
+  stack: StackVisual,
+};
 
 export default function DsaDetail() {
   const { structureId = "" } = useParams();
   const ds = dataStructures.find((d) => d.id === structureId);
   const questions = ds ? getQuestionsForDataStructure(ds.id) : [];
+  const Visual = ds ? visuals[ds.id] : undefined;
 
   if (!ds) return <Navigate to="/courses/dsa" replace />;
 
@@ -71,6 +84,13 @@ export default function DsaDetail() {
               {ds.definition}
             </Typography>
           </Stack>
+
+          {Visual && (
+            <Stack spacing={2}>
+              <Typography variant="h6">Visualize</Typography>
+              <Visual />
+            </Stack>
+          )}
 
           <Stack spacing={2}>
             <Typography variant="h6">Key Properties</Typography>
