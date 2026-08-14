@@ -1,0 +1,140 @@
+Everything so far has a hidden cost: every instrument has its own commands, its own framing, its own quirks, so every instrument needs its own hand-written driver. Integrate a lab of thirty devices and you've written or bought thirty drivers, each a small maintenance burden. **SiLA 2** is the lab-automation industry's answer — a standard that lets one generic client talk to any compliant device.
+
+### What SiLA is
+
+**SiLA** stands for *Standardization in Lab Automation*. SiLA 2 is an open standard that defines not just a wire format but a whole model for how lab instruments describe and expose their capabilities. If a device is "SiLA-compliant," a SiLA client can connect and use it **without a custom driver** — the device tells the client what it can do.
+
+It's built on mainstream, modern technology rather than bespoke serial commands:
+
+- Communication runs over the **network** using **gRPC** (an efficient RPC framework over HTTP/2).
+- Messages are encoded with **Protocol Buffers**, a compact, well-specified binary format.
+- Connections are secured with **TLS** encryption by default.
+- Devices announce themselves on the network through **zero-config discovery** (mDNS/DNS-SD), so a client can *find* available instruments automatically.
+
+### Servers, clients, and Features
+
+SiLA inverts the usual relationship. The **instrument is the server**; the orchestration software is the **client**. The client connects to the server and asks what it offers.
+
+What it offers is organized into **Features** — self-contained descriptions of a capability, written in a formal **Feature Definition Language (FDL)**, an XML document. A Feature bundles three things:
+
+- **Commands** — actions the device can perform (e.g. `MeasureAbsorbance`).
+- **Properties** — values you can read (e.g. `CurrentTemperature`), some of which update live.
+- **Defined errors** — the specific failures a command can raise, named and documented.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 250"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="On the left, a SiLA client (the orchestrator). On the right, a SiLA server (the instrument) exposing two Features. The Plate Reader Feature lists the command MeasureAbsorbance and the property Status. The Temperature Control Feature lists the command SetTemperature and the property CurrentTemperature. Arrows show the client calling commands and reading properties, and the server discovered automatically on the network."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="90" width="150" height="70" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" rx="6" />
+    <text x="95" y="118" fontSize="12" fontWeight="600" textAnchor="middle">SiLA CLIENT</text>
+    <text x="95" y="136" fontSize="10" fill="#666" textAnchor="middle">orchestrator</text>
+
+    <line x1="170" y1="110" x2="350" y2="110" stroke="#000" strokeWidth="1.5" markerEnd="url(#s1)" />
+    <text x="260" y="103" fontSize="9" textAnchor="middle">call command</text>
+    <line x1="350" y1="140" x2="170" y2="140" stroke="#3464c8" strokeWidth="1.5" markerEnd="url(#s2)" />
+    <text x="260" y="155" fontSize="9" fill="#3464c8" textAnchor="middle">read property / result</text>
+
+    <rect x="350" y="20" width="270" height="210" fill="#fff" stroke="#000" strokeWidth="1.5" rx="6" />
+    <text x="485" y="40" fontSize="12" fontWeight="600" textAnchor="middle">SiLA SERVER (instrument)</text>
+
+    <rect x="368" y="54" width="234" height="74" fill="#fafafa" stroke="#999" strokeWidth="1.2" rx="5" />
+    <text x="485" y="72" fontSize="10" fontWeight="600" textAnchor="middle">Feature: PlateReader</text>
+    <text x="485" y="92" fontSize="9" fill="#444" textAnchor="middle">command · MeasureAbsorbance()</text>
+    <text x="485" y="110" fontSize="9" fill="#444" textAnchor="middle">property · Status</text>
+
+    <rect x="368" y="138" width="234" height="78" fill="#fafafa" stroke="#999" strokeWidth="1.2" rx="5" />
+    <text x="485" y="156" fontSize="10" fontWeight="600" textAnchor="middle">Feature: TemperatureControl</text>
+    <text x="485" y="176" fontSize="9" fill="#444" textAnchor="middle">command · SetTemperature(°C)</text>
+    <text x="485" y="194" fontSize="9" fill="#444" textAnchor="middle">property · CurrentTemperature</text>
+
+    <defs>
+      <marker id="s1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+      <marker id="s2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#3464c8" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The instrument (server) publishes Features describing its commands and properties. A generic client reads those descriptions and drives the device — no device-specific driver required.
+  </figcaption>
+</figure>
+
+### Observable commands solve the "is it done?" problem
+
+Recall the awkwardness of polling a slow operation from the previous section. SiLA builds the answer into the standard with **observable commands**: a long-running command (`MeasureAbsorbance`, a long spin) can stream **progress updates** and an **estimated time remaining** back to the client while it runs, then deliver the final result. The client subscribes instead of polling. Short actions use plain **unobservable commands** that just return a result.
+
+### Why it matters
+
+- **No bespoke drivers** — a SiLA client can operate any SiLA server because the device is self-describing. This is the central win.
+- **Vendor independence** — swap a compliant device for another and the client adapts to the new Feature set rather than needing new integration code.
+- **Modern and secure by default** — network transport, encryption, and discovery are part of the standard, not bolted on.
+
+SiLA 2 is a clean redesign of the earlier **SiLA 1** (which was SOAP/XML-based); the move to gRPC and a formal Feature model is what makes 2 practical. SiLA targets the **device-control** layer specifically. The next section looks at OPC-UA, which comes from the industrial world and addresses the *larger* picture of tying a whole facility together.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="sila2-q1"
+    question="What is the central promise of SiLA 2 for instrument integration?"
+    options={[
+      "It makes serial cables transmit faster",
+      "A generic client can operate any compliant device without a custom, device-specific driver",
+      "It replaces the need for a scheduler",
+      "It encrypts only the device's stored data",
+    ]}
+    answer={1}
+    explanation="SiLA-compliant devices are self-describing, so a single generic SiLA client can connect to and operate any of them — eliminating the per-device driver burden."
+  />
+  <Quiz
+    id="sila2-q2"
+    question="In SiLA 2, which side is the server and which is the client?"
+    options={[
+      "The orchestration software is the server; the instrument is the client",
+      "The instrument is the server; the orchestration software is the client",
+      "Both the instrument and orchestrator are servers",
+      "There is no client/server distinction",
+    ]}
+    answer={1}
+    explanation="SiLA makes the instrument the server that publishes its capabilities, and the orchestration software the client that connects and calls them."
+  />
+  <Quiz
+    id="sila2-q3"
+    question="What does a SiLA 'Feature' describe?"
+    options={[
+      "The physical cable used to connect the device",
+      "A capability of the device — its commands, readable properties, and defined errors",
+      "The device's warranty terms",
+      "The IP address of the orchestrator",
+    ]}
+    answer={1}
+    explanation="A Feature is a formal description (in Feature Definition Language) of a capability, bundling the commands the device can run, the properties it exposes, and the errors those commands may raise."
+  />
+  <Quiz
+    id="sila2-q4"
+    question="How do SiLA 'observable commands' handle a long-running operation like a multi-minute spin?"
+    options={[
+      "They block all other devices until the spin completes",
+      "They stream progress and estimated time remaining to the client, which subscribes instead of polling",
+      "They return instantly and never report completion",
+      "They require the client to re-send the command every second",
+    ]}
+    answer={1}
+    explanation="Observable commands push progress updates and an estimated time to the subscribing client, then deliver the final result — building the answer to the 'is it done?' problem into the standard."
+  />
+  <Quiz
+    id="sila2-q5"
+    question="Which modern technologies does SiLA 2 build on?"
+    options={[
+      "Raw RS-232 serial commands with checksums",
+      "gRPC over HTTP/2 with Protocol Buffers, TLS encryption, and network auto-discovery",
+      "SOAP and XML over a USB cable",
+      "A proprietary binary format over Bluetooth",
+    ]}
+    answer={1}
+    explanation="SiLA 2 runs gRPC over the network, encodes messages with Protocol Buffers, secures connections with TLS, and lets devices announce themselves via zero-config discovery. (SOAP/XML was the older SiLA 1.)"
+  />
+</QuizSet>

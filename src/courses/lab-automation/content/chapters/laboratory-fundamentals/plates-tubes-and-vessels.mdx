@@ -1,0 +1,132 @@
+Before anything moves on its own, you need to know what the liquid lives in. Every sample, reagent, and buffer in a lab sits inside a **vessel** — a container chosen for how much it holds, how it tolerates heat and spinning, and how easily a machine or a person can get liquid in and out. Almost all of automation is just moving liquid between vessels in the right order.
+
+### The well plate
+
+The workhorse of the modern lab is the **microplate**: a flat rectangular tray of small cups called **wells**, arranged in a grid. One plate holds many samples at once, which is exactly what makes parallel, high-throughput work possible.
+
+Plates come in standard well counts, each a multiple of the last:
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three microplates side by side showing increasing well density: 6 wells in a 2-by-3 grid, 96 wells in an 8-by-12 grid, and 384 wells in a 16-by-24 grid. Each well gets smaller as the count rises."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="40" width="150" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" rx="6" />
+    {Array.from({ length: 6 }).map((_, k) => (
+      <circle key={k} cx={50 + (k % 3) * 45} cy={75 + Math.floor(k / 3) * 45} r="16" fill="#f0f0f0" stroke="#000" strokeWidth="1" />
+    ))}
+    <text x="95" y="175" fontSize="12" fontWeight="600" textAnchor="middle">6-well</text>
+    <text x="95" y="192" fontSize="10" fill="#666" textAnchor="middle">~3 mL each</text>
+
+    <rect x="200" y="40" width="150" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" rx="6" />
+    {Array.from({ length: 96 }).map((_, k) => (
+      <circle key={k} cx={216 + (k % 12) * 11.7} cy={56 + Math.floor(k / 12) * 11.7} r="3.6" fill="#f0f0f0" stroke="#000" strokeWidth="0.6" />
+    ))}
+    <text x="275" y="175" fontSize="12" fontWeight="600" textAnchor="middle">96-well</text>
+    <text x="275" y="192" fontSize="10" fill="#666" textAnchor="middle">~200 µL each</text>
+
+    <rect x="380" y="40" width="150" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" rx="6" />
+    {Array.from({ length: 384 }).map((_, k) => (
+      <circle key={k} cx={392 + (k % 24) * 5.8} cy={52 + Math.floor(k / 24) * 5.8} r="1.8" fill="#f0f0f0" stroke="#000" strokeWidth="0.4" />
+    ))}
+    <text x="455" y="175" fontSize="12" fontWeight="600" textAnchor="middle">384-well</text>
+    <text x="455" y="192" fontSize="10" fill="#666" textAnchor="middle">~50 µL each</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The same footprint holds more, smaller wells. Higher density means more samples per run but less volume — and less margin for error — in each well.
+  </figcaption>
+</figure>
+
+Critically, the *outer dimensions* of the plate are the same regardless of well count — about the size of a deck of playing cards laid flat. That shared footprint is the **SBS standard**, and it is why a 96-well and a 384-well plate fit the same robot gripper, the same plate reader, and the same deck position. Chapter 04 covers that standard in depth; for now, just hold onto the idea that plates are interchangeable on the outside even when they differ on the inside.
+
+Wells are addressed like a spreadsheet: **rows are letters (A–H), columns are numbers (1–12)**, so the top-left well is `A1` and the bottom-right of a 96-well plate is `H12`. Every instrument and every protocol refers to wells this way.
+
+### Tubes
+
+A **tube** holds a single sample rather than a grid of them. The everyday tube is the **microcentrifuge tube** (often called an "Eppendorf" after the brand), a small cone-bottomed plastic tube holding roughly 0.5–2 mL with a snap cap. Larger **conical tubes** (15 mL and 50 mL, the "Falcon" tubes) hold bigger volumes and stand in racks.
+
+Tubes are used when samples are handled individually, need to be stored or frozen separately, or have to be spun in a centrifuge. Their cone bottom is deliberate: when you spin them, solids collect in a tight **pellet** at the tip.
+
+### Reservoirs and troughs
+
+When a machine needs to dispense the *same* liquid into many wells — a buffer, a wash solution, a shared reagent — it draws from a **reservoir** (also called a trough): an open boat-shaped container holding tens of milliliters. A multi-channel pipette dips all its tips into the reservoir at once and distributes the liquid across a plate.
+
+### Choosing a vessel
+
+The vessel is a design decision, not an afterthought. A few properties drive the choice:
+
+- **Volume** — wells hold microliters, tubes and reservoirs hold milliliters. You pick the vessel that comfortably fits the volume without overfilling or leaving an unworkably tiny amount.
+- **Material and optics** — plates for fluorescence or absorbance reading are made of specific plastics; a **clear** bottom lets light through for reading, while opaque **black** or **white** plates reduce optical cross-talk between wells.
+- **Shape** — flat-bottom wells are good for reading, round- or V-bottom wells help collect small pellets or recover the last drop.
+- **Treatment** — some plates have surfaces chemically treated so cells stick and grow, or so proteins bind (as in the ELISA plates you'll meet later).
+
+The vessel determines what you can do with what's inside it. The next section turns to what's actually *in* these containers.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="plates-tubes-vessels-q1"
+    question="A 96-well and a 384-well plate differ in well count, yet both fit the same robot gripper and plate reader. Why?"
+    options={[
+      "They hold the same volume per well",
+      "They share the same standardized outer footprint",
+      "They are always made of the same plastic",
+      "Robots automatically resize to any plate",
+    ]}
+    answer={1}
+    explanation="The SBS standard fixes the plate's outer dimensions regardless of well count, so labware is interchangeable on instruments even when the internal grid differs."
+  />
+  <Quiz
+    id="plates-tubes-vessels-q2"
+    question="Where is well A1 on a microplate, and what does the address mean?"
+    options={[
+      "Bottom-right; column A, row 1",
+      "Top-left; row A (letter), column 1 (number)",
+      "The center well; it has no fixed position",
+      "Top-right; row 1, column A",
+    ]}
+    answer={1}
+    explanation="Wells are addressed like a spreadsheet: lettered rows (A–H) and numbered columns (1–12). A1 is the top-left well."
+  />
+  <Quiz
+    id="plates-tubes-vessels-q3"
+    question="Why do microcentrifuge and conical tubes have cone-shaped bottoms?"
+    options={[
+      "To hold more volume than a flat tube",
+      "So they stand upright without a rack",
+      "So spun-down solids collect in a tight pellet at the tip",
+      "To make them easier for a gripper to pick up",
+    ]}
+    answer={2}
+    explanation="The conical bottom concentrates solids into a compact pellet at the very tip when the tube is centrifuged, making the pellet easy to keep while removing the liquid above it."
+  />
+  <Quiz
+    id="plates-tubes-vessels-q4"
+    question="A protocol needs to dispense the same wash buffer into all 96 wells of a plate. Which vessel is the natural source?"
+    options={[
+      "A single microcentrifuge tube",
+      "A reservoir (trough)",
+      "Another 96-well plate",
+      "A 50 mL conical tube with a snap cap",
+    ]}
+    answer={1}
+    explanation="A reservoir is an open trough holding a shared liquid, sized so a multi-channel pipette can draw from it and distribute the same solution across the whole plate."
+  />
+  <Quiz
+    id="plates-tubes-vessels-q5"
+    question="An assay reads fluorescence and is suffering from light leaking between adjacent wells. Which plate property most directly addresses this?"
+    options={[
+      "Using a higher well count",
+      "Using a black, opaque-walled plate",
+      "Using a V-bottom instead of flat-bottom",
+      "Using a larger outer footprint",
+    ]}
+    answer={1}
+    explanation="Black, opaque-walled plates absorb stray light and reduce optical cross-talk between wells, which is the typical fix for signal bleeding in fluorescence reads."
+  />
+</QuizSet>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { useCourseStore } from "../../store/useCourseStore";
+import { namespacedQuizId, useQuizNamespace } from "../../context/quizNamespace";
 
 type QuizChildProps = {
   id: string;
@@ -10,6 +11,7 @@ type QuizChildProps = {
 
 export default function QuizSet({ children }: { children: React.ReactNode }) {
   const answers = useCourseStore((s) => s.quizAnswers);
+  const namespace = useQuizNamespace();
 
   const items = React.Children.toArray(children).filter(
     React.isValidElement,
@@ -19,7 +21,8 @@ export default function QuizSet({ children }: { children: React.ReactNode }) {
     let i = 0;
     while (
       i < items.length &&
-      answers[items[i].props.id] === items[i].props.answer
+      answers[namespacedQuizId(namespace, items[i].props.id)] ===
+        items[i].props.answer
     )
       i++;
     return i;

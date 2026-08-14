@@ -5,11 +5,12 @@ import {
   Typography,
   List,
   ListItemButton,
+  Button,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import { catalog } from "../courses";
+import { dataStructures } from "../../courses/dsa/dataStructures";
 
-export default function Home() {
+export default function DsaHome() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <Box
@@ -21,17 +22,29 @@ export default function Home() {
       >
         <Container maxWidth="md" sx={{ py: { xs: 6, md: 12 } }}>
           <Stack spacing={2}>
+            <Button
+              component={RouterLink}
+              to="/"
+              sx={{
+                alignSelf: "flex-start",
+                px: 0,
+                color: "text.secondary",
+                "&:hover": { bgcolor: "transparent", color: "text.primary" },
+              }}
+            >
+              ← All courses
+            </Button>
             <Typography
               variant="overline"
               sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
             >
-              Courses
+              Reference & Practice
             </Typography>
             <Typography variant="h2" component="h1">
-              First Principles
+              Data Structures & Algorithms
             </Typography>
             <Typography variant="h5" sx={{ color: "text.secondary", fontWeight: 400 }}>
-              Pick a course to get started
+              The most common data structures, at a glance
             </Typography>
           </Stack>
         </Container>
@@ -39,16 +52,16 @@ export default function Home() {
 
       <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 } }}>
         <Stack spacing={2}>
+          <Typography variant="h6">Structures</Typography>
           <List disablePadding>
-            {catalog.map((course, i) => (
+            {dataStructures.map((ds, i) => (
               <ListItemButton
-                key={course.slug}
+                key={ds.id}
                 component={RouterLink}
-                to={`/courses/${course.slug}`}
+                to={`/courses/dsa/${ds.id}`}
                 sx={{
                   px: 0,
-                  py: 3,
-                  alignItems: "flex-start",
+                  py: 1.5,
                   borderTop: i === 0 ? "1px solid" : "none",
                   borderBottom: "1px solid",
                   borderColor: "divider",
@@ -56,19 +69,13 @@ export default function Home() {
                   "&:hover": { bgcolor: "transparent" },
                 }}
               >
-                <Stack spacing={0.5} sx={{ flex: 1 }}>
-                  <Typography variant="h6">{course.title}</Typography>
+                <Stack spacing={0.25} sx={{ flex: 1 }}>
+                  <Typography variant="body1">{ds.name}</Typography>
                   <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    {course.tagline}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "text.secondary", lineHeight: 1.6, pt: 0.5 }}
-                  >
-                    {course.description}
+                    {ds.tagline}
                   </Typography>
                 </Stack>
-                <Typography variant="body2" sx={{ color: "text.secondary", pt: 0.5 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   →
                 </Typography>
               </ListItemButton>

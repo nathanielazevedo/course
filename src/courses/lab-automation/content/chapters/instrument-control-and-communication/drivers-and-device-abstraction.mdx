@@ -1,0 +1,140 @@
+A scheduler decides that a plate should now be read for absorbance. But it has no idea how to actually make a particular plate reader do that — and it shouldn't have to. Every instrument speaks its own private language, and the job of this layer is to hide those differences so the rest of the system can issue one clean command and trust it will happen.
+
+### The problem: every device is different
+
+Buy two plate readers from two vendors and they will not accept the same commands. One wants the text `ABS 450\r` over a serial port; the other wants a JSON message over the network; a third wants you to call functions in a Windows DLL the vendor ships. They do the same *job* but expose completely different *controls*.
+
+If the orchestration layer talked to each device directly, every method would be welded to specific hardware. Swap a reader for a newer model and you'd rewrite the protocol. That's the coupling a driver exists to break.
+
+### A driver translates
+
+A **driver** is software that turns a generic, high-level command into the exact bytes or function calls one specific device understands — and translates the device's replies back into generic results.
+
+> *read plate at 450 nm* → driver → `ABS 450\r` on COM3 → reader runs → `0.382,0.401,...` → driver → a tidy array of well values
+
+The driver is the only piece of software that knows the device's dialect. Everything above it speaks in intentions; the driver speaks in the device's native commands.
+
+### Device abstraction is the shared contract
+
+A driver solves *one* device. **Device abstraction** solves a whole *class* of devices. It defines a common interface — a contract — that every device of a given type promises to fulfill, regardless of vendor.
+
+A plate-reader interface might promise three operations: `open()`, `read(wavelength)`, `close()`. Each vendor's driver implements that same interface in its own way. The scheduler calls `read(450)` and does not know or care whether a Tecan, a BioTek, or a Molecular Devices reader is behind it.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 280"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A vertical stack. At the top, the scheduler issues the abstract command read plate at 450 nanometers. Below it, a plate-reader interface defines open, read, and close. Below that, three vendor drivers — Tecan, BioTek, Molecular Devices — each implement that interface. Each driver connects down to its own physical reader. The scheduler only touches the interface, not the drivers."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="170" y="14" width="300" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="34" fontSize="12" fontWeight="600" textAnchor="middle">SCHEDULER</text>
+    <text x="320" y="50" fontSize="10" fill="#666" textAnchor="middle">"read plate at 450 nm"</text>
+
+    <line x1="320" y1="58" x2="320" y2="74" stroke="#000" strokeWidth="1.5" markerEnd="url(#d1)" />
+
+    <rect x="120" y="76" width="400" height="44" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="96" fontSize="12" fontWeight="600" textAnchor="middle">PLATE-READER INTERFACE</text>
+    <text x="320" y="112" fontSize="10" fill="#666" textAnchor="middle">open() · read(wavelength) · close()</text>
+
+    {[
+      { x: 30, t: "Tecan", s: "driver" },
+      { x: 245, t: "BioTek", s: "driver" },
+      { x: 460, t: "Mol. Devices", s: "driver" },
+    ].map((d) => (
+      <g key={d.t}>
+        <line x1={d.x + 75} y1="120" x2={d.x + 75} y2="148" stroke="#000" strokeWidth="1.2" markerEnd="url(#d1)" />
+        <rect x={d.x} y="150" width="150" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+        <text x={d.x + 75} y="170" fontSize="11" fontWeight="600" textAnchor="middle">{d.t}</text>
+        <text x={d.x + 75} y="186" fontSize="9" fill="#666" textAnchor="middle">{d.s}</text>
+        <line x1={d.x + 75} y1="194" x2={d.x + 75} y2="222" stroke="#999" strokeWidth="1.2" strokeDasharray="3 3" markerEnd="url(#d1)" />
+        <rect x={d.x + 20} y="224" width="110" height="38" fill="#fafafa" stroke="#999" strokeWidth="1.2" rx="5" />
+        <text x={d.x + 75} y="247" fontSize="10" fill="#444" textAnchor="middle">physical reader</text>
+      </g>
+    ))}
+    <defs>
+      <marker id="d1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0 0 L6 3 L0 6 z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The scheduler talks only to the interface. Each vendor driver fulfills that same contract in its own dialect, so any compliant reader can be dropped in without touching the method above.
+  </figcaption>
+</figure>
+
+### Why this layering pays off
+
+- **Interchangeability** — swap one reader for another by changing which driver is loaded, not by rewriting the assay method.
+- **Reuse** — a method written against the interface runs on every device that implements it.
+- **Isolation** — when a vendor changes its firmware commands, only that one driver changes. Nothing above it notices.
+- **Testing** — you can supply a fake "simulator" driver that implements the interface but talks to no hardware, and test a whole method on a laptop.
+
+This is the same idea operating systems use for printers and disks: a stable interface on top, swappable drivers underneath. The rest of this chapter works *down* from here — the physical interfaces a driver talks over (Section 02), the command-and-response patterns it speaks (Section 03), and the standards that aim to make the driver itself unnecessary (Sections 04–05).
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="drivers-abstraction-q1"
+    question="What is the specific job of a device driver?"
+    options={[
+      "To decide the order in which steps run across the whole system",
+      "To translate a generic high-level command into one specific device's native commands, and translate its replies back",
+      "To physically move plates between instruments",
+      "To store experimental results in a database",
+    ]}
+    answer={1}
+    explanation="A driver is the one piece of software that knows a device's private dialect. It converts an intention like 'read plate' into that device's exact commands, and converts the response back into a generic result."
+  />
+  <Quiz
+    id="drivers-abstraction-q2"
+    question="A driver handles one device. What does device abstraction add on top of that?"
+    options={[
+      "A faster physical connection to the device",
+      "A common interface (contract) that every device of a class implements, so they're interchangeable",
+      "A way to run the device without any driver at all",
+      "Encryption of the commands sent to the device",
+    ]}
+    answer={1}
+    explanation="Abstraction defines a shared interface for a whole class of device (e.g. all plate readers expose read(wavelength)). Each vendor's driver fulfills that contract, so the caller doesn't care which device is behind it."
+  />
+  <Quiz
+    id="drivers-abstraction-q3"
+    question="In the layered model, what does the scheduler actually call when it wants a plate read?"
+    options={[
+      "The device's raw serial command directly",
+      "The vendor's firmware",
+      "The abstract interface method, e.g. read(450)",
+      "The physical reader's motor controller",
+    ]}
+    answer={2}
+    explanation="The scheduler talks only to the abstract interface. The interface routes to whichever vendor driver is loaded, which in turn speaks the device's native dialect."
+  />
+  <Quiz
+    id="drivers-abstraction-q4"
+    question="A vendor ships a firmware update that changes the reader's command syntax. With proper abstraction, what has to change?"
+    options={[
+      "Every assay method that uses a reader",
+      "The scheduler and the orchestration layer",
+      "Only that vendor's driver",
+      "The physical interface wiring",
+    ]}
+    answer={2}
+    explanation="The whole point of the layering is isolation: a firmware change touches only the one driver that speaks to that device. Code above the interface is unaffected."
+  />
+  <Quiz
+    id="drivers-abstraction-q5"
+    question="How does device abstraction make it possible to test a full method without any hardware?"
+    options={[
+      "By running the real firmware in a cloud emulator",
+      "By supplying a simulator driver that implements the same interface but talks to no device",
+      "By disabling the scheduler during tests",
+      "It isn't possible; hardware is always required",
+    ]}
+    answer={1}
+    explanation="Because the method depends on the interface, not the hardware, you can load a fake 'simulator' driver that satisfies the contract and returns canned results — letting the entire method run on a laptop."
+  />
+</QuizSet>

@@ -1,23 +1,28 @@
 import { useRef } from "react";
 import { Box, Stack, Typography, Divider, Button } from "@mui/material";
 import { Link as RouterLink, useParams, Navigate } from "react-router-dom";
-import { getSectionBySlug } from "../data/chapters";
-import { getSectionContent } from "../content/chapters";
+import { getCourseBySlug } from "../courses";
+import { QuizNamespaceContext } from "../context/quizNamespace";
 import SectionToc from "../components/SectionToc";
 
 export default function Section() {
-  const { chapterSlug = "", sectionSlug = "" } = useParams();
-  const found = getSectionBySlug(chapterSlug, sectionSlug);
+  const {
+    courseSlug = "",
+    chapterSlug = "",
+    sectionSlug = "",
+  } = useParams();
+  const course = getCourseBySlug(courseSlug);
+  const found = course?.getSectionBySlug(chapterSlug, sectionSlug);
   const articleRef = useRef<HTMLElement>(null);
 
-  if (!found) return <Navigate to="/" replace />;
+  if (!course || !found) return <Navigate to="/" replace />;
 
   const { chapter, section } = found;
   const idx = chapter.sections.findIndex((s) => s.slug === section.slug);
   const prev = chapter.sections[idx - 1];
   const next = chapter.sections[idx + 1];
-  const Content = getSectionContent(chapter.slug, section.slug);
-  const contentKey = `${chapter.slug}/${section.slug}`;
+  const Content = course.getSectionContent(chapter.slug, section.slug);
+  const contentKey = `${course.slug}/${chapter.slug}/${section.slug}`;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -42,7 +47,7 @@ export default function Section() {
             <Stack spacing={4}>
               <Button
                 component={RouterLink}
-                to={`/chapters/${chapter.slug}`}
+                to={`/courses/${course.slug}/chapters/${chapter.slug}`}
                 sx={{
                   alignSelf: "flex-start",
                   px: 0,
@@ -138,7 +143,9 @@ export default function Section() {
               }}
             >
               {Content ? (
-                <Content />
+                <QuizNamespaceContext.Provider value={course.slug}>
+                  <Content />
+                </QuizNamespaceContext.Provider>
               ) : (
                 <Typography variant="body1" sx={{ color: "text.secondary" }}>
                   Content for this section is coming soon.
@@ -158,7 +165,7 @@ export default function Section() {
                 {prev && (
                   <Button
                     component={RouterLink}
-                    to={`/chapters/${chapter.slug}/sections/${prev.slug}`}
+                    to={`/courses/${course.slug}/chapters/${chapter.slug}/sections/${prev.slug}`}
                     sx={{
                       px: 0,
                       color: "text.secondary",
@@ -173,7 +180,7 @@ export default function Section() {
                 {next ? (
                   <Button
                     component={RouterLink}
-                    to={`/chapters/${chapter.slug}/sections/${next.slug}`}
+                    to={`/courses/${course.slug}/chapters/${chapter.slug}/sections/${next.slug}`}
                     sx={{
                       px: 0,
                       color: "text.secondary",
@@ -185,7 +192,7 @@ export default function Section() {
                 ) : (
                   <Button
                     component={RouterLink}
-                    to={`/chapters/${chapter.slug}`}
+                    to={`/courses/${course.slug}/chapters/${chapter.slug}`}
                     sx={{
                       px: 0,
                       color: "text.secondary",

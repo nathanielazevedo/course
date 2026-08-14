@@ -1,0 +1,165 @@
+A driver speaks a device's command language, but those commands have to travel over a physical wire. That wire — the **interface** — determines how fast data moves, how far it can travel, how many devices can share it, and how the computer even finds the instrument. Three families dominate the lab: serial, USB, and network.
+
+### Serial (RS-232 and RS-485)
+
+**Serial** is the oldest and, even now, the most common instrument interface. Data goes out one bit at a time over a few wires. The classic form is **RS-232**: a point-to-point link between one computer and one device, showing up on the PC as a **COM port** (`COM3`, `/dev/ttyUSB0`).
+
+Serial is simple and extremely reliable, which is why decades-old instruments still use it. Its defining setting is the **baud rate** — the bit speed, e.g. 9600 or 115200 — which *both ends must agree on* along with a few framing parameters (data bits, parity, stop bits). Get those wrong and you get garbage.
+
+Plain RS-232 connects exactly one device. Its industrial sibling **RS-485** allows **multidrop**: many devices share one bus, each with an address — useful for chaining simple peripherals.
+
+### USB
+
+**USB** is the modern desktop connector: much faster than serial, hot-pluggable, and able to power small devices. Instruments connect to USB in two common ways:
+
+- As a **virtual COM port** (USB-CDC): the device looks *exactly* like a serial port to software, so the same serial driver code works. This is extremely common — many "USB" instruments are really serial devices wearing a USB plug.
+- Through a **vendor driver**: the manufacturer ships a Windows driver and an SDK (often a DLL) you call functions in, rather than sending raw bytes.
+
+USB is convenient but distance-limited (a few meters) and PC-centric — it assumes a host computer sitting close by.
+
+### Network (Ethernet / TCP-IP)
+
+A **network** interface gives the instrument its own **IP address** on the lab's Ethernet. Software opens a connection to that address and a **port** number and exchanges messages — typically over **TCP**, which guarantees ordered, reliable delivery.
+
+Networking unlocks things the others can't:
+
+- **Distance** — the instrument can be in another room or another building.
+- **Multiple clients** — more than one computer can reach it (with care about who's in control).
+- **Higher-level protocols** — the modern standards later in this chapter (SiLA 2, OPC-UA) all run over the network.
+
+The cost is more setup: IP addresses, firewalls, and ports to manage.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 230"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A control PC in the center connects three ways: a direct serial cable to a balance, a USB cable to a pipettor, and an Ethernet link through a network switch to a plate reader and an incubator. Serial and USB are point-to-point to the PC; the network branch reaches multiple instruments."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="250" y="92" width="140" height="46" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="120" fontSize="12" fontWeight="600" textAnchor="middle">CONTROL PC</text>
+
+    <line x1="250" y1="100" x2="120" y2="60" stroke="#000" strokeWidth="1.5" />
+    <text x="150" y="48" fontSize="10" fontWeight="600" textAnchor="middle">serial</text>
+    <rect x="40" y="40" width="110" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="95" y="64" fontSize="10" textAnchor="middle">balance</text>
+
+    <line x1="250" y1="130" x2="120" y2="175" stroke="#000" strokeWidth="1.5" />
+    <text x="150" y="190" fontSize="10" fontWeight="600" textAnchor="middle">USB</text>
+    <rect x="40" y="150" width="110" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="95" y="174" fontSize="10" textAnchor="middle">pipettor</text>
+
+    <line x1="390" y1="115" x2="460" y2="115" stroke="#000" strokeWidth="1.5" />
+    <text x="425" y="105" fontSize="10" fontWeight="600" textAnchor="middle">Ethernet</text>
+    <rect x="460" y="92" width="60" height="46" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="490" y="119" fontSize="9" textAnchor="middle">switch</text>
+
+    <line x1="520" y1="105" x2="585" y2="60" stroke="#999" strokeWidth="1.2" />
+    <line x1="520" y1="125" x2="585" y2="175" stroke="#999" strokeWidth="1.2" />
+    <rect x="540" y="40" width="95" height="40" fill="#fafafa" stroke="#999" strokeWidth="1.2" rx="5" />
+    <text x="587" y="64" fontSize="9" textAnchor="middle">reader</text>
+    <rect x="540" y="155" width="95" height="40" fill="#fafafa" stroke="#999" strokeWidth="1.2" rx="5" />
+    <text x="587" y="179" fontSize="9" textAnchor="middle">incubator</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Serial and USB are short, point-to-point links to one host. A network puts instruments on a shared bus reachable from anywhere — at the price of more configuration.
+  </figcaption>
+</figure>
+
+### Choosing — and what it means for the driver
+
+<table style={{ width: "100%", borderCollapse: "collapse", margin: "28px 0", fontSize: "0.9rem" }}>
+  <thead>
+    <tr style={{ borderBottom: "2px solid #000", textAlign: "left" }}>
+      <th style={{ padding: "10px 12px 10px 0" }}>Interface</th>
+      <th style={{ padding: "10px 12px" }}>Speed</th>
+      <th style={{ padding: "10px 12px" }}>Distance</th>
+      <th style={{ padding: "10px 12px" }}>Multiple devices</th>
+      <th style={{ padding: "10px 0" }}>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    {[
+      ["Serial (RS-232)", "Low", "~15 m", "One (RS-485: many)", "Older / simple instruments"],
+      ["USB", "High", "~5 m", "One per port", "Desktop instruments near a PC"],
+      ["Network (Ethernet)", "High", "Building-wide", "Many", "Modern, integrated systems"],
+    ].map(([iface, speed, dist, multi, use], i) => (
+      <tr key={iface} style={{ borderBottom: "1px solid #e2e2e2", background: i % 2 ? "#fafafa" : "#fff" }}>
+        <td style={{ padding: "10px 12px 10px 0", fontWeight: 600, fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>{iface}</td>
+        <td style={{ padding: "10px 12px", color: "#333" }}>{speed}</td>
+        <td style={{ padding: "10px 12px", color: "#333" }}>{dist}</td>
+        <td style={{ padding: "10px 12px", color: "#333" }}>{multi}</td>
+        <td style={{ padding: "10px 0", color: "#333" }}>{use}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+A useful realization: the **transport** is mostly separable from the **commands**. The same command set (`ABS 450\r`) might be sent over a serial cable on an old unit and over a TCP socket on a newer one. A well-built driver isolates the transport so that swapping serial for network doesn't change how the commands are formed — which is exactly the subject of the next section.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="interfaces-q1"
+    question="Two devices communicate over RS-232, but the computer receives only garbage. What is the most likely cause?"
+    options={[
+      "The instrument is unplugged from the network switch",
+      "The two ends are configured with different baud rates or framing settings",
+      "The IP address is wrong",
+      "The USB driver is missing",
+    ]}
+    answer={1}
+    explanation="Serial requires both ends to agree on baud rate and framing (data bits, parity, stop bits). A mismatch produces garbled data rather than a clean failure."
+  />
+  <Quiz
+    id="interfaces-q2"
+    question="Many instruments labeled 'USB' actually present themselves to software as what?"
+    options={[
+      "An IP address on the network",
+      "A virtual COM (serial) port via USB-CDC",
+      "A shared network drive",
+      "A Bluetooth device",
+    ]}
+    answer={1}
+    explanation="USB-CDC makes a device appear as an ordinary serial port, so existing serial driver code works unchanged. Many 'USB' instruments are serial devices behind a USB plug."
+  />
+  <Quiz
+    id="interfaces-q3"
+    question="Which capability is unique to a network (Ethernet) interface, compared with plain serial or USB?"
+    options={[
+      "Sending data one bit at a time",
+      "Powering the instrument over the cable",
+      "Being reachable from multiple computers across a building via an IP address",
+      "Requiring a matching baud rate",
+    ]}
+    answer={2}
+    explanation="A networked instrument has its own IP address and can be reached over distance by multiple clients. Serial and USB are short, point-to-point links to a single nearby host."
+  />
+  <Quiz
+    id="interfaces-q4"
+    question="What does RS-485 add over standard RS-232?"
+    options={[
+      "Encryption of serial data",
+      "Multidrop: many addressed devices sharing one bus",
+      "Automatic IP assignment",
+      "Wireless communication",
+    ]}
+    answer={1}
+    explanation="RS-232 is point-to-point (one device). RS-485 allows multidrop, where several addressed devices share a single serial bus."
+  />
+  <Quiz
+    id="interfaces-q5"
+    question="Why can a well-built driver send the same command set over either a serial cable or a TCP socket?"
+    options={[
+      "Because serial and network are electrically identical",
+      "Because the command format is largely separable from the transport that carries it",
+      "Because TCP automatically converts itself to serial",
+      "Because all instruments require the same baud rate",
+    ]}
+    answer={1}
+    explanation="The bytes of a command (what to say) are independent of the transport (how they travel). Isolating the transport lets the same command logic run over serial or network."
+  />
+</QuizSet>

@@ -5,11 +5,17 @@ import {
   Typography,
   List,
   ListItemButton,
+  Button,
 } from "@mui/material";
-import { Link as RouterLink } from "react-router-dom";
-import { catalog } from "../courses";
+import { Link as RouterLink, useParams, Navigate } from "react-router-dom";
+import { getCourseBySlug } from "../courses";
 
-export default function Home() {
+export default function CourseHome() {
+  const { courseSlug = "" } = useParams();
+  const course = getCourseBySlug(courseSlug);
+
+  if (!course) return <Navigate to="/" replace />;
+
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <Box
@@ -21,17 +27,29 @@ export default function Home() {
       >
         <Container maxWidth="md" sx={{ py: { xs: 6, md: 12 } }}>
           <Stack spacing={2}>
+            <Button
+              component={RouterLink}
+              to="/"
+              sx={{
+                alignSelf: "flex-start",
+                px: 0,
+                color: "text.secondary",
+                "&:hover": { bgcolor: "transparent", color: "text.primary" },
+              }}
+            >
+              ← All courses
+            </Button>
             <Typography
               variant="overline"
               sx={{ letterSpacing: "0.2em", color: "text.secondary" }}
             >
-              Courses
+              A Course
             </Typography>
             <Typography variant="h2" component="h1">
-              First Principles
+              {course.title}
             </Typography>
             <Typography variant="h5" sx={{ color: "text.secondary", fontWeight: 400 }}>
-              Pick a course to get started
+              {course.tagline}
             </Typography>
           </Stack>
         </Container>
@@ -39,16 +57,16 @@ export default function Home() {
 
       <Container maxWidth="md" sx={{ py: { xs: 6, md: 10 } }}>
         <Stack spacing={2}>
+          <Typography variant="h6">Chapters</Typography>
           <List disablePadding>
-            {catalog.map((course, i) => (
+            {course.chapters.map((chapter, i) => (
               <ListItemButton
-                key={course.slug}
+                key={chapter.slug}
                 component={RouterLink}
-                to={`/courses/${course.slug}`}
+                to={`/courses/${course.slug}/chapters/${chapter.slug}`}
                 sx={{
                   px: 0,
-                  py: 3,
-                  alignItems: "flex-start",
+                  py: 1.5,
                   borderTop: i === 0 ? "1px solid" : "none",
                   borderBottom: "1px solid",
                   borderColor: "divider",
@@ -56,20 +74,14 @@ export default function Home() {
                   "&:hover": { bgcolor: "transparent" },
                 }}
               >
-                <Stack spacing={0.5} sx={{ flex: 1 }}>
-                  <Typography variant="h6">{course.title}</Typography>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    {course.tagline}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "text.secondary", lineHeight: 1.6, pt: 0.5 }}
-                  >
-                    {course.description}
-                  </Typography>
-                </Stack>
-                <Typography variant="body2" sx={{ color: "text.secondary", pt: 0.5 }}>
-                  →
+                <Typography
+                  variant="body1"
+                  sx={{ flex: 1, color: "text.primary" }}
+                >
+                  {chapter.title}
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {String(chapter.number).padStart(2, "0")}
                 </Typography>
               </ListItemButton>
             ))}

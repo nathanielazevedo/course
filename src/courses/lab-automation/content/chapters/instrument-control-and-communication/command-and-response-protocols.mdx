@@ -1,0 +1,135 @@
+Once a driver has a transport to talk over, it needs an agreement on *what the bytes mean*. That agreement is the **protocol**: how a command is packaged, how the device replies, and how both sides know a message started and ended. Almost every instrument protocol is a variation on one pattern — send a command, wait for a response.
+
+### The request–response loop
+
+The fundamental exchange is simple: the computer sends a **command**, the instrument sends back a **response**. Nothing else happens until that response arrives. A session is just this loop repeated.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 210"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A timeline between a computer on the left and an instrument on the right. The computer sends the command read absorbance at 450. The instrument replies OK to acknowledge, performs the measurement over a span of time, and then sends the data values back. Time flows downward."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="90" y="22" fontSize="12" fontWeight="600" textAnchor="middle">COMPUTER</text>
+    <text x="550" y="22" fontSize="12" fontWeight="600" textAnchor="middle">INSTRUMENT</text>
+    <line x1="90" y1="32" x2="90" y2="195" stroke="#000" strokeWidth="1.2" />
+    <line x1="550" y1="32" x2="550" y2="195" stroke="#000" strokeWidth="1.2" />
+
+    <line x1="90" y1="55" x2="550" y2="55" stroke="#000" strokeWidth="1.5" markerEnd="url(#c1)" />
+    <text x="320" y="48" fontSize="11" textAnchor="middle">{'command:  ABS 450\\r'}</text>
+
+    <line x1="550" y1="90" x2="90" y2="90" stroke="#3464c8" strokeWidth="1.5" markerEnd="url(#c2)" />
+    <text x="320" y="83" fontSize="11" fill="#3464c8" textAnchor="middle">{'ack:  OK\\r'}</text>
+
+    <rect x="535" y="100" width="30" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.2" />
+    <text x="470" y="129" fontSize="10" fill="#666" textAnchor="middle">measuring…</text>
+
+    <line x1="550" y1="170" x2="90" y2="170" stroke="#3464c8" strokeWidth="1.5" markerEnd="url(#c2)" />
+    <text x="320" y="163" fontSize="11" fill="#3464c8" textAnchor="middle">{'response:  0.382,0.401,…\\r'}</text>
+
+    <defs>
+      <marker id="c1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+      <marker id="c2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#3464c8" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A command goes out; an acknowledgement comes back quickly; the actual result follows once the measurement is done. The gap in the middle is why "is it finished yet?" is a central question.
+  </figcaption>
+</figure>
+
+### Framing: where does a message begin and end?
+
+Bytes arrive as a stream, so both sides need a rule for chopping that stream into messages — this is **framing**. The common schemes:
+
+- **Delimiter** — a special character marks the end. The classic is a carriage return `\r` or newline `\n` (`ABS 450\r`). Read until you see it; that's one message.
+- **Length prefix** — the message starts with a number saying how many bytes follow. Read that many; that's the message. Common in binary protocols.
+- **Fixed length** — every message is exactly N bytes.
+
+Without framing, the receiver can't tell where one reply stops and the next begins — a frequent source of "it works until it doesn't" bugs.
+
+### Text vs. binary
+
+Protocols come in two flavors. **ASCII (text)** protocols send human-readable strings like `ABS 450\r` — easy to read, easy to debug with a terminal, and forgiving. **Binary** protocols pack values into raw bytes — compact and fast, but unreadable without the spec and easy to get wrong. Older and simpler instruments lean text; high-throughput or data-heavy ones lean binary.
+
+### Status, errors, and checksums
+
+A response is more than data. It usually carries **status**: a short **ACK** (acknowledged) or **NAK** (not acknowledged), or a numeric **error code** when something went wrong (`ERR 12` — lid open). A driver must check status on *every* command, not assume success — silently ignoring an error is how a run drifts into nonsense.
+
+Where transmission can be corrupted (long serial cables, noisy environments), messages include a **checksum** — a small value computed from the message contents. The receiver recomputes it and rejects the message if they disagree, catching garbled bytes before they're acted on.
+
+### The hard part: waiting for completion
+
+A read is quick, but a centrifuge spin or an incubation takes minutes. The command returns long before the *action* finishes. Two patterns handle this:
+
+- **Polling** — the driver repeatedly asks "are you done?" (`STATUS?` → `BUSY` … `BUSY` … `DONE`) until the device reports completion. Simple, and works on the dumbest devices.
+- **Events / unsolicited messages** — the device sends a message *on its own* when it finishes, so the driver doesn't have to keep asking. More efficient, but only if the device and transport support it.
+
+Most real drivers send a command, confirm the ACK, then poll status until the operation completes — turning a slow physical action into a clean "done" the scheduler can wait on. Hiding exactly this messiness is why the standardized protocols in the next sections exist.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="command-response-q1"
+    question="What is the fundamental pattern of most instrument protocols?"
+    options={[
+      "The instrument continuously streams data with no prompting",
+      "The computer sends a command and waits for the instrument's response, repeated in a loop",
+      "Both sides send random messages whenever they like",
+      "The computer only ever reads; it never sends",
+    ]}
+    answer={1}
+    explanation="The core exchange is request–response: send a command, wait for the reply, repeat. Almost every instrument protocol is a variation on this loop."
+  />
+  <Quiz
+    id="command-response-q2"
+    question="What problem does 'framing' (e.g. ending a message with \\r) solve?"
+    options={[
+      "Encrypting the message so it can't be read",
+      "Telling the receiver where one message ends and the next begins in the byte stream",
+      "Speeding up the baud rate",
+      "Converting binary data to text",
+    ]}
+    answer={1}
+    explanation="Bytes arrive as a continuous stream. Framing — a delimiter, a length prefix, or a fixed size — lets the receiver split that stream into discrete messages."
+  />
+  <Quiz
+    id="command-response-q3"
+    question="A driver sends a command and receives 'ERR 12' but treats every response as success. What's the consequence?"
+    options={[
+      "Nothing; error codes are only advisory",
+      "The run can silently continue on a failed step and produce nonsense results",
+      "The instrument will automatically retry",
+      "The checksum will fix it",
+    ]}
+    answer={1}
+    explanation="Status must be checked on every command. Ignoring an error code lets the system proceed as if a failed step succeeded, corrupting everything downstream."
+  />
+  <Quiz
+    id="command-response-q4"
+    question="What is a checksum in a command protocol used for?"
+    options={[
+      "To measure how long the operation will take",
+      "To detect whether the message was corrupted in transmission",
+      "To encrypt the command",
+      "To frame the start of the message",
+    ]}
+    answer={1}
+    explanation="A checksum is computed from the message contents; the receiver recomputes it and rejects the message on a mismatch, catching garbled bytes before acting on them."
+  />
+  <Quiz
+    id="command-response-q5"
+    question="A centrifuge command returns immediately, but the spin takes 5 minutes. How does a driver know when the spin is actually finished?"
+    options={[
+      "It assumes 5 minutes have passed and moves on blindly",
+      "By polling the device's status until it reports DONE, or by receiving an unsolicited 'finished' event",
+      "The command never returns until the spin is done",
+      "It re-sends the spin command until it fails",
+    ]}
+    answer={1}
+    explanation="Long actions outlast the command. The driver either polls (repeatedly asks 'are you done?') or relies on the device sending an event on completion, then reports a clean 'done' upward."
+  />
+</QuizSet>

@@ -1,0 +1,106 @@
+Lab automation is the use of machines to carry out the physical and informational steps of an experiment that a person would otherwise do by hand. It is not one device. It is a chain: move a liquid, move a plate, apply heat, read a signal, record the result.
+
+### The unit of work
+
+The atomic action in most automated labs is moving a precise volume of liquid from one container to another. Pipetting. Almost everything else — heating, mixing, washing, reading — happens to liquids that a machine placed somewhere on purpose.
+
+A workflow is a sequence of these actions applied to **labware**: plates, tubes, and reservoirs that hold the samples and reagents. The machine does not understand the biology. It executes positions, volumes, and timings.
+
+### Three layers
+
+An automated lab is built in three layers, each depending on the one below it.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 240"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three stacked layers. Bottom: hardware — pipettors, arms, instruments. Middle: control — drivers and instrument software. Top: orchestration — the scheduler that sequences the run."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="120" y="24" width="400" height="56" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="48" fontSize="13" fontWeight="600" textAnchor="middle">ORCHESTRATION</text>
+    <text x="320" y="68" fontSize="11" fill="#666" textAnchor="middle">scheduler — sequences the whole run</text>
+
+    <rect x="120" y="92" width="400" height="56" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="116" fontSize="13" fontWeight="600" textAnchor="middle">CONTROL</text>
+    <text x="320" y="136" fontSize="11" fill="#666" textAnchor="middle">drivers — translate commands to each device</text>
+
+    <rect x="120" y="160" width="400" height="56" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="184" fontSize="13" fontWeight="600" textAnchor="middle">HARDWARE</text>
+    <text x="320" y="204" fontSize="11" fill="#666" textAnchor="middle">pipettors, arms, readers, incubators</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each layer issues commands downward and reports status upward. The scheduler never touches a motor directly — it asks the control layer, which drives the hardware.
+  </figcaption>
+</figure>
+
+- **Hardware** — the physical devices that act on labware: liquid handlers, robotic arms, plate readers, incubators, centrifuges.
+- **Control** — the software that drives each device. A driver turns a high-level command (*aspirate 50 µL from well A1*) into the device's own motor and valve operations.
+- **Orchestration** — the scheduler that decides what runs when, moves labware between devices, and keeps the whole process coordinated.
+
+A single pipette with a control program is automation. A bench of instruments tied together by a scheduler is an automated *system*. The difference is orchestration.
+
+### Automation is not just speed
+
+The obvious reason to automate is throughput — a machine pipettes a 384-well plate faster and more consistently than a human. But the deeper reasons are **reproducibility** and **walk-away time**. A machine repeats the exact same motion at 2 a.m. as it did at noon, and it does so without a person standing over it. Consistency and unattended operation often matter more than raw speed.
+
+What automation does *not* do is think. It cannot notice that a reagent looks wrong or that a tip missed the well unless it was explicitly told how to detect and respond to that case. Everything the system handles, someone designed it to handle. That gap — between what a human would catch and what the machine was told to catch — is where most of the engineering in later chapters lives.
+
+The next section looks at the manual workflow automation replaces, and exactly which of its limits a machine removes.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-lab-automation-is-q1"
+    question="What is the atomic action that most automated lab workflows are built around?"
+    options={[
+      "Reading an optical signal from a plate",
+      "Moving a precise volume of liquid between containers",
+      "Heating a sample to a target temperature",
+      "Scanning a barcode on a piece of labware",
+    ]}
+    answer={1}
+    explanation="Pipetting — moving a precise volume of liquid — is the fundamental unit of work. Most other steps act on liquids that a machine deliberately placed."
+  />
+  <Quiz
+    id="what-lab-automation-is-q2"
+    question="In the three-layer model, what does the control layer do?"
+    options={[
+      "Decides the order in which steps run across the whole system",
+      "Physically grips and moves plates between instruments",
+      "Translates a high-level command into a specific device's motor and valve operations",
+      "Stores the experimental results in a database",
+    ]}
+    answer={2}
+    explanation="The control layer is the drivers: they turn a command like 'aspirate 50 µL' into the concrete operations a particular device performs. Sequencing is orchestration; gripping is hardware."
+  />
+  <Quiz
+    id="what-lab-automation-is-q3"
+    question="What single capability distinguishes an automated system from a single automated device?"
+    options={["Orchestration", "A faster pipettor", "A barcode reader", "A larger deck"]}
+    answer={0}
+    explanation="A device with a control program is automation. Tying multiple devices together so they run as one coordinated process — orchestration — is what makes it a system."
+  />
+  <Quiz
+    id="what-lab-automation-is-q4"
+    question="Which benefit of automation is about the machine running unattended, rather than running fast?"
+    options={["Throughput", "Miniaturization", "Walk-away time", "Parallelism"]}
+    answer={2}
+    explanation="Walk-away time is the unattended operation a person gets back while the system runs. It is distinct from throughput, which is about raw rate."
+  />
+  <Quiz
+    id="what-lab-automation-is-q5"
+    question="An automated system fails to notice that a tip missed its well and keeps running. Why?"
+    options={[
+      "Machines cannot detect physical errors of any kind",
+      "It can only handle conditions it was explicitly designed to detect and respond to",
+      "The control layer overrides any error the hardware reports",
+      "Error detection is only possible in regulated GxP labs",
+    ]}
+    answer={1}
+    explanation="Automation does not reason about novelty. It handles exactly the cases someone built it to handle; an undetected miss falls in the gap between what a human would catch and what the system was told to catch."
+  />
+</QuizSet>

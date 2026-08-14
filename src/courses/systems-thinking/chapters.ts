@@ -1,24 +1,6 @@
-export type Section = {
-  number: number;
-  title: string;
-  slug: string;
-};
+import type { ChapterInput } from "../../lib/chapters";
 
-export type Chapter = {
-  number: number;
-  title: string;
-  slug: string;
-  videoId?: string;
-  description?: string;
-  sections: Section[];
-};
-
-const data: {
-  title: string;
-  videoId?: string;
-  description?: string;
-  sections?: string[];
-}[] = [
+export const chapterInput: ChapterInput[] = [
   {
     title: "The Machine",
     description:
@@ -152,33 +134,3 @@ const data: {
     ],
   },
 ];
-
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-
-export const chapters: Chapter[] = data.map((d, i) => ({
-  number: i + 1,
-  title: d.title,
-  slug: slugify(d.title),
-  videoId: d.videoId,
-  description: d.description,
-  sections: (d.sections ?? []).map((s, j) => ({
-    number: j + 1,
-    title: s,
-    slug: slugify(s),
-  })),
-}));
-
-export const getChapterBySlug = (slug: string) =>
-  chapters.find((c) => c.slug === slug);
-
-export const getSectionBySlug = (chapterSlug: string, sectionSlug: string) => {
-  const chapter = getChapterBySlug(chapterSlug);
-  if (!chapter) return null;
-  const section = chapter.sections.find((s) => s.slug === sectionSlug);
-  return section ? { chapter, section } : null;
-};

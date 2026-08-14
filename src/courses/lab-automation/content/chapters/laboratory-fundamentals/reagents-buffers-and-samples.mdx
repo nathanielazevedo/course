@@ -1,0 +1,122 @@
+A vessel is only interesting because of what's in it. The liquids in a lab fall into a few roles, and knowing which role a liquid plays tells you how carefully it must be handled, whether it can be shared across wells, and what happens if it's wrong.
+
+### The four roles
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four labeled vials in a row: sample (the unknown being measured), reagent (the active substance that produces a signal), buffer (the stable background liquid), and control (a known reference). An arrow shows sample plus reagent in buffer producing a measured signal."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 40, label: "SAMPLE", sub: "the unknown", fill: "#d8e8ff" },
+      { x: 190, label: "REAGENT", sub: "the active part", fill: "#ffe0d8" },
+      { x: 340, label: "BUFFER", sub: "stable background", fill: "#e8e8e8" },
+      { x: 490, label: "CONTROL", sub: "known reference", fill: "#e0f0d8" },
+    ].map((v) => (
+      <g key={v.label}>
+        <path d={`M${v.x} 30 h70 v70 a35 35 0 0 1 -70 0 z`} fill={v.fill} stroke="#000" strokeWidth="1.5" />
+        <rect x={v.x - 4} y="22" width="78" height="10" fill="#fff" stroke="#000" strokeWidth="1.2" />
+        <text x={v.x + 35} y="135" fontSize="12" fontWeight="600" textAnchor="middle">{v.label}</text>
+        <text x={v.x + 35} y="152" fontSize="10" fill="#666" textAnchor="middle">{v.sub}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Most experiments combine a sample with a reagent in a buffered background, then compare the result against known controls.
+  </figcaption>
+</figure>
+
+**Sample** — the thing you actually want to measure: a patient's blood, a cell extract, a purified protein, a drug candidate. The sample is usually precious and irreplaceable, often available in tiny amounts. You treat it the most carefully because you generally cannot make more of it.
+
+**Reagent** — an "active" substance that reacts with or detects the sample and produces something you can measure. An antibody that binds a target, an enzyme that catalyzes a color change, a dye that fluoresces. Reagents are the chemistry of the experiment.
+
+**Buffer** — a liquid whose job is to hold conditions *steady*. Most biological molecules only behave correctly within a narrow range of acidity (**pH**) and saltiness. A buffer resists changes in pH so the sample and reagents keep working as intended. Buffers also do humbler jobs: diluting, washing, and carrying other components. The most common is **PBS** (phosphate-buffered saline), a salt solution near the pH of blood.
+
+**Control** — a sample with a *known* answer, run alongside the unknowns. A **positive control** should give a strong signal; a **negative control** (often just buffer, no sample) should give none. Controls tell you whether the experiment itself worked. If your negative control lights up, something is contaminating the system, and your real results can't be trusted.
+
+### Concentration, the property that matters most
+
+Every reagent and buffer has a **concentration** — how much active substance is dissolved in a given volume. Concentration, not volume, is usually what determines whether an experiment works. Add too little reagent and you get no signal; add too much and you swamp the result or waste expensive material. The next section is devoted to the math of concentration and dilution because it underlies nearly everything.
+
+A related idea is the **stock** versus the **working** solution. Reagents are often stored **concentrated** (a "10× stock") to save space and stay stable, then **diluted** down to the **working concentration** just before use. A surprising fraction of lab work, manual or automated, is simply diluting stocks to working strength.
+
+### Why handling differs by role
+
+The role of a liquid changes how a machine should treat it:
+
+- **Samples** can't be shared or pooled — each must keep its own identity, so they're pipetted one at a time with a fresh tip to avoid **cross-contamination** (carrying one sample into another).
+- **Buffers and wash solutions** are identical everywhere, so they're poured into a shared reservoir and dispensed in bulk.
+- **Reagents** sit in between: shared across wells, but often expensive and sometimes fragile, so volumes are kept tight and some need to stay cold.
+
+Many reagents are also **sensitive** — they degrade in light, warmth, or air, or they're living cells that must be kept at a specific temperature. Handling rules like "keep on ice" or "protect from light" aren't fussiness; they're the difference between a working assay and a failed run. Automation has to respect these constraints just as a careful scientist would.
+
+With the roles and the idea of concentration in hand, the next section makes the units and dilution math precise.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="reagents-buffers-samples-q1"
+    question="What is the primary job of a buffer in an experiment?"
+    options={[
+      "To react with the sample and produce a measurable signal",
+      "To hold conditions like pH steady so other components keep working",
+      "To serve as the known reference the results are compared against",
+      "To be the precious unknown that is measured",
+    ]}
+    answer={1}
+    explanation="A buffer resists changes in acidity (pH) and provides a stable background. Producing signal is the reagent's job; the unknown is the sample; the reference is the control."
+  />
+  <Quiz
+    id="reagents-buffers-samples-q2"
+    question="During a run, the negative control (buffer only, no sample) produces a strong signal. What does this most likely indicate?"
+    options={[
+      "The experiment worked perfectly",
+      "The positive control must have failed",
+      "Something is contaminating the system, so results can't be trusted",
+      "The buffer's pH is too low",
+    ]}
+    answer={2}
+    explanation="A negative control should give no signal. Signal where there should be none points to contamination or a systematic problem, which invalidates the real measurements until resolved."
+  />
+  <Quiz
+    id="reagents-buffers-samples-q3"
+    question="Why are individual samples pipetted one at a time with a fresh tip, while wash buffer is dispensed in bulk from a reservoir?"
+    options={[
+      "Samples are cheaper than buffer",
+      "Each sample must keep its own identity and avoid cross-contamination; buffer is identical everywhere",
+      "Buffer is more fragile than samples",
+      "Reservoirs cannot hold samples physically",
+    ]}
+    answer={1}
+    explanation="Samples carry distinct identities and must not be mixed, so each gets a fresh tip. Buffer is the same in every well, so it can be shared from one reservoir."
+  />
+  <Quiz
+    id="reagents-buffers-samples-q4"
+    question="A reagent is stored as a '10× stock.' What does that mean in practice?"
+    options={[
+      "It is ten times less concentrated than needed and must be evaporated",
+      "It is stored concentrated and diluted tenfold to reach working strength before use",
+      "It can only be used ten times",
+      "It must be mixed with ten other reagents",
+    ]}
+    answer={1}
+    explanation="A 10× stock is ten times more concentrated than the working solution. It's stored concentrated for stability and space, then diluted tenfold to working concentration just before use."
+  />
+  <Quiz
+    id="reagents-buffers-samples-q5"
+    question="A protocol says a reagent must be 'kept on ice and protected from light.' How should automation treat this instruction?"
+    options={[
+      "As optional guidance that can be skipped to save time",
+      "As a real constraint the system must respect, since the reagent degrades otherwise",
+      "As relevant only for manual work, not machines",
+      "As a labeling convention with no physical effect",
+    ]}
+    answer={1}
+    explanation="Sensitivity rules reflect genuine degradation under warmth or light. Ignoring them produces a failed assay, so automation must honor the same handling constraints a careful scientist would."
+  />
+</QuizSet>

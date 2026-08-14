@@ -1,0 +1,131 @@
+An experiment is built from a small vocabulary of physical actions. Almost every protocol — and almost every automated method — is some sequence of the same handful of moves. Learn these and you can read most protocols, because a protocol is just these verbs applied to the vessels and liquids from the previous sections.
+
+### Pipetting
+
+**Pipetting** is moving a measured volume of liquid from one place to another. It is *the* fundamental lab action, and the one automation is built around. A pipette works by displacing air: a plunger draws liquid up into a disposable **tip** (**aspirate**), then pushes it back out (**dispense**).
+
+Two patterns cover most pipetting:
+
+- **Transfer** — aspirate from a source, dispense the whole amount into a destination. One-to-one.
+- **Mixing** — aspirate and dispense repeatedly in the *same* well to blend its contents into a uniform solution. ("Pipette up and down to mix.")
+
+A **multi-channel** pipette has many tips on one head (8, 12, 96, or more), so it pipettes a whole row, column, or plate in a single motion — this parallelism is most of where a liquid handler's speed comes from. Accuracy depends on the liquid: water-like solutions pipette cleanly, while thick (**viscous**) or foamy liquids fight back, a problem covered in Chapter 02.
+
+### Centrifugation
+
+A **centrifuge** spins tubes or plates at high speed. The spin creates an effective force many times gravity that pushes denser material outward — to the *bottom* of the vessel. This is used to:
+
+- **Pellet** solids: spin a cell suspension and the cells collect as a tight pellet at the tube's tip, leaving clear liquid (the **supernatant**) above. You can then pour or pipette off the supernatant and keep the pellet, or vice versa.
+- **Separate** layers of different density, such as separating blood into plasma and cells.
+
+Spin speed is given as **rcf** (relative centrifugal force, "× g") or as **rpm** (revolutions per minute); protocols usually specify a force and a time, e.g. "spin at 300 × g for 5 minutes."
+
+### Incubation
+
+**Incubation** is simply *waiting under controlled conditions* — holding samples at a set temperature (and sometimes humidity or gas) for a set time so a reaction can proceed or cells can grow. A reagent might need 30 minutes at room temperature to bind; cells might need days at 37 °C. The action is "wait," but the *conditions* and *timing* are part of the protocol and must be respected exactly.
+
+### Washing
+
+**Washing** removes unbound or unwanted material from a vessel without disturbing what's stuck to it. The cycle is: add wash buffer, then remove it (**aspirate** it off), repeating several times. In a plate assay, washing is how you rinse away everything that didn't bind to the well surface, leaving only the specific signal behind. Sloppy washing is a leading cause of high background and noisy results.
+
+### Sealing and storage
+
+Between steps, plates are often **sealed** — a film or foil is applied over the wells — to prevent **evaporation** (small volumes dry out fast) and contamination, and to allow safe transport or freezing. Samples are then held in storage at a defined temperature: room temperature, refrigerated (4 °C), or frozen (−20 °C or −80 °C) depending on how long and how stable they must stay.
+
+### A protocol is these verbs in order
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 110"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A horizontal flow of five protocol steps connected by arrows: dispense reagent, incubate 30 minutes, wash three times, dispense detection reagent, then read. Each is a basic technique applied in sequence."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 10, t: "DISPENSE", s: "reagent" },
+      { x: 138, t: "INCUBATE", s: "30 min" },
+      { x: 266, t: "WASH", s: "×3" },
+      { x: 394, t: "DISPENSE", s: "detection" },
+      { x: 522, t: "READ", s: "signal" },
+    ].map((b, i) => (
+      <g key={b.t}>
+        <rect x={b.x} y="30" width="100" height="48" fill={i === 4 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.5" rx="5" />
+        <text x={b.x + 50} y="52" fontSize="11" fontWeight="600" textAnchor="middle">{b.t}</text>
+        <text x={b.x + 50} y="68" fontSize="9" fill="#666" textAnchor="middle">{b.s}</text>
+        {i < 4 && <path d={`M${b.x + 100} 54 h28`} stroke="#000" strokeWidth="1.5" markerEnd="url(#a2)" />}
+      </g>
+    ))}
+    <defs>
+      <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0 0 L6 3 L0 6 z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every assay in the next section decomposes into exactly this kind of sequence. Automating a protocol means turning each verb into instrument commands and chaining them in order.
+  </figcaption>
+</figure>
+
+That's the whole vocabulary: **pipette, spin, incubate, wash, seal, store.** Every assay in the next section is some arrangement of these verbs, and the entire job of an automated system is to perform them in the right order, with the right volumes, at the right times — without a person in the loop.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="core-techniques-q1"
+    question="What are the two basic operations a pipette performs?"
+    options={[
+      "Heat and cool",
+      "Aspirate (draw liquid up) and dispense (push it out)",
+      "Spin and decant",
+      "Seal and unseal",
+    ]}
+    answer={1}
+    explanation="A pipette displaces air to aspirate liquid into a tip and then dispense it out. Those two moves underlie every transfer and mixing step."
+  />
+  <Quiz
+    id="core-techniques-q2"
+    question="After centrifuging a cell suspension, what is the clear liquid above the pellet called?"
+    options={["The diluent", "The supernatant", "The buffer", "The eluate"]}
+    answer={1}
+    explanation="Centrifugation drives dense material into a pellet at the bottom; the clarified liquid remaining above it is the supernatant, which can be removed or kept as needed."
+  />
+  <Quiz
+    id="core-techniques-q3"
+    question="A protocol step reads 'incubate 30 minutes at 37 °C.' What is actually happening?"
+    options={[
+      "The sample is being spun at high speed",
+      "Liquid is being repeatedly pipetted to mix it",
+      "The sample is held under controlled conditions for a set time so a reaction can proceed",
+      "Wash buffer is being added and removed",
+    ]}
+    answer={2}
+    explanation="Incubation is controlled waiting — holding the sample at a defined temperature for a defined time. The action is 'wait,' but the conditions and timing are part of the protocol."
+  />
+  <Quiz
+    id="core-techniques-q4"
+    question="In a plate assay, what is the purpose of the washing step?"
+    options={[
+      "To add fresh sample to each well",
+      "To remove unbound material while leaving bound material on the well surface",
+      "To raise the temperature of the plate",
+      "To concentrate the reagent",
+    ]}
+    answer={1}
+    explanation="Washing repeatedly adds and removes buffer to rinse away anything that didn't bind, leaving only the specific signal. Poor washing causes high background and noisy results."
+  />
+  <Quiz
+    id="core-techniques-q5"
+    question="Why are plates sealed with a film between steps, especially in high-density formats?"
+    options={[
+      "To increase the centrifugal force during spinning",
+      "To prevent evaporation and contamination of small-volume wells",
+      "To make the wells fluoresce",
+      "To change the concentration of the reagent",
+    ]}
+    answer={1}
+    explanation="Small volumes evaporate quickly, which would change concentrations and ruin a run. Sealing prevents evaporation and contamination and allows safe transport or storage."
+  />
+</QuizSet>

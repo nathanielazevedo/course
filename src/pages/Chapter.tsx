@@ -9,18 +9,19 @@ import {
   ListItemButton,
 } from "@mui/material";
 import { Link as RouterLink, useParams, Navigate } from "react-router-dom";
-import { chapters, getChapterBySlug } from "../data/chapters";
+import { getCourseBySlug } from "../courses";
 import ChapterVideo from "../components/ChapterVideo";
 
 export default function Chapter() {
-  const { slug = "" } = useParams();
-  const chapter = getChapterBySlug(slug);
+  const { courseSlug = "", slug = "" } = useParams();
+  const course = getCourseBySlug(courseSlug);
+  const chapter = course?.getChapterBySlug(slug);
 
-  if (!chapter) return <Navigate to="/" replace />;
+  if (!course || !chapter) return <Navigate to="/" replace />;
 
-  const idx = chapters.findIndex((c) => c.slug === chapter.slug);
-  const prev = chapters[idx - 1];
-  const next = chapters[idx + 1];
+  const idx = course.chapters.findIndex((c) => c.slug === chapter.slug);
+  const prev = course.chapters[idx - 1];
+  const next = course.chapters[idx + 1];
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -35,7 +36,7 @@ export default function Chapter() {
           <Stack spacing={4}>
             <Button
               component={RouterLink}
-              to="/"
+              to={`/courses/${course.slug}`}
               sx={{
                 alignSelf: "flex-start",
                 px: 0,
@@ -85,7 +86,7 @@ export default function Chapter() {
                   <ListItemButton
                     key={section.slug}
                     component={RouterLink}
-                    to={`/chapters/${chapter.slug}/sections/${section.slug}`}
+                    to={`/courses/${course.slug}/chapters/${chapter.slug}/sections/${section.slug}`}
                     sx={{
                       px: 0,
                       py: 1.5,
@@ -131,7 +132,7 @@ export default function Chapter() {
               {prev && (
                 <Button
                   component={RouterLink}
-                  to={`/chapters/${prev.slug}`}
+                  to={`/courses/${course.slug}/chapters/${prev.slug}`}
                   sx={{
                     px: 0,
                     color: "text.secondary",
@@ -146,7 +147,7 @@ export default function Chapter() {
               {next && (
                 <Button
                   component={RouterLink}
-                  to={`/chapters/${next.slug}`}
+                  to={`/courses/${course.slug}/chapters/${next.slug}`}
                   sx={{
                     px: 0,
                     color: "text.secondary",

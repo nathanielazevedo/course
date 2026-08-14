@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Box, Stack, Typography, Button, ButtonBase } from "@mui/material";
 import { useCourseStore } from "../../store/useCourseStore";
+import { namespacedQuizId, useQuizNamespace } from "../../context/quizNamespace";
 
 type QuizProps = {
   id: string;
@@ -19,7 +20,9 @@ export default function Quiz({
   explanation,
   onNext,
 }: QuizProps) {
-  const submittedAnswer = useCourseStore((s) => s.quizAnswers[id]);
+  const namespace = useQuizNamespace();
+  const key = namespacedQuizId(namespace, id);
+  const submittedAnswer = useCourseStore((s) => s.quizAnswers[key]);
   const setQuizAnswer = useCourseStore((s) => s.setQuizAnswer);
   const resetQuizAnswer = useCourseStore((s) => s.resetQuizAnswer);
   const [selected, setSelected] = useState<number | null>(null);
@@ -29,11 +32,11 @@ export default function Quiz({
 
   const handleSubmit = () => {
     if (selected === null) return;
-    setQuizAnswer(id, selected);
+    setQuizAnswer(key, selected);
   };
 
   const handleReset = () => {
-    resetQuizAnswer(id);
+    resetQuizAnswer(key);
     setSelected(null);
   };
 

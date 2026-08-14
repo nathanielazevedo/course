@@ -1,0 +1,33 @@
+An **assay** is a procedure that measures something. With the vessels, liquids, and techniques from the previous sections, every assay is just those pieces arranged toward a measurement. Here are the most common ones you'll meet, and what each is for.
+
+<table style={{ width: "100%", borderCollapse: "collapse", margin: "28px 0", fontSize: "0.95rem" }}>
+  <thead>
+    <tr style={{ borderBottom: "2px solid #000", textAlign: "left" }}>
+      <th style={{ padding: "10px 16px 10px 0", width: "34%" }}>Assay</th>
+      <th style={{ padding: "10px 0" }}>Intention / result</th>
+    </tr>
+  </thead>
+  <tbody>
+    {[
+      ["ELISA", "How much of a specific protein/target is present in a sample"],
+      ["Western blot", "Confirm a specific protein is present, and check its size"],
+      ["PCR", "Amplify (copy) a specific DNA sequence to detect it"],
+      ["qPCR", "Measure how much of a specific DNA/RNA sequence is present"],
+      ["SEC / ASEC", "Check a protein's size, purity, and whether it's clumped"],
+      ["SDS-PAGE", "Separate proteins by size to assess size and purity"],
+      ["HPLC", "Separate and quantify the components in a mixture"],
+      ["Mass spectrometry", "Identify and measure molecules by their mass"],
+      ["Flow cytometry", "Count and characterize individual cells by their markers"],
+      ["Cell viability (MTT, CellTiter-Glo)", "Measure how many cells are alive after a treatment"],
+      ["Protein quantification (Bradford, BCA)", "Measure the total protein concentration in a sample"],
+      ["Sequencing (NGS)", "Read the actual DNA or RNA sequence"],
+    ].map(([name, intent], i) => (
+      <tr key={name} style={{ borderBottom: "1px solid #e2e2e2", background: i % 2 ? "#fafafa" : "#fff" }}>
+        <td style={{ padding: "10px 16px 10px 0", fontWeight: 600, fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>{name}</td>
+        <td style={{ padding: "10px 0", color: "#333" }}>{intent}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+Notice the pattern: each assay is a fixed sequence of the dispense, incubate, wash, spin, and read steps from the previous section, repeated across many samples — exactly the work automation is built for. With that, you're ready for Chapter 01, which looks at the automated laboratory as a whole.

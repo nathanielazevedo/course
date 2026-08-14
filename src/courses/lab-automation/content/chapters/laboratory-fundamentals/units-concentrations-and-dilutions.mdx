@@ -1,0 +1,154 @@
+Almost every protocol is a list of volumes and concentrations. If you're comfortable with the units and the one equation that relates them, most of the lab's arithmetic stops being mysterious. This section is the math you'll reach for constantly.
+
+### Units of volume
+
+Lab volumes are small, so the working units are below the liter:
+
+- **1 liter (L)** = 1,000 **milliliters (mL)**
+- **1 mL** = 1,000 **microliters (µL)**
+
+So 1 L = 1,000,000 µL. The microliter is the everyday unit of automated liquid handling — a single drop is roughly 50 µL, and a 384-well plate often holds only 20–50 µL per well. Pipettes routinely move volumes as small as 1 µL, where being off by a fraction of a microliter is a real error.
+
+### Units of concentration
+
+**Concentration** is amount of substance per unit of volume. Two families show up constantly:
+
+- **Mass/volume** — e.g. **mg/mL** (milligrams per milliliter). Common for proteins and antibodies, where you care about how many grams are present.
+- **Molar (M)** — **moles per liter**, the chemist's count-based unit. One **molar** is one mole of molecules per liter; you'll far more often see **millimolar (mM)** and **micromolar (µM)**. Molarity counts *molecules*, which matters when a reaction depends on how many molecules meet, not their total weight.
+
+You don't need to convert between mass and molar units to follow a protocol — just recognize which kind a number is, and never mix them up.
+
+### The one equation: C₁V₁ = C₂V₂
+
+The single most-used calculation in the lab is **dilution** — making a concentrated solution weaker by adding more liquid. It's governed by one relationship:
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="The dilution equation C1 times V1 equals C2 times V2. C1 and V1 are the starting (stock) concentration and volume; C2 and V2 are the final concentration and volume after adding diluent."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="60" y="30" width="220" height="70" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" rx="6" />
+    <text x="170" y="62" fontSize="14" fontWeight="600" textAnchor="middle">C₁ · V₁</text>
+    <text x="170" y="84" fontSize="10" fill="#666" textAnchor="middle">stock conc × stock volume</text>
+
+    <text x="320" y="72" fontSize="24" fontWeight="600" textAnchor="middle">=</text>
+
+    <rect x="360" y="30" width="220" height="70" fill="#fff" stroke="#000" strokeWidth="1.5" rx="6" />
+    <text x="470" y="62" fontSize="14" fontWeight="600" textAnchor="middle">C₂ · V₂</text>
+    <text x="470" y="84" fontSize="10" fill="#666" textAnchor="middle">final conc × final volume</text>
+
+    <text x="320" y="135" fontSize="11" fill="#666" textAnchor="middle">the amount of substance is the same before and after — only the volume changes</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Diluting adds liquid but no new substance, so C₁V₁ (the amount you start with) must equal C₂V₂ (the same amount, now spread through more volume).
+  </figcaption>
+</figure>
+
+The logic is simple: when you dilute, you add solvent but not more of the substance, so the *total amount* of substance is unchanged — it's just spread through a larger volume. C×V (concentration times volume) **is** that total amount, so C₁V₁ = C₂V₂.
+
+**Worked example.** You have a 10 mg/mL antibody stock and need 1 mL at a working concentration of 0.5 mg/mL. How much stock do you take?
+
+Solve for V₁: `V₁ = C₂V₂ / C₁ = (0.5 mg/mL × 1 mL) / 10 mg/mL = 0.05 mL = 50 µL`.
+
+So you pipette **50 µL of stock** and add **950 µL of buffer** (the *diluent*) to reach 1 mL total. Note the two numbers always sum to the final volume: 50 + 950 = 1000 µL.
+
+### Fold dilutions and dilution series
+
+Protocols often describe dilutions as a **fold**: a "10-fold" (or "1:10") dilution means the final concentration is one-tenth of the start — 1 part stock to 9 parts diluent, for 10 parts total. (Watch the wording: "1:10" almost always means *1 in 10 total*, not 1 plus 10.)
+
+A **serial dilution** chains these together: dilute the stock 10-fold, then dilute *that* 10-fold, and so on. Each step multiplies the dilution, so a few steps span an enormous range:
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 150"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A serial dilution series of five tubes. Each tube transfers a portion into the next and adds diluent, giving concentrations of 1x, one tenth, one hundredth, one thousandth, and one ten-thousandth. The liquid shading gets lighter at each step."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["1×", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴"].map((lbl, k) => (
+      <g key={lbl}>
+        <rect x={40 + k * 120} y="30" width="60" height="70" fill={`rgba(60,100,200,${0.85 - k * 0.2})`} stroke="#000" strokeWidth="1.5" rx="4" />
+        <text x={70 + k * 120} y="120" fontSize="13" fontWeight="600" textAnchor="middle">{lbl}</text>
+        {k < 4 && (
+          <path d={`M${100 + k * 120} 55 h20`} stroke="#000" strokeWidth="1.5" markerEnd="url(#arr)" />
+        )}
+      </g>
+    ))}
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0 0 L6 3 L0 6 z" fill="#000" />
+      </marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Five tubes, each a tenfold dilution of the one before, span four orders of magnitude. Serial dilutions are how a standard curve or a dose range is built across the columns of a plate.
+  </figcaption>
+</figure>
+
+Serial dilutions are everywhere: building the **standard curve** that turns a raw reading into a real concentration, testing a drug across a range of doses, finding how far a sample can be diluted and still detected. Because each step feeds the next, an error early in the series propagates to every tube after it — which is exactly the kind of repetitive, error-prone, precision task automation is built to do better than a tired human.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="units-conc-dilutions-q1"
+    question="How many microliters are in 1 milliliter?"
+    options={["10 µL", "100 µL", "1,000 µL", "1,000,000 µL"]}
+    answer={2}
+    explanation="1 mL = 1,000 µL. (And 1 L = 1,000 mL = 1,000,000 µL.) The microliter is the everyday unit of automated liquid handling."
+  />
+  <Quiz
+    id="units-conc-dilutions-q2"
+    question="Why does the relationship C₁V₁ = C₂V₂ hold during a dilution?"
+    options={[
+      "Because concentration is always proportional to temperature",
+      "Because diluting adds solvent but no new substance, so the total amount of substance is unchanged",
+      "Because volume is always conserved but concentration is not defined",
+      "Because the buffer reacts with the stock in a fixed ratio",
+    ]}
+    answer={1}
+    explanation="C×V is the total amount of substance. Diluting spreads that same amount through more volume without adding any, so the product C×V before equals C×V after."
+  />
+  <Quiz
+    id="units-conc-dilutions-q3"
+    question="You have a 20 mg/mL stock and need 2 mL at 1 mg/mL. How much stock do you take?"
+    options={[
+      "1,000 µL of stock + 1,000 µL diluent",
+      "100 µL of stock + 1,900 µL diluent",
+      "200 µL of stock + 1,800 µL diluent",
+      "50 µL of stock + 1,950 µL diluent",
+    ]}
+    answer={1}
+    explanation="V₁ = C₂V₂/C₁ = (1 mg/mL × 2 mL)/20 mg/mL = 0.1 mL = 100 µL of stock, plus 1,900 µL diluent to reach 2 mL total."
+  />
+  <Quiz
+    id="units-conc-dilutions-q4"
+    question="A protocol calls for a '1:10' dilution. What does this conventionally mean?"
+    options={[
+      "1 part stock plus 10 parts diluent (11 parts total)",
+      "1 part stock in 10 parts total — 1 part stock plus 9 parts diluent",
+      "10 parts stock plus 1 part diluent",
+      "Dilute the stock ten separate times",
+    ]}
+    answer={1}
+    explanation="By convention '1:10' means 1 in 10 total: 1 part stock and 9 parts diluent, giving a final concentration one-tenth of the start."
+  />
+  <Quiz
+    id="units-conc-dilutions-q5"
+    question="In a serial dilution, why is an error in an early tube especially serious?"
+    options={[
+      "Early tubes are always the most concentrated and hardest to pipette",
+      "Each step is made from the previous one, so an early error propagates to every later tube",
+      "The standard curve only uses the first tube",
+      "Errors cancel out as the series continues",
+    ]}
+    answer={1}
+    explanation="Each dilution is prepared from the one before it, so any error early in the chain carries forward and corrupts every subsequent tube — a key reason to automate the repetitive, precise steps."
+  />
+</QuizSet>

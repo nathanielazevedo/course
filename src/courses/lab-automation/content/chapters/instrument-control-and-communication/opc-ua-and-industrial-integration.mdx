@@ -1,0 +1,140 @@
+SiLA solves talking to a lab *instrument*. But an automated lab rarely lives alone — it sits inside a building of utilities, a manufacturing process, and an enterprise that wants to know what's happening. Connecting that wider world is a problem the factory floor solved years ago, and its standard has come to the lab: **OPC-UA**.
+
+### Where it comes from
+
+**OPC-UA** (*Open Platform Communications — Unified Architecture*) is the dominant standard for **industrial** automation. It's how programmable logic controllers (PLCs), sensors, robots, and the supervisory systems above them exchange data in factories and process plants. It is platform-independent, service-oriented, and built with security as a first-class concern.
+
+It arrives in the lab through **biomanufacturing** and **Industry 4.0** — the drive to connect bioreactors, process equipment, and analytical instruments into one plant-wide, data-rich system that feeds enterprise software.
+
+### The information model
+
+SiLA describes a device as a flat set of Features. OPC-UA goes further: it represents everything as a rich, browsable **information model** — an **address space** of connected **nodes**. A node can be a variable (a temperature), an object (a pump), a method (start), or an event, and nodes link to each other to express structure and meaning. A client can **browse** this model at runtime to discover not just *what* data exists but *how it relates* — that a temperature reading belongs to a specific reactor, which belongs to a specific suite.
+
+This semantic richness is what lets OPC-UA model an entire plant, not just one box.
+
+### Client/server and pub/sub
+
+OPC-UA supports two communication styles:
+
+- **Client/server** — a client connects to a server, browses the address space, reads and writes values, calls methods, and **subscribes** to changes so it's notified when a value updates.
+- **Publish/subscribe (pub/sub)** — servers publish data to many consumers at once, suited to high-volume telemetry and many-listener scenarios.
+
+Security — authentication, encryption, and signing — is built into the protocol, which matters when instrument data crosses into regulated, networked enterprise systems.
+
+### Where it sits: the integration layer
+
+The cleanest way to place OPC-UA is by altitude. SiLA controls a device; OPC-UA integrates many systems into the enterprise stack above them.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 270"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A four-level vertical stack. Bottom: instruments and PLCs. Above it: device control, labeled SiLA 2 and vendor drivers. Above that: integration, labeled OPC-UA, spanning the width. Top: enterprise systems — MES, historian, and SCADA. Arrows show data flowing upward from instruments through device control and OPC-UA into the enterprise."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="80" y="14" width="480" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="33" fontSize="12" fontWeight="600" textAnchor="middle">ENTERPRISE</text>
+    <text x="320" y="49" fontSize="10" fill="#666" textAnchor="middle">MES · data historian · SCADA</text>
+
+    <rect x="60" y="78" width="520" height="44" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="97" fontSize="12" fontWeight="600" textAnchor="middle">INTEGRATION — OPC-UA</text>
+    <text x="320" y="113" fontSize="10" fill="#666" textAnchor="middle">plant-wide information model, secure, many systems</text>
+
+    <rect x="80" y="142" width="480" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" rx="5" />
+    <text x="320" y="161" fontSize="12" fontWeight="600" textAnchor="middle">DEVICE CONTROL</text>
+    <text x="320" y="177" fontSize="10" fill="#666" textAnchor="middle">SiLA 2 · vendor drivers</text>
+
+    <rect x="100" y="206" width="440" height="44" fill="#fafafa" stroke="#999" strokeWidth="1.5" rx="5" />
+    <text x="320" y="225" fontSize="12" fontWeight="600" textAnchor="middle">INSTRUMENTS &amp; PLCs</text>
+    <text x="320" y="241" fontSize="10" fill="#666" textAnchor="middle">readers · pumps · bioreactors · sensors</text>
+
+    <line x1="320" y1="206" x2="320" y2="190" stroke="#000" strokeWidth="1.2" markerEnd="url(#o1)" />
+    <line x1="320" y1="142" x2="320" y2="126" stroke="#000" strokeWidth="1.2" markerEnd="url(#o1)" />
+    <line x1="320" y1="78" x2="320" y2="62" stroke="#000" strokeWidth="1.2" markerEnd="url(#o1)" />
+    <defs>
+      <marker id="o1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    SiLA and drivers control individual devices; OPC-UA carries their data up into the plant-wide systems — manufacturing execution (MES), historians, and supervisory control (SCADA).
+  </figcaption>
+</figure>
+
+### SiLA and OPC-UA together
+
+These standards are complements, not rivals. A common pattern: SiLA drives the instruments, and a bridge exposes the resulting data to the plant over OPC-UA. The two worlds are converging directly through **LADS** (*Laboratory and Analytical Device Standard*), an official **OPC-UA companion specification** that defines a standard information model for lab and analytical devices — bringing lab instruments natively into the OPC-UA ecosystem.
+
+The practical rule of thumb:
+
+- **Driver / command-response** — one device, lowest level, when nothing standardized exists.
+- **SiLA 2** — standardized control of lab instruments without bespoke drivers.
+- **OPC-UA (incl. LADS)** — integrating instruments and process equipment into the plant and enterprise.
+
+With device control and integration in hand, the system can not only run an instrument but feed everything it produces into the data and sample-tracking layer — the subject of the next chapter.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="opcua-q1"
+    question="Where does OPC-UA originate, and what problem is it best suited to?"
+    options={[
+      "It comes from web browsers; best for rendering lab dashboards",
+      "It comes from industrial automation; best for integrating instruments and process equipment into plant-wide and enterprise systems",
+      "It comes from lab pipetting; best for controlling a single pipettor",
+      "It comes from serial hardware; best for short cables",
+    ]}
+    answer={1}
+    explanation="OPC-UA is the dominant industrial automation standard (PLCs, sensors, supervisory systems). In the lab it shines at integration — connecting many devices and processes up into the enterprise stack."
+  />
+  <Quiz
+    id="opcua-q2"
+    question="How does OPC-UA's information model differ from SiLA's flat set of Features?"
+    options={[
+      "It has no way to represent data at all",
+      "It represents everything as a browsable address space of interconnected nodes that express how data relates",
+      "It only supports a single variable per device",
+      "It stores data exclusively as plain text files",
+    ]}
+    answer={1}
+    explanation="OPC-UA models a whole system as an address space of linked nodes (variables, objects, methods, events). A client can browse it to discover not just what data exists but how it's structured — enough to model an entire plant."
+  />
+  <Quiz
+    id="opcua-q3"
+    question="In the altitude model, how do SiLA 2 and OPC-UA relate?"
+    options={[
+      "They are direct competitors that cannot coexist",
+      "SiLA controls individual lab devices; OPC-UA integrates many systems up into the enterprise — they complement each other",
+      "OPC-UA controls single instruments while SiLA runs the whole factory",
+      "They are two names for the same standard",
+    ]}
+    answer={1}
+    explanation="SiLA sits at the device-control layer; OPC-UA sits at the integration layer above it. A common pattern uses SiLA to drive instruments and OPC-UA to carry data into plant-wide systems."
+  />
+  <Quiz
+    id="opcua-q4"
+    question="What is LADS?"
+    options={[
+      "A serial cable standard for old instruments",
+      "An OPC-UA companion specification defining a standard information model for laboratory and analytical devices",
+      "A replacement for the scheduler",
+      "A type of plate reader",
+    ]}
+    answer={1}
+    explanation="LADS (Laboratory and Analytical Device Standard) is an official OPC-UA companion spec that brings lab and analytical instruments natively into the OPC-UA ecosystem with a standardized information model."
+  />
+  <Quiz
+    id="opcua-q5"
+    question="Which communication capability does OPC-UA provide for distributing high-volume telemetry to many consumers at once?"
+    options={[
+      "Baud-rate negotiation",
+      "Publish/subscribe (pub/sub), in addition to client/server",
+      "Fixed-length serial framing",
+      "USB-CDC virtual COM ports",
+    ]}
+    answer={1}
+    explanation="Alongside client/server (browse, read/write, subscribe), OPC-UA supports a publish/subscribe model where servers publish data to many consumers — well suited to high-volume, many-listener telemetry."
+  />
+</QuizSet>
