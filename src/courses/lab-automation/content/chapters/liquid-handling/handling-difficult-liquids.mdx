@@ -1,0 +1,115 @@
+Everything so far has quietly assumed a liquid that behaves like water. Most liquids don't. Understanding *why* a liquid resists standard pipetting is what lets you fix it — usually by adjusting technique rather than fighting the liquid itself.
+
+### Viscosity: liquids that move slowly
+
+A **viscous** liquid (glycerol, concentrated protein solutions, some polymers) resists flow. Aspirated too fast, it can't keep up with the piston, leaving the tip under-filled; dispensed too fast, it clings to the tip walls instead of releasing cleanly. The fix is almost always **speed**: slower aspiration and dispensing gives the liquid time to actually move with the air column, plus a longer settling pause before withdrawing the tip.
+
+### Volatility: liquids that evaporate mid-transfer
+
+A **volatile** liquid (ethanol, some organic solvents) evaporates into the air column the moment it's aspirated, building vapor pressure that pushes back against the piston — a phenomenon called **overaspiration** when it causes extra liquid to be drawn in, or dripping when that pressure pushes liquid back out after the tip is withdrawn. **Pre-wetting** — aspirating and dispensing the liquid once or twice before the "real" transfer — saturates the air column with vapor so the actual measured aspiration behaves consistently.
+
+### Foaming and surface tension
+
+Some liquids (detergents, some protein and cell-culture media) foam when agitated, and foam is mostly air — a tip that aspirates through foam pulls in far less true liquid than the volume suggests. Reducing aspiration speed and aspirating from below the foam layer both help; for the worst cases, reverse pipetting (drawing extra volume and dispensing only the target amount) sidesteps the problem by never needing a precise dispense of the foamy remainder.
+
+Liquids with very high or very low **surface tension** create their own issues at the tip opening: high surface tension can cause a droplet to hang off the tip instead of releasing; low surface tension (many surfactant-containing liquids) can cause liquid to creep up the *outside* of the tip. Dispensing to touch the destination wall or liquid, rather than into open air, resolves most of this.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Table-like row of four liquid problems and their fixes: viscosity is fixed by slower speed, volatility by pre-wetting, foaming by reverse pipetting, and surface tension issues by dispensing to contact rather than into open air."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      ["VISCOSITY", "slower speed"],
+      ["VOLATILITY", "pre-wetting"],
+      ["FOAMING", "reverse pipette"],
+      ["SURFACE TENSION", "dispense to contact"],
+    ].map(([problem, fix], i) => (
+      <g key={problem} transform={`translate(${10 + i * 158}, 10)`}>
+        <rect x="0" y="0" width="145" height="60" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x="72" y="26" fontSize="11" fontWeight="600" textAnchor="middle">{problem}</text>
+        <text x="72" y="60" fontSize="20" textAnchor="middle">↓</text>
+        <rect x="0" y="90" width="145" height="60" fill="#e8f2e0" stroke="#000" strokeWidth="1.5" />
+        <text x="72" y="125" fontSize="11" textAnchor="middle">{fix}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each difficult-liquid problem traces back to a specific physical cause, and each has a specific technique that addresses that cause directly.
+  </figcaption>
+</figure>
+
+### Why software, not just technique, is involved
+
+On an automated liquid handler, these fixes aren't manual habits — they're **liquid classes**: named parameter sets (aspirate speed, pre-wet cycles, settling delay, dispense mode) stored in software and selected per reagent. Defining a correct liquid class once means every future protocol using that reagent inherits the right handling automatically, instead of relying on whoever programs the run to remember that this particular buffer foams.
+
+Even with the right technique and the right liquid class, none of this matters if the pipette itself isn't actually delivering the volume it claims to — which is exactly what the final section of this chapter checks.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="handling-difficult-liquids-q1"
+    question="Why does aspirating a viscous liquid too quickly leave the tip under-filled?"
+    options={[
+      "The liquid evaporates before it can be drawn in",
+      "The liquid resists flow and can't keep up with the piston's fast motion",
+      "Viscous liquids always foam when aspirated quickly",
+      "The tip's filter blocks viscous liquids",
+    ]}
+    answer={1}
+    explanation="A viscous liquid moves slowly. If the piston moves faster than the liquid can follow, the tip ends up with less liquid than the aspiration was set to draw."
+  />
+  <Quiz
+    id="handling-difficult-liquids-q2"
+    question="What problem does pre-wetting address when pipetting a volatile liquid?"
+    options={[
+      "It prevents the liquid from foaming",
+      "It saturates the air column with vapor first, so the actual measured aspiration behaves consistently instead of fighting building vapor pressure",
+      "It increases the liquid's viscosity",
+      "It removes the need for a settling pause",
+    ]}
+    answer={1}
+    explanation="A volatile liquid's vapor pressure changes the air column's behavior on first contact. Pre-wetting saturates that air column beforehand so the real transfer isn't the first exposure."
+  />
+  <Quiz
+    id="handling-difficult-liquids-q3"
+    question="Why does aspirating through foam draw in less true liquid than the set volume suggests?"
+    options={[
+      "Foam is mostly air, so the tip pulls in a mix that is far less liquid than its apparent volume",
+      "Foam is denser than the underlying liquid",
+      "Foam blocks the tip's filter entirely",
+      "Foam only affects dispensing, not aspiration",
+    ]}
+    answer={0}
+    explanation="Since foam is largely trapped air rather than liquid, aspirating through it pulls in a volume that looks correct but contains far less actual liquid than intended."
+  />
+  <Quiz
+    id="handling-difficult-liquids-q4"
+    question="Why does dispensing to contact the destination's wall or liquid help with high or low surface tension liquids?"
+    options={[
+      "It increases the dispense speed automatically",
+      "It resolves the droplet-hanging or creeping-up-the-outside behavior that occurs when dispensing into open air",
+      "It eliminates the need for blow-out entirely",
+      "It only matters for viscous liquids, not surface tension issues",
+    ]}
+    answer={1}
+    explanation="Dispensing into open air lets surface tension effects — a hanging droplet, or liquid creeping up the tip's outside — interfere with delivery; contact dispensing controls where the droplet actually forms."
+  />
+  <Quiz
+    id="handling-difficult-liquids-q5"
+    question="Why are 'liquid classes' used on automated liquid handlers instead of relying on a person to remember the right technique each time?"
+    options={[
+      "Because liquid classes eliminate the need for any pipetting hardware",
+      "Because a stored, named set of parameters (speed, pre-wetting, delay) is automatically applied to a reagent, rather than depending on whoever programs the run",
+      "Because liquid classes only apply to viscous liquids",
+      "Because software cannot control aspiration speed directly",
+    ]}
+    answer={1}
+    explanation="A liquid class captures the correct handling parameters once, in software, so any future protocol using that reagent applies the right technique automatically instead of relying on memory."
+  />
+</QuizSet>

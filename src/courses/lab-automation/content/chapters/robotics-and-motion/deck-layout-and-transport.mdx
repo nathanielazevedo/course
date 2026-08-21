@@ -1,0 +1,115 @@
+Individual taught positions are the atoms; the deck layout is how those atoms are arranged into a coherent whole, and transport is how labware actually flows between them once a method starts running.
+
+### The deck as a floor plan
+
+A **deck** is the physical work surface an automated system is built around — a grid of fixed positions where instruments, plate nests, tip boxes, and reservoirs sit. Laying out a deck is a genuinely physical design problem: instruments an arm needs to reach must be within its actual working envelope, positions used together frequently should sit close to minimize travel time, and anything requiring a person's occasional intervention (a reagent refill, a tip-box swap) needs to remain physically accessible without interrupting the rest of the deck.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A top down deck layout with a robotic arm at the center, surrounded by a liquid handler, a plate reader, a thermal cycler, tip box positions, and a plate hotel, each placed within the arm's reach and grouped by how often they're used together."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <circle cx="320" cy="110" r="90" fill="none" stroke="#999" strokeWidth="1" strokeDasharray="4 4" />
+    <circle cx="320" cy="110" r="14" fill="#3464c8" />
+    <text x="320" y="90" fontSize="9" fill="#666" textAnchor="middle">ARM</text>
+
+    {[
+      { x: 130, y: 60, label: "LIQUID HANDLER" },
+      { x: 500, y: 60, label: "PLATE READER" },
+      { x: 130, y: 170, label: "THERMAL CYCLER" },
+      { x: 500, y: 170, label: "TIP BOXES" },
+      { x: 320, y: 210, label: "PLATE HOTEL" },
+    ].map((p) => (
+      <g key={p.label}>
+        <rect x={p.x - 55} y={p.y - 15} width="110" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+        <text x={p.x} y={p.y + 5} fontSize="9.5" fontWeight="600" textAnchor="middle">{p.label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Frequently paired instruments sit near each other within the arm's reach; anything a person must service stays reachable from outside that envelope too.
+  </figcaption>
+</figure>
+
+### Transport: the moves between positions
+
+**Transport** is the actual act of an arm (or conveyor, or track) carrying a piece of labware from one deck position to another. Every transport move is really three sub-steps: pick up from the source position, travel a path to the destination, and place down at the destination position — each of which the taught coordinates and gripper technique from earlier sections make possible.
+
+### Paths, not just points
+
+Moving from point A to point B isn't simply a straight line drawn between two taught coordinates. An arm's **path** — the exact route and height it travels — has to clear every obstacle between source and destination: an instrument's housing, another plate already in transit, the arm's own moving parts on a multi-arm system. Paths are often taught or programmed with specific waypoints and safe travel heights, ensuring the arm always lifts clear of obstacles before moving horizontally, rather than assuming a direct line is ever safe.
+
+### When multiple arms or transports share a deck
+
+Larger systems sometimes use more than one arm, or a mix of arms and conveyors, splitting up transport duties across a bigger deck than one arm could reach alone. This introduces genuine coordination requirements — two arms must never be scheduled to occupy the same physical space at the same time, a constraint that connects directly to the collision-avoidance concerns of the next section and the scheduling conflicts covered later in this course.
+
+Deck layout and transport describe *how* labware physically moves; making sure that movement never collides with anything else moving at the same time is the final, and arguably most safety-critical, concern of this chapter.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="deck-layout-and-transport-q1"
+    question="What is a key physical constraint when laying out a deck?"
+    options={[
+      "Every instrument must be identical in size",
+      "Instruments the arm needs to reach must fall within its actual working envelope, and frequently paired positions should be close together to minimize travel",
+      "All positions must be equidistant from the arm",
+      "Instruments requiring occasional human access must be placed as far from the arm as possible",
+    ]}
+    answer={1}
+    explanation="Deck layout is a real physical design problem — reachability and minimizing travel between frequently used positions both matter, along with keeping human-serviced items accessible."
+  />
+  <Quiz
+    id="deck-layout-and-transport-q2"
+    question="What are the three sub-steps that make up a single transport move?"
+    options={[
+      "Teach, calibrate, and verify",
+      "Pick up from the source position, travel a path to the destination, and place down at the destination",
+      "Aspirate, dispense, and blow-out",
+      "Scan, identify, and record",
+    ]}
+    answer={1}
+    explanation="Every transport move breaks down into picking up labware at its source, traveling to the destination, and placing it there — relying on the taught positions and gripper technique covered earlier."
+  />
+  <Quiz
+    id="deck-layout-and-transport-q3"
+    question="Why isn't an arm's path between two taught positions simply a straight line?"
+    options={[
+      "Because straight lines are always the fastest possible route",
+      "Because the path must clear obstacles like instrument housings or other labware in transit, requiring specific waypoints and safe travel heights",
+      "Because taught positions don't include height information",
+      "Because straight-line motion is impossible for any robotic arm",
+    ]}
+    answer={1}
+    explanation="A direct line between two points can pass through obstacles; paths are programmed with waypoints and safe heights so the arm lifts clear before moving horizontally."
+  />
+  <Quiz
+    id="deck-layout-and-transport-q4"
+    question="What coordination requirement arises when a deck uses multiple arms or transport mechanisms?"
+    options={[
+      "Each arm must use a completely separate coordinate system",
+      "The arms must never be scheduled to occupy the same physical space at the same time",
+      "Multiple arms eliminate the need for taught positions",
+      "Only one arm may ever move during an entire run",
+    ]}
+    answer={1}
+    explanation="Splitting transport duties across multiple arms introduces a real coordination problem — physical collisions must be prevented by ensuring no two arms are scheduled into the same space simultaneously."
+  />
+  <Quiz
+    id="deck-layout-and-transport-q5"
+    question="Why does deck layout consider which instruments are 'used together frequently'?"
+    options={[
+      "Because instruments used together should be placed close to minimize travel time between them",
+      "Because frequently paired instruments must always share the same power supply",
+      "Because usage frequency has no bearing on physical placement",
+      "Because only rarely used instruments need to be reachable by the arm",
+    ]}
+    answer={0}
+    explanation="Placing frequently paired instruments near each other reduces the time and distance the arm spends transporting labware between the steps that use them back to back."
+  />
+</QuizSet>

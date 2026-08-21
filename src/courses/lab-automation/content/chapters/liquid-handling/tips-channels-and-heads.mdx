@@ -1,0 +1,133 @@
+The physics from the first section and the technique from the second are both executed through physical hardware: the disposable tip, the channel that drives it, and the head that holds many channels together. This section is about that hardware and the choices it forces.
+
+### Tips: disposable, and not interchangeable
+
+A pipette tip is the only part of the system that touches liquid, which is exactly why it's disposable — swap it and there's no carryover between samples. But tips aren't one-size-fits-all:
+
+- **Volume range.** A tip rated for 0.5–20 µL behaves differently from one rated for 200–1000 µL; using a tip far outside its designed range hurts accuracy at both extremes.
+- **Filtered tips.** A small filter plug near the top blocks aerosols and liquid from reaching the pipette's internals — essential when working with volatile or infectious samples, since it protects the instrument from what it aspirates.
+- **Low-retention tips.** A specially treated inner surface that liquid clings to less, reducing the residual film that blow-out has to deal with — useful for viscous or precious samples where every drop counts.
+
+### Channels: one pipetting unit
+
+A **channel** is a single, independent pipetting mechanism — its own piston, its own air column, capable of aspirating and dispensing on its own. A single-channel pipette has exactly one; it's flexible but slow across many wells.
+
+### Heads: many channels, moved together
+
+A **head** ties multiple channels into one assembly that moves and fires as a unit. The two configurations that matter most:
+
+- **8- or 12-channel heads** pipette an entire column or row of a 96-well plate in one motion — matched to the plate's own spacing so every channel lines up with a well simultaneously.
+- **96- or 384-channel heads** pipette an *entire plate* in a single stroke. Every channel is fixed relative to the others, so all wells receive the same volume in the same action — extremely fast, but inflexible: it can't easily give well A1 a different volume than well H12 the way independent channels can.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three heads compared over a plate grid: a single channel over one well, an eight-channel head over one column, and a ninety-six channel head over the entire plate at once."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 20, label: "1 CHANNEL", cols: 1, rows: 1 },
+      { x: 240, label: "8 CHANNELS", cols: 1, rows: 8 },
+      { x: 460, label: "96 CHANNELS", cols: 8, rows: 8 },
+    ].map((cfg) => (
+      <g key={cfg.label}>
+        <text x={cfg.x + 80} y="16" fontSize="11" fontWeight="600" textAnchor="middle">{cfg.label}</text>
+        {Array.from({ length: cfg.rows }).map((_, r) =>
+          Array.from({ length: cfg.cols }).map((_, c) => (
+            <rect
+              key={`${r}-${c}`}
+              x={cfg.x + 20 + c * 18}
+              y={30 + r * 18}
+              width="14"
+              height="14"
+              fill={r < cfg.rows && c < cfg.cols ? "#d8e8ff" : "#fff"}
+              stroke="#000"
+              strokeWidth="1"
+            />
+          )),
+        )}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    More channels per head means more speed per stroke, but every channel in a fixed head fires together — flexibility trades against throughput.
+  </figcaption>
+</figure>
+
+### Independent channels: a middle ground
+
+Some liquid handlers use **independent-channel** heads — multiple channels in one assembly, but each with its own piston, able to aspirate or dispense a *different* volume from its neighbors, or skip a well entirely. This combines a head's speed with a single channel's flexibility, at the cost of a more complex (and expensive) mechanism.
+
+### Matching hardware to the protocol
+
+Choosing tips, channels, and heads is really choosing where a protocol sits between flexibility and speed. A method that treats every well identically — like transferring the same reagent to a full plate — is a natural fit for a fixed 96-channel head. A method that needs different volumes in different wells, or skips some wells based on a plate map, needs independent channels or single-channel flexibility instead. Picking the wrong hardware for a protocol's shape either wastes speed or, worse, forces awkward workarounds to fake flexibility the hardware doesn't have.
+
+Not every liquid behaves the same under this hardware, though — the next section covers what happens when a liquid actively resists being pipetted at all.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="tips-channels-and-heads-q1"
+    question="Why must a pipette tip be matched to a specific volume range rather than used universally?"
+    options={[
+      "All tips are functionally identical regardless of range",
+      "Accuracy suffers at both extremes when a tip is used well outside its designed volume range",
+      "Tips are only rated by color, not by volume",
+      "Volume range only matters for filtered tips",
+    ]}
+    answer={1}
+    explanation="A tip designed for a specific volume range performs accurately within it; using it far outside that range — too small or too large a volume — degrades accuracy."
+  />
+  <Quiz
+    id="tips-channels-and-heads-q2"
+    question="What is the purpose of a filter plug in a filtered pipette tip?"
+    options={[
+      "To increase the volume the tip can hold",
+      "To block aerosols and liquid from reaching the pipette's internals, protecting it from what it aspirates",
+      "To reduce the tip's cost",
+      "To allow the tip to be reused across samples",
+    ]}
+    answer={1}
+    explanation="The filter blocks aerosols or liquid from traveling up into the pipette mechanism, which matters when working with volatile or infectious material."
+  />
+  <Quiz
+    id="tips-channels-and-heads-q3"
+    question="What is the key limitation of a fixed 96-channel head compared to independent channels?"
+    options={[
+      "It can only pipette one well at a time",
+      "Every channel fires together with the same volume, so it can't easily give different wells different volumes",
+      "It cannot be used with any type of tip",
+      "It is slower than a single-channel pipette",
+    ]}
+    answer={1}
+    explanation="Because all channels in a fixed head are locked together mechanically, they all aspirate and dispense the same way at once — fast, but unable to vary volume well to well."
+  />
+  <Quiz
+    id="tips-channels-and-heads-q4"
+    question="What advantage do independent-channel heads offer over a standard fixed 8- or 96-channel head?"
+    options={[
+      "They are always faster than any fixed head",
+      "Each channel has its own piston, so it can aspirate or dispense a different volume, or skip a well, unlike a fixed head",
+      "They require no disposable tips",
+      "They can only be used with low-retention tips",
+    ]}
+    answer={1}
+    explanation="Independent channels combine head-level speed with per-channel flexibility, since each channel's piston operates on its own rather than moving in lockstep with the others."
+  />
+  <Quiz
+    id="tips-channels-and-heads-q5"
+    question="A protocol needs to skip certain wells and vary volume across a plate map. Which hardware fits this protocol's shape best?"
+    options={[
+      "A fixed 96-channel head, since it is the fastest option available",
+      "Independent channels or single-channel pipetting, since the protocol requires per-well flexibility a fixed head can't provide",
+      "Any head configuration works equally well for this protocol",
+      "A fixed 384-channel head, since higher channel count always outperforms",
+    ]}
+    answer={1}
+    explanation="A protocol that varies by well needs hardware that can vary by well. A fixed head applies the same action everywhere, which mismatches this protocol's actual requirements."
+  />
+</QuizSet>

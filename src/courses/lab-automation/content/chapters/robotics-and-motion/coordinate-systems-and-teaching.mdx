@@ -1,0 +1,116 @@
+An arm with the right degrees of freedom and a gripper tuned to hold a plate still doesn't know where anything on the deck actually is. Every position it visits — a plate nest, a tip box, an instrument's loading slot — has to be defined precisely, once, before the arm can find it reliably ever again.
+
+### A shared coordinate system
+
+A deck's layout is described using a **coordinate system** — a set of X, Y, and Z values measured from one fixed reference point, usually a corner of the deck itself. Every position the arm needs to reach — where plate nest 3 sits, where the reader's loading slot is, how high the arm must lift a plate to clear a wall — is stored as a coordinate in that same shared system. This is what lets a scheduler tell the arm "move to nest 3" without needing to know or care what nest 3's coordinates actually are; it just looks them up.
+
+### Teaching: recording where things really are
+
+In theory, every position could be calculated from the deck's engineering drawings. In practice, small physical variations — a nest mounted slightly off-spec, an instrument installed a few millimeters from its nominal position — mean the *real* deck rarely matches the drawing exactly. **Teaching** is the process of manually moving the arm to each real position once, using a control pendant or software jog controls, and recording the exact coordinates the arm found there. Every position an arm will ever need to visit is taught this way before the system runs its first real protocol.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A deck grid with an origin point at one corner. Several labeled positions — plate nest, tip box, reader slot — are marked with their X Y Z coordinates measured from that shared origin, illustrating that every position is defined relative to the same fixed reference point."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="60" y1="160" x2="580" y2="160" stroke="#000" strokeWidth="1.5" />
+    <line x1="60" y1="160" x2="60" y2="30" stroke="#000" strokeWidth="1.5" />
+    <circle cx="60" cy="160" r="4" fill="#000" />
+    <text x="45" y="178" fontSize="10" fill="#666">origin (0,0,0)</text>
+
+    {[
+      { x: 150, y: 120, label: "NEST 3", coord: "(150, 40, 0)" },
+      { x: 320, y: 90, label: "TIP BOX", coord: "(320, 70, 0)" },
+      { x: 480, y: 60, label: "READER SLOT", coord: "(480, 100, 20)" },
+    ].map((p) => (
+      <g key={p.label}>
+        <rect x={p.x - 25} y={p.y - 15} width="50" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+        <text x={p.x} y={p.y - 20} fontSize="10" fontWeight="600" textAnchor="middle">{p.label}</text>
+        <text x={p.x} y={p.y + 45} fontSize="9" fill="#666" textAnchor="middle">{p.coord}</text>
+        <line x1="60" y1="160" x2={p.x} y2={p.y} stroke="#999" strokeWidth="0.8" strokeDasharray="3 3" />
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every named position on the deck resolves to a coordinate measured from the same shared origin.
+  </figcaption>
+</figure>
+
+### Named positions, not raw numbers
+
+Once taught, positions are almost always referred to by a **name** — "plate nest 3," "reader input slot" — rather than by their raw coordinates, in the same way a method refers to "the reader" rather than the reader's specific command syntax. This is deliberate: if a nest is physically relocated, only its recorded coordinate needs updating, and every method that refers to it by name keeps working without being rewritten, the same separation-of-concerns idea that made the anatomy of an automated system maintainable in the first place.
+
+### Why re-teaching is unavoidable after physical change
+
+Because taught positions capture the deck's *real*, physical layout rather than its nominal design, any physical change — moving an instrument, replacing a nest, even a hard bump that shifts something slightly — invalidates the taught position for whatever moved. Systems don't automatically detect this; a position that's been physically disturbed but not re-taught will send the arm confidently to the *wrong* spot, which is why re-teaching after any hardware change is a required step, not an optional precaution.
+
+Coordinate systems tell an arm exactly where to go. The next section zooms out to the deck as a whole — how positions are arranged across it, and how labware actually gets transported between them during a run.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="coordinate-systems-and-teaching-q1"
+    question="What does a shared coordinate system let a scheduler do without needing to know a position's actual coordinates?"
+    options={[
+      "Calculate every position from engineering drawings in real time",
+      "Refer to a named position like 'nest 3' and have the system look up its stored coordinates automatically",
+      "Skip teaching positions entirely",
+      "Move the arm without any reference point at all",
+    ]}
+    answer={1}
+    explanation="Because all positions are stored as coordinates in one shared system, a scheduler only needs to reference a position by name — the underlying coordinate lookup is handled separately."
+  />
+  <Quiz
+    id="coordinate-systems-and-teaching-q2"
+    question="Why is teaching necessary instead of just calculating every position from engineering drawings?"
+    options={[
+      "Because engineering drawings never specify any positions",
+      "Because small physical variations mean the real deck rarely matches its nominal design exactly",
+      "Because teaching is faster than any calculation could be",
+      "Because coordinate systems only work for articulated arms",
+    ]}
+    answer={1}
+    explanation="Real installed hardware deviates slightly from its engineering drawing, so positions must be recorded from the arm's actual physical findings rather than assumed from a design spec."
+  />
+  <Quiz
+    id="coordinate-systems-and-teaching-q3"
+    question="Why are taught positions almost always referred to by name rather than by raw coordinates in a method?"
+    options={[
+      "Because raw coordinates cannot be stored in software",
+      "Because a name lets the underlying coordinate be updated in one place if a position physically moves, without rewriting every method that references it",
+      "Because named positions move automatically when hardware changes",
+      "Because coordinates are only used during the teaching process itself",
+    ]}
+    answer={1}
+    explanation="Naming positions separates 'what' a method refers to from 'where' that position physically is, so relocating hardware only requires updating one stored coordinate rather than every method."
+  />
+  <Quiz
+    id="coordinate-systems-and-teaching-q4"
+    question="What happens if a nest is physically bumped or shifted but not re-taught?"
+    options={[
+      "The system automatically detects and corrects the shift",
+      "The arm will confidently move to the old, now-incorrect taught position",
+      "The named position is automatically deleted",
+      "Nothing changes, since coordinates are recalculated every run",
+    ]}
+    answer={1}
+    explanation="Systems don't automatically detect physical disturbance to a taught position — the arm continues using the outdated coordinate confidently until someone re-teaches it."
+  />
+  <Quiz
+    id="coordinate-systems-and-teaching-q5"
+    question="Why is re-teaching required after any hardware change, rather than being an optional precaution?"
+    options={[
+      "Because a taught position captures the deck's actual physical layout, and any physical change invalidates the taught coordinate for whatever moved",
+      "Because re-teaching is only needed for articulated arms, not Cartesian arms",
+      "Because hardware changes automatically update the coordinate system",
+      "Because re-teaching is purely a regulatory requirement with no functional purpose",
+    ]}
+    answer={0}
+    explanation="Since taught coordinates reflect real physical positions, any change to that physical layout makes the old taught position wrong until it's re-taught to match reality again."
+  />
+</QuizSet>

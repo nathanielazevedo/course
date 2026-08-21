@@ -1,0 +1,130 @@
+A liquid handler moves samples into place; a plate reader is usually what finally asks "what's the answer?" It shines something at a plate, or waits for something to come out of it, and turns that into a number. Which physical phenomenon it measures determines what kind of assay it can read.
+
+### Absorbance: how much light gets through
+
+An **absorbance** reader shines light of a specific wavelength through a well and measures how much comes out the other side. A colored product — from an enzyme reaction, say — blocks more light than a colorless well, and the amount blocked follows a predictable relationship with concentration. This is the oldest and simplest detection mode, and the one most assays (like a basic ELISA) are built around.
+
+### Fluorescence: light in, different light out
+
+A **fluorescence** reader excites a sample with light at one wavelength and measures light re-emitted at a longer wavelength. Because it measures emitted light against a dark background rather than a small dip in transmitted light, fluorescence is far more sensitive than absorbance — useful when a signal is faint. The tradeoff is more finicky physics: excitation and emission wavelengths must be tuned to the specific fluorescent dye or protein in use, and background fluorescence from plastic or media can add noise.
+
+### Luminescence: no light in at all
+
+A **luminescence** reader doesn't shine anything on the sample — it measures light the sample generates itself, usually from a chemical reaction (like the luciferase reaction used in many cell-viability assays). With no excitation light to filter out, luminescence has essentially no background signal, making it extremely sensitive, though the signal is often transient and must be read within a specific window after the reaction starts.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three detection modes compared. Absorbance shows light passing through a well from below to a detector above, with the well partially blocking it. Fluorescence shows light entering the well at one wavelength and a different wavelength being emitted toward the detector. Luminescence shows no incoming light at all, only light emitted from the well itself toward the detector."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["ABSORBANCE", "FLUORESCENCE", "LUMINESCENCE"].map((label, i) => (
+      <g key={label} transform={`translate(${20 + i * 210}, 10)`}>
+        <text x="90" y="10" fontSize="11" fontWeight="600" textAnchor="middle">{label}</text>
+        <rect x="60" y="90" width="60" height="40" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+        <rect x="70" y="30" width="40" height="14" fill="#fff" stroke="#000" strokeWidth="1" />
+        <text x="90" y="40" fontSize="8" textAnchor="middle">detector</text>
+        {i === 0 && (
+          <>
+            <line x1="90" y1="180" x2="90" y2="130" stroke="#000" strokeWidth="1.2" markerEnd="url(#pd1)" />
+            <line x1="90" y1="90" x2="90" y2="44" stroke="#000" strokeWidth="1.2" markerEnd="url(#pd1)" />
+          </>
+        )}
+        {i === 1 && (
+          <>
+            <line x1="30" y1="110" x2="60" y2="110" stroke="#000" strokeWidth="1.2" markerEnd="url(#pd1)" />
+            <line x1="120" y1="100" x2="150" y2="60" stroke="#3464c8" strokeWidth="1.2" markerEnd="url(#pd2)" />
+          </>
+        )}
+        {i === 2 && (
+          <line x1="105" y1="105" x2="90" y2="44" stroke="#3464c8" strokeWidth="1.2" markerEnd="url(#pd2)" />
+        )}
+      </g>
+    ))}
+    <defs>
+      <marker id="pd1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+      <marker id="pd2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#3464c8" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Absorbance measures light blocked; fluorescence measures re-emitted light at a shifted wavelength; luminescence measures light the sample makes on its own.
+  </figcaption>
+</figure>
+
+### Reading top or bottom
+
+A reader can approach a plate from above (**top read**) or below (**bottom read**). Bottom reads are common for cell-based assays in clear-bottom plates, since cells settle on the bottom and reading through the plastic avoids disturbing them; top reads are typical for solution-based absorbance assays and are the only option for opaque-bottom plates.
+
+### Why the choice of mode is decided by the assay, not the reader
+
+A single high-end reader often supports all three modes, but which one a *given* assay uses is fixed by its chemistry — an ELISA that produces a colored product needs absorbance; a cell-viability assay built on a luciferase reaction needs luminescence. Choosing the reader mode isn't a preference, it's dictated upstream by which reaction the protocol was designed around, which is why the reader's driver (covered in a later chapter) needs to expose all three modes rather than assuming one.
+
+Detection tells you *what* happened in a well chemically. The next section looks at instruments that control a different variable entirely — temperature.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="plate-readers-and-detection-q1"
+    question="What does an absorbance reader actually measure?"
+    options={[
+      "Light the sample generates on its own",
+      "How much light passing through the well is blocked compared to a colorless well",
+      "Light re-emitted at a different wavelength than what excited it",
+      "The temperature of the sample",
+    ]}
+    answer={1}
+    explanation="Absorbance shines light through the well and measures how much is blocked by whatever colored product is present, following a predictable relationship with concentration."
+  />
+  <Quiz
+    id="plate-readers-and-detection-q2"
+    question="Why is fluorescence generally more sensitive than absorbance?"
+    options={[
+      "It measures emitted light against a dark background rather than a small dip in transmitted light",
+      "It doesn't require any specific wavelength tuning",
+      "It always uses larger sample volumes",
+      "It has no possible source of background noise",
+    ]}
+    answer={0}
+    explanation="Detecting emitted light against darkness is more sensitive than detecting a small reduction in a bright transmitted beam, though fluorescence does have its own background noise sources."
+  />
+  <Quiz
+    id="plate-readers-and-detection-q3"
+    question="Why does luminescence have essentially no background signal compared to fluorescence?"
+    options={[
+      "Because luminescence samples are always more concentrated",
+      "Because there is no excitation light shone on the sample to filter out — the sample generates its own light",
+      "Because luminescence only works with opaque plates",
+      "Because luminescence signals never decay over time",
+    ]}
+    answer={1}
+    explanation="With no external excitation light involved, there's nothing to filter out — any light detected comes from the sample's own chemical reaction, minimizing background."
+  />
+  <Quiz
+    id="plate-readers-and-detection-q4"
+    question="Why are bottom reads common for cell-based assays in clear-bottom plates?"
+    options={[
+      "Bottom reads are always more sensitive than top reads",
+      "Cells settle on the bottom of the well, so reading through the plastic from below avoids disturbing them",
+      "Bottom reads work only with opaque-bottom plates",
+      "Top reads cannot be performed on any plate type",
+    ]}
+    answer={1}
+    explanation="Since cells settle at the bottom, reading from below captures them without disturbing the well's contents, which top reads can't guarantee for settled cells."
+  />
+  <Quiz
+    id="plate-readers-and-detection-q5"
+    question="Why is the choice of detection mode for a given assay usually fixed rather than a matter of preference?"
+    options={[
+      "Because most readers can only perform one mode ever",
+      "Because the underlying chemistry of the assay — like a colored product versus a luciferase reaction — dictates which physical phenomenon must be measured",
+      "Because regulations mandate a single detection mode per lab",
+      "Because detection mode is chosen at random for each run",
+    ]}
+    answer={1}
+    explanation="An assay's chemistry determines what physical signal it produces — color, re-emitted light, or self-generated light — which in turn determines the only detection mode capable of reading it."
+  />
+</QuizSet>

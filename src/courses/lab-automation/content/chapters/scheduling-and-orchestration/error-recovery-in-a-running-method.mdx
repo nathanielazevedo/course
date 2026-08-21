@@ -1,0 +1,109 @@
+Every scheduling strategy in this chapter assumes things go according to plan. They don't, always. A tip fails to attach, an instrument reports an error, a plate gets stuck mid-transport — and the scheduler has to decide what happens to that one plate, and to everything else still running around it.
+
+### The first decision: stop everything, or isolate the problem?
+
+When something goes wrong with one plate, a scheduler has two broad options. **Halt the whole run** — the safest option when the failure might reflect something wrong with a shared resource (a jammed arm, a miscalibrated instrument) that could just as easily corrupt every other plate too. **Isolate the failure** — pull the one affected plate aside and let every other, unaffected plate continue on schedule, which preserves throughput but only makes sense if the failure is genuinely local to that one plate and nothing it touched afterward.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 180"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four plates running in a schedule. Plate two fails at the wash step. In the isolate strategy, plates one, three, and four continue on their normal schedule while plate two is pulled aside. In the halt strategy, all four plates stop at their current step until the error is resolved."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">ISOLATE</text>
+    {[0, 1, 2, 3].map((i) => (
+      <rect key={i} x="20" y={30 + i * 22} width={i === 1 ? 90 : 260} height="16" fill={i === 1 ? "#ffe0d8" : "#d8e8ff"} stroke="#000" strokeWidth="1" />
+    ))}
+    <text x="70" y="82" fontSize="8.5" textAnchor="middle">stopped</text>
+
+    <text x="480" y="16" fontSize="11" fontWeight="600" textAnchor="middle">HALT ALL</text>
+    {[0, 1, 2, 3].map((i) => (
+      <rect key={i} x="360" y={30 + i * 22} width="90" height="16" fill={i === 1 ? "#ffe0d8" : "#c8c8c8"} stroke="#000" strokeWidth="1" />
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Isolating a failure keeps unaffected plates moving; halting sacrifices throughput for certainty that nothing else was also compromised.
+  </figcaption>
+</figure>
+
+### Retry, skip, or escalate
+
+Once a failure is contained to a single plate (or the whole run, if halted), the scheduler needs a concrete response, not just a pause. **Retry** — attempt the same step again, appropriate for a transient issue like a tip that failed to attach on the first try. **Skip** — mark the step as failed and continue with the rest of the plate's sequence, appropriate when a later analysis can still make sense of a plate missing one data point. **Escalate** — stop and alert a person, appropriate when the failure is outside anything the system was built to resolve on its own. Choosing the wrong response is its own kind of failure: retrying a fundamentally broken step wastes time and consumables without ever succeeding; skipping a step whose failure genuinely invalidates the whole sample quietly produces bad data downstream.
+
+### Checkpointing: knowing where a plate actually is
+
+None of these responses work without the scheduler knowing, precisely, what step a given plate was on and what state it was in when the failure occurred — its **checkpoint**. Without an accurate checkpoint, a retry might redo a step that actually succeeded (over-processing a sample, or wasting a reagent it didn't need again), or skip past a step that never actually ran. Robust systems record a checkpoint after every completed step specifically so a plate's exact position in its sequence is never in doubt, even mid-failure.
+
+### Why this connects back to everything earlier in the chapter
+
+Error recovery isn't a separate system bolted onto scheduling — it's the same resource-allocation and timing logic from the previous two sections, just triggered by an unplanned event instead of a planned one. A plate pulled aside for isolation still occupies a nest that a scheduler must now account for; a retried step still has to compete for the same instrument and arm time as everything else in flight. Handling failure gracefully is really just handling the scheduling problem correctly under conditions the original plan didn't anticipate.
+
+This closes the chapter on scheduling and orchestration — the core problem, static versus dynamic strategies, resource conflicts, timing constraints, and recovery from failure. The next chapter turns to what happens to the data and identity of every sample once all of this scheduling and processing is actually done.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="error-recovery-in-a-running-method-q1"
+    question="When would halting the entire run be the safer response to a single plate's failure, compared to isolating it?"
+    options={[
+      "Whenever any failure occurs, regardless of cause",
+      "When the failure might reflect a problem with a shared resource, like a jammed arm or a miscalibrated instrument, that could corrupt other plates too",
+      "Only when the failed plate is the very last one in the run",
+      "Never — isolation is always the correct response",
+    ]}
+    answer={1}
+    explanation="If the failure could stem from a shared resource that every plate depends on, halting protects every other plate from a problem that isn't actually isolated to just the one that failed first."
+  />
+  <Quiz
+    id="error-recovery-in-a-running-method-q2"
+    question="What is the risk of choosing 'retry' as a response to a step failure that is actually fundamentally broken, not transient?"
+    options={[
+      "It has no downside since retries are always free",
+      "It wastes time and consumables repeatedly without ever succeeding",
+      "It automatically escalates to a person after one attempt",
+      "It always corrupts data from every other plate in the run",
+    ]}
+    answer={1}
+    explanation="Retrying assumes the failure was transient. If the underlying problem is persistent, repeated retries just burn time and materials without any chance of eventually succeeding."
+  />
+  <Quiz
+    id="error-recovery-in-a-running-method-q3"
+    question="Why is 'skip' an inappropriate response to a failure that genuinely invalidates the whole sample?"
+    options={[
+      "Because skipping is never technically possible",
+      "Because continuing the plate's sequence past a truly invalidating failure quietly produces bad data downstream without any visible warning",
+      "Because skip always halts the entire run automatically",
+      "Because skip only applies to resource conflicts, not step failures",
+    ]}
+    answer={1}
+    explanation="Skip is meant for failures a later analysis can tolerate, like one missing data point — using it on a sample-invalidating failure lets bad data continue through the pipeline unflagged."
+  />
+  <Quiz
+    id="error-recovery-in-a-running-method-q4"
+    question="Why is an accurate checkpoint essential for any error-recovery response to work correctly?"
+    options={[
+      "Because without knowing exactly what step a plate was on and its state, a retry might redo an already-succeeded step or skip past one that never ran",
+      "Because checkpoints are only relevant for static scheduling",
+      "Because checkpoints eliminate the need for retry or skip entirely",
+      "Because checkpoints are only used for barcoding purposes",
+    ]}
+    answer={0}
+    explanation="Without a precise record of a plate's actual progress, the system can't reliably decide whether to retry, skip, or how to resume — it might repeat or omit steps incorrectly."
+  />
+  <Quiz
+    id="error-recovery-in-a-running-method-q5"
+    question="Why does the chapter describe error recovery as using 'the same resource-allocation and timing logic' rather than being a separate system?"
+    options={[
+      "Because an isolated or retried plate still competes for the same shared resources — nests, instruments, arm time — as everything else in flight, just triggered by an unplanned event",
+      "Because error recovery never actually involves any scheduling decisions",
+      "Because resource allocation and timing constraints are irrelevant once an error occurs",
+      "Because retries always happen instantly with no resource cost",
+    ]}
+    answer={0}
+    explanation="A plate handled through error recovery still occupies resources and competes for scheduling attention just like a normally progressing plate — recovery is scheduling logic applied to an unplanned scenario."
+  />
+</QuizSet>

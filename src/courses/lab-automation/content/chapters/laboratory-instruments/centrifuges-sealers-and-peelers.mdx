@@ -1,0 +1,116 @@
+Not every instrument in a workflow reads a signal or holds a temperature. Some just apply force — spinning a plate, sealing it shut, or opening it back up — and these mechanical steps are just as essential, and just as prone to going wrong, as anything more sophisticated.
+
+### Centrifuges: separation by spinning
+
+A **centrifuge** spins labware fast enough that centrifugal force separates components by density — pelleting cells to the bottom of a tube, driving liquid out of a filter plate, or removing bubbles from a viscous dispense. The key parameter is **relative centrifugal force (RCF)**, measured in multiples of gravity (× g), not raw rotational speed — the same RPM produces different RCF depending on the rotor's radius, so protocols specify RCF to stay consistent across different centrifuge models.
+
+Centrifuges have a requirement most instruments don't: **balance**. Spinning an asymmetric load — one plate loaded, the opposite position empty — creates a vibration that can damage the rotor or, in a bad case, the instrument itself. Automated systems must load counterweighted plates or matched pairs into opposing positions, a real scheduling constraint covered in a later chapter.
+
+### Sealers: closing a plate
+
+A **sealer** applies a film or foil layer across the top of a plate, closing every well at once — protecting samples from evaporation, contamination, or spillage during a spin, a shake, or an overnight incubation. Heat sealers bond an adhesive foil using heat and pressure for a strong, long-term seal (common before shipping or extended storage); pierceable seals use a lighter film that a pipette tip can push through directly, letting later steps access the wells without a separate peeling step.
+
+### Peelers: opening it back up
+
+A **peeler** does the reverse: removing a seal cleanly so the plate can be accessed again. This sounds trivial but isn't — pulling too fast can splash or aerosolize well contents, and an incompletely removed seal can leave shreds of foil that show up as debris in the very wells about to be measured.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three instruments shown as a sequence: a centrifuge spinning a plate, a sealer applying foil across the top of a plate, and a peeler removing that foil, with arrows indicating a plate can move between them in either direction depending on the workflow."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <g transform="translate(30, 20)">
+      <circle cx="70" cy="70" r="60" fill="none" stroke="#000" strokeWidth="1.5" strokeDasharray="6 4" />
+      <rect x="50" y="50" width="40" height="26" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+      <text x="70" y="145" fontSize="11" fontWeight="600" textAnchor="middle">CENTRIFUGE</text>
+    </g>
+    <g transform="translate(260, 20)">
+      <rect x="20" y="60" width="100" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+      <rect x="15" y="50" width="110" height="10" fill="#c8c8c8" stroke="#000" strokeWidth="1.2" />
+      <text x="70" y="145" fontSize="11" fontWeight="600" textAnchor="middle">SEALER</text>
+    </g>
+    <g transform="translate(490, 20)">
+      <rect x="20" y="60" width="100" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+      <path d="M15 55 q40 -25 90 -5" fill="none" stroke="#c8c8c8" strokeWidth="6" />
+      <text x="70" y="145" fontSize="11" fontWeight="600" textAnchor="middle">PEELER</text>
+    </g>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A plate might be sealed before a spin or an overnight step, then peeled again the next morning before the next liquid-handling step.
+  </figcaption>
+</figure>
+
+### Why these steps sit at the boundaries of a workflow
+
+Centrifuging, sealing, and peeling almost always happen at the *transitions* of a workflow — before or after a step that can't tolerate an open, unsealed, or unbalanced plate. A protocol that seals a plate before an overnight incubation and peels it again the next morning is really using the seal as a form of protection during a period when no one is watching. Getting these transition steps wrong doesn't corrupt the science directly the way a bad pipetting step would — it corrupts the *conditions* the science depends on, which can be just as damaging and considerably harder to trace back to its source.
+
+Mechanical steps like these prepare a plate for measurement or storage; the next section looks at the instruments that handle a related mechanical task — washing plates and dispensing liquid in bulk.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="centrifuges-sealers-peelers-q1"
+    question="Why do protocols specify relative centrifugal force (RCF) rather than rotational speed (RPM)?"
+    options={[
+      "RCF is easier for a technician to set on the instrument",
+      "The same RPM produces different RCF depending on the rotor's radius, so RCF stays consistent across different centrifuge models",
+      "RPM cannot be measured accurately by modern centrifuges",
+      "RCF and RPM are always numerically identical",
+    ]}
+    answer={1}
+    explanation="Because RCF accounts for the rotor's radius, specifying it in × g keeps a protocol consistent regardless of which specific centrifuge model runs it, unlike RPM alone."
+  />
+  <Quiz
+    id="centrifuges-sealers-peelers-q2"
+    question="Why must a centrifuge be loaded with balanced or counterweighted plates?"
+    options={[
+      "Balance only affects how fast the spin completes",
+      "An unbalanced load creates vibration that can damage the rotor or the instrument itself",
+      "Unbalanced loads produce incorrect RCF readings only",
+      "Balance is only a concern for manual centrifuge use, not automated systems",
+    ]}
+    answer={1}
+    explanation="Spinning an asymmetric load creates vibration forces that can damage the rotor or the centrifuge — a real physical risk, not just a measurement inconvenience."
+  />
+  <Quiz
+    id="centrifuges-sealers-peelers-q3"
+    question="What is the practical difference between a heat seal and a pierceable seal?"
+    options={[
+      "Heat seals are for short-term protection; pierceable seals are for shipping",
+      "A heat seal bonds strongly for long-term protection, while a pierceable seal is lighter and lets a pipette tip access wells directly without peeling",
+      "Pierceable seals cannot be removed by a peeler",
+      "Heat seals are only used on tubes, never plates",
+    ]}
+    answer={1}
+    explanation="Heat seals create a strong, durable bond suited to storage or shipping; pierceable seals trade some of that durability for the convenience of direct pipette access."
+  />
+  <Quiz
+    id="centrifuges-sealers-peelers-q4"
+    question="What can go wrong if a peeler removes a seal too quickly?"
+    options={[
+      "It can splash or aerosolize well contents, or leave shredded foil debris in the wells",
+      "It automatically re-seals the plate",
+      "It has no effect since peeling speed is irrelevant to well contents",
+      "It changes the RCF applied to the plate",
+    ]}
+    answer={0}
+    explanation="Peeling too fast risks splashing contents or aerosolizing them, and an incomplete peel can leave foil shreds that contaminate the wells right before they're measured."
+  />
+  <Quiz
+    id="centrifuges-sealers-peelers-q5"
+    question="Why do centrifuging, sealing, and peeling typically happen at the transitions of a workflow rather than in the middle of a measurement step?"
+    options={[
+      "Because they protect or prepare a plate's conditions before or after periods when no one is monitoring it, like an overnight incubation",
+      "Because these instruments cannot be used mid-protocol for any reason",
+      "Because sealing and peeling are only relevant to regulated environments",
+      "Because centrifuges cannot be automated into a scheduled workflow",
+    ]}
+    answer={0}
+    explanation="These steps guard the physical conditions a plate needs to survive an unsupervised period — sealing before storage, peeling before the next active step — placing them naturally at workflow boundaries."
+  />
+</QuizSet>

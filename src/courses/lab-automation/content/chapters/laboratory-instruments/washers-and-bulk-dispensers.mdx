@@ -1,0 +1,113 @@
+Many assays — an ELISA especially — depend on removing everything unbound from a well while leaving the bound target untouched, then refilling that well with the next reagent. Doing this well, and doing it fast across a whole plate, is the job of two closely related instruments.
+
+### Plate washers: aspirate, then dispense, many times over
+
+A **plate washer** repeats a simple cycle across every well: aspirate out the current liquid, dispense in a wash buffer, and repeat several times to flush away anything not specifically bound to the well's surface — antibodies, unreacted dye, cellular debris. The core engineering challenge is the aspiration step: a probe that sits too high leaves residual liquid behind (diluting or contaminating the next reagent); a probe that sits too low can scrape or damage the well's coated surface, destroying the very binding the assay depends on. Wash **residual volume** — how much liquid is left behind after the final aspirate — is a number vendors specify and labs verify, because a "clean" well that still holds a few microliters of the wrong liquid isn't actually clean.
+
+### Bulk dispensers: fast, identical fills
+
+A **bulk dispenser** exists for the opposite half of the same problem: filling every well of a plate with the *same* liquid, fast. Rather than a pipetting head aspirating and dispensing well by well, most bulk dispensers push liquid through a manifold of fixed nozzles — one per column or one per well — so an entire plate fills in one motion. This only works because the liquid is identical everywhere; a bulk dispenser has no way to give different wells different volumes or different reagents, trading that flexibility for raw speed on the one task it's built for.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A wash cycle shown as a loop: aspirate old liquid out, dispense wash buffer in, repeat several times, then a final aspirate leaving minimal residual volume. Beside it, a bulk dispenser manifold with several nozzles filling an entire row of wells simultaneously."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">WASH CYCLE (× N)</text>
+    <g transform="translate(20, 30)">
+      <rect x="0" y="0" width="90" height="50" fill="#fff" stroke="#000" strokeWidth="1.2" />
+      <text x="45" y="30" fontSize="10" textAnchor="middle">aspirate</text>
+      <text x="100" y="30" fontSize="14" textAnchor="middle">→</text>
+      <rect x="115" y="0" width="90" height="50" fill="#fff" stroke="#000" strokeWidth="1.2" />
+      <text x="160" y="30" fontSize="10" textAnchor="middle">dispense</text>
+      <text x="215" y="30" fontSize="14" textAnchor="middle">↻</text>
+    </g>
+    <text x="470" y="16" fontSize="11" fontWeight="600" textAnchor="middle">BULK DISPENSER</text>
+    <g transform="translate(390, 30)">
+      <rect x="0" y="0" width="160" height="14" fill="#c8c8c8" stroke="#000" strokeWidth="1.2" />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <line key={i} x1={10 + i * 20} y1="14" x2={10 + i * 20} y2="34" stroke="#000" strokeWidth="1.5" />
+      ))}
+      <rect x="0" y="36" width="160" height="20" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+      <text x="80" y="70" fontSize="9" fill="#666" textAnchor="middle">all wells at once</text>
+    </g>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A washer repeats a slow cycle to remove the unwanted; a bulk dispenser fills everything identical in one fast stroke.
+  </figcaption>
+</figure>
+
+### Cross-contamination risk in a shared manifold
+
+Because a washer's probes and a dispenser's manifold touch every well in sequence (or simultaneously, through shared plumbing), any residue left in the tubing carries into the next plate. Both instrument types require a **prime** and **flush** cycle — running buffer through the lines before and after use — to clear out air bubbles and leftover liquid from a previous reagent. Skipping this step doesn't fail loudly; it just adds a small, consistent contamination to every well of the next run, the same category of silent, systematic error covered earlier in this course.
+
+Washers and dispensers round out the instruments that manipulate plate contents directly. The final section of this chapter turns to instruments built for a very different purpose: seeing, rather than measuring, what's inside a well.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="washers-and-bulk-dispensers-q1"
+    question="What is the core engineering challenge in a plate washer's aspiration step?"
+    options={[
+      "Choosing the wash buffer's exact chemical formula",
+      "Balancing probe height so it doesn't leave residual liquid behind while also not scraping or damaging the well's coated surface",
+      "Ensuring the manifold fills every well with an identical volume",
+      "Preventing the wash cycle from repeating more than once",
+    ]}
+    answer={1}
+    explanation="Too high a probe leaves residual liquid behind; too low risks damaging the coating the assay depends on — the washer must balance both to actually clean the well without harming it."
+  />
+  <Quiz
+    id="washers-and-bulk-dispensers-q2"
+    question="Why does 'residual volume' matter as a specification for a plate washer?"
+    options={[
+      "Because any liquid left behind after the final aspirate dilutes or contaminates the next reagent added to the well",
+      "Because residual volume determines the wash buffer's concentration",
+      "Because it only affects wash speed, not assay accuracy",
+      "Because residual volume is irrelevant if enough wash cycles are run",
+    ]}
+    answer={0}
+    explanation="A 'clean' well that still holds leftover liquid from the wash step isn't actually clean — that residual volume can dilute or contaminate whatever reagent comes next."
+  />
+  <Quiz
+    id="washers-and-bulk-dispensers-q3"
+    question="Why can't a bulk dispenser give different wells different volumes or reagents?"
+    options={[
+      "Its fixed manifold of nozzles pushes the same liquid through all channels simultaneously, trading flexibility for speed",
+      "Bulk dispensers use the same aspirate-and-dispense cycle as a plate washer",
+      "Bulk dispensers can vary volume, but only reagent type is fixed",
+      "Bulk dispensers require a fresh tip for every well like a pipetting head",
+    ]}
+    answer={0}
+    explanation="Because a bulk dispenser's nozzles are fixed and fed from shared plumbing, it fills an entire plate with one identical liquid at once — it has no mechanism to vary well to well."
+  />
+  <Quiz
+    id="washers-and-bulk-dispensers-q4"
+    question="What is the purpose of a prime and flush cycle on a washer or bulk dispenser?"
+    options={[
+      "To calibrate the instrument's RCF",
+      "To clear air bubbles and leftover liquid from shared tubing before and after use, preventing carryover into the next run",
+      "To seal the plate before storage",
+      "To increase the number of wash cycles automatically",
+    ]}
+    answer={1}
+    explanation="Since a washer's probes or a dispenser's manifold share plumbing across every well, residue left in the lines carries over unless cleared by a prime and flush cycle."
+  />
+  <Quiz
+    id="washers-and-bulk-dispensers-q5"
+    question="Why is skipping a prime/flush cycle described as a 'silent' error rather than an obvious failure?"
+    options={[
+      "Because it causes the instrument to stop working entirely, which is easy to notice",
+      "Because it adds a small, consistent contamination to every well of the next run without any visible sign that something went wrong",
+      "Because it only affects one well per plate",
+      "Because instruments automatically detect and correct for a skipped flush",
+    ]}
+    answer={1}
+    explanation="A skipped prime/flush doesn't crash the run or throw an error — it just quietly contaminates every well with residue in the same way, invisible until the data is scrutinized."
+  />
+</QuizSet>

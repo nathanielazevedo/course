@@ -1,0 +1,122 @@
+A tip is anonymous — any tip of the right type is as good as any other. A plate holding real samples is the opposite: mixing up *which* plate is which, even for a moment, can invalidate an entire run's worth of data. Barcoding is how a system tells one specific piece of labware apart from every other one that looks identical.
+
+### Why identical-looking plates need identification at all
+
+Two 96-well plates, side by side, are visually indistinguishable — same footprint, same well grid, same material. But one might hold patient samples and the other a set of calibration standards. A person can lose track of which is which after a distraction; a robotic system has no innate sense of "which plate is this" at all unless something on the plate itself declares it.
+
+### Barcode types
+
+- **1D (linear) barcodes** — a series of parallel bars encoding a short string, read by a laser or camera scanner. Simple, cheap, and long-established, but limited in how much data they can hold and sensitive to being scanned at the right angle.
+- **2D barcodes (Data Matrix, QR-style)** — a grid of small squares encoding more data in less space, readable from a wider range of angles and even partially damaged. Common on tube caps and small labware where a 1D barcode wouldn't fit.
+- **RFID tags** — a small chip and antenna that responds to a radio signal without needing a direct line of sight. More expensive per unit, but readable through some materials and without precise camera alignment, which matters for labware sitting inside an enclosed instrument.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A plate labeled with a 1D barcode of vertical bars, a tube labeled with a small 2D data matrix grid, and a plate with an embedded RFID chip and antenna coil, showing three different identification methods."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <g transform="translate(20,20)">
+      <rect x="0" y="0" width="170" height="100" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      {[0,1,2,1,3,1,2,1,1,3,2,1].map((w, i) => (
+        <rect key={i} x={15 + i * 13} y="70" width={w} height="20" fill="#000" />
+      ))}
+      <text x="85" y="130" fontSize="11" fontWeight="600" textAnchor="middle">1D BARCODE</text>
+    </g>
+    <g transform="translate(240,20)">
+      <rect x="0" y="0" width="170" height="100" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      {Array.from({ length: 6 }).map((_, r) => Array.from({ length: 6 }).map((_, c) => (
+        (r + c) % 2 === 0 && <rect key={`${r}-${c}`} x={65 + c * 8} y={40 + r * 8} width="7" height="7" fill="#000" />
+      )))}
+      <text x="85" y="130" fontSize="11" fontWeight="600" textAnchor="middle">2D DATA MATRIX</text>
+    </g>
+    <g transform="translate(460,20)">
+      <rect x="0" y="0" width="170" height="100" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      <circle cx="85" cy="50" r="28" fill="none" stroke="#3464c8" strokeWidth="2" />
+      <circle cx="85" cy="50" r="18" fill="none" stroke="#3464c8" strokeWidth="2" />
+      <rect x="78" y="43" width="14" height="14" fill="#000" />
+      <text x="85" y="130" fontSize="11" fontWeight="600" textAnchor="middle">RFID TAG</text>
+    </g>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each format trades off cost, data capacity, and how forgiving it is about angle, distance, and line of sight.
+  </figcaption>
+</figure>
+
+### What the barcode actually holds
+
+Almost universally, the barcode itself holds only a short identifier — not the sample data directly. The scanner reads that ID, and software looks it up in a database (the LIMS, covered in a later chapter) to retrieve everything actually known about that plate: what samples it holds, what protocol it's part of, what's happened to it so far. This separation matters because it means the physical barcode never needs updating as new information accumulates — only the database record behind it changes.
+
+### Verification as a running habit, not a one-time check
+
+A well-designed automated method scans a plate's barcode at nearly every step it touches the plate, not just once at the start, and compares that ID against what the method *expects* to see at that point in the run. A scan that returns the wrong ID — because a person swapped a plate's physical position, or two plates were mixed up upstream — stops the run before the mistake compounds, rather than silently continuing to process the wrong sample under the wrong plate's assumed identity.
+
+Barcoding gives labware identity that survives being physically moved around a deck. The final section of this chapter turns to a different concern about that same labware: keeping its physical *contents* stable while it isn't being actively worked on.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="barcoding-and-identification-q1"
+    question="Why does a robotic system need barcoding to distinguish between two visually identical plates?"
+    options={[
+      "Because the plates are physically different sizes",
+      "Because a robotic system has no innate sense of which plate is which unless something on the plate declares its identity",
+      "Because barcodes are required by the SBS standard",
+      "Because plates cannot otherwise be moved by a robotic arm",
+    ]}
+    answer={1}
+    explanation="Two plates with the same footprint and well grid are indistinguishable to a system without some form of explicit identification — a person's memory doesn't transfer to the machine."
+  />
+  <Quiz
+    id="barcoding-and-identification-q2"
+    question="Why might RFID tags be preferred over 1D or 2D barcodes for labware inside an enclosed instrument?"
+    options={[
+      "RFID tags are always cheaper than printed barcodes",
+      "RFID tags can be read via radio signal without needing precise camera alignment or a direct line of sight",
+      "RFID tags hold no identifying data at all",
+      "RFID tags cannot be damaged, unlike printed barcodes",
+    ]}
+    answer={1}
+    explanation="Because RFID doesn't require line-of-sight or exact camera angle, it works well in enclosed spaces where a scanner couldn't easily see a printed barcode."
+  />
+  <Quiz
+    id="barcoding-and-identification-q3"
+    question="What does a plate's barcode typically encode?"
+    options={[
+      "The full list of samples and their results directly",
+      "A short identifier that software looks up in a database (the LIMS) to retrieve everything known about that plate",
+      "The plate's manufacturing date only",
+      "The exact protocol steps to be run on that plate",
+    ]}
+    answer={1}
+    explanation="The barcode itself usually just holds a short ID; the actual sample and history data live in a database record the ID points to, which is looked up after scanning."
+  />
+  <Quiz
+    id="barcoding-and-identification-q4"
+    question="Why does separating the barcode's short ID from the database record behind it matter?"
+    options={[
+      "It means the physical barcode never needs updating as new information about the plate accumulates",
+      "It makes barcodes more expensive to print",
+      "It prevents any database from being used at all",
+      "It requires the barcode to be re-scanned constantly",
+    ]}
+    answer={0}
+    explanation="Since the barcode only holds a pointer, all the evolving information about a plate can be updated in the database without ever needing to reprint or reapply the physical barcode."
+  />
+  <Quiz
+    id="barcoding-and-identification-q5"
+    question="Why do well-designed automated methods scan a plate's barcode at nearly every step, rather than only once at the start of a run?"
+    options={[
+      "Because barcodes degrade and must be re-verified for physical damage constantly",
+      "Because comparing the scanned ID against what the method expects at each step catches a mix-up before it compounds, rather than only at the very beginning",
+      "Because a single scan at the start is always sufficient and repeated scanning is unnecessary",
+      "Because scanning speed improves each time a barcode is read",
+    ]}
+    answer={1}
+    explanation="A plate could be swapped or mixed up partway through a run. Repeated verification catches such an error immediately, rather than letting a wrong-plate mistake propagate through the rest of the method."
+  />
+</QuizSet>

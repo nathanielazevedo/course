@@ -1,0 +1,114 @@
+Automation is a solution, not a default. It costs money, time, and expertise to build and maintain, so the real question for any workflow isn't "can this be automated" — almost anything can — it's whether automating it is actually worth doing.
+
+### The questions that matter
+
+- **How often does this run?** A protocol run once a year rarely justifies automation, however tedious it is. One run every week, for years, is a different calculation entirely.
+- **How many samples per run?** Automating a 12-tube protocol saves little. Automating a 384-well plate replicated across dozens of plates saves a great deal — the same fixed automation effort pays off across far more repetitions.
+- **How repetitive is the protocol?** A workflow with a fixed, unchanging sequence of steps automates cleanly. A workflow that a scientist adapts on the fly, sample by sample, resists automation because there's no fixed sequence to encode.
+- **How much does variability cost?** If human variability meaningfully affects the result — a sensitive assay, a regulated process — the reproducibility payoff from automation matters even at moderate volume.
+- **What does a failure cost?** High-value or irreplaceable samples raise the stakes of getting each step exactly right, which favors automation's consistency even when volume alone wouldn't justify it.
+
+### Volume and repetition, plotted together
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 260"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A chart with repetition on the horizontal axis and sample volume on the vertical axis. The upper-right region, where both are high, is labeled automate. The lower-left region, where both are low, is labeled keep manual."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="70" y1="20" x2="70" y2="220" stroke="#000" strokeWidth="1.5" />
+    <line x1="70" y1="220" x2="600" y2="220" stroke="#000" strokeWidth="1.5" />
+    <text x="40" y="40" fontSize="11" fill="#666" textAnchor="middle" transform="rotate(-90 40 120)">VOLUME</text>
+    <text x="335" y="245" fontSize="11" fill="#666" textAnchor="middle">REPETITION / FREQUENCY</text>
+
+    <rect x="335" y="20" width="265" height="200" fill="#e8f2e0" />
+    <rect x="70" y="20" width="265" height="200" fill="#fafafa" />
+    <line x1="335" y1="20" x2="335" y2="220" stroke="#999" strokeWidth="1" strokeDasharray="4 4" />
+
+    <text x="470" y="60" fontSize="13" fontWeight="600" textAnchor="middle">AUTOMATE</text>
+    <text x="200" y="190" fontSize="13" fontWeight="600" textAnchor="middle" fill="#666">KEEP MANUAL</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    High volume and high repetition together justify automation's fixed cost. Either one alone is a weaker case; low value of both rarely is.
+  </figcaption>
+</figure>
+
+### The fixed cost is the whole argument
+
+Building an automated method has an upfront cost — writing the script, validating it, buying or programming the hardware — that's paid once regardless of how many times the method runs afterward. That fixed cost is spread across every future run. Run the method twice and each run absorbs half the cost; run it two thousand times and the cost per run is negligible. This is why frequency and volume dominate the decision: they're what determines how many times the fixed cost gets divided.
+
+A workflow can also be *partially* automated. Automating only the tedious, repetitive middle of a protocol — leaving judgment-heavy setup or interpretation steps to a person — is often the pragmatic answer, rather than treating automation as all-or-nothing.
+
+### Signs a workflow is a poor automation candidate
+
+Not every repetitive task should be automated. A protocol that changes every few months as the science evolves will cost more to keep re-validating than it saves. A protocol requiring a scientist's judgment at nearly every step — deciding what to do next based on what they see — has little fixed sequence left to encode. And a workflow with very small volume, run rarely, simply never earns back its setup cost, no matter how tedious it feels by hand.
+
+Weighing these factors is a judgment call, not a formula — but it's a judgment call with real financial and time consequences, which is exactly what the final section of this chapter puts numbers to.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="when-to-automate-q1"
+    question="Why does frequency and sample volume matter more than 'is this tedious' when deciding whether to automate a workflow?"
+    options={[
+      "Tedium is actually irrelevant to any lab decision",
+      "The fixed cost of building automation is spread across every future run, so high frequency and volume are what make that cost worth paying",
+      "Only tedious workflows can technically be automated",
+      "Automation always costs less than manual work regardless of volume",
+    ]}
+    answer={1}
+    explanation="Automation carries an upfront fixed cost. Running the method many times divides that cost across many runs, which is why frequency and volume — not tedium alone — determine whether it pays off."
+  />
+  <Quiz
+    id="when-to-automate-q2"
+    question="Which workflow makes the weakest case for automation, all else equal?"
+    options={[
+      "A 384-well assay run weekly for years",
+      "A high-value, irreplaceable sample processed under a fixed, unchanging protocol",
+      "A 12-tube protocol run once a year",
+      "A regulated process where human variability would compromise results",
+    ]}
+    answer={2}
+    explanation="Low volume and low frequency mean the fixed cost of automating is rarely earned back, however tedious the task feels when done by hand."
+  />
+  <Quiz
+    id="when-to-automate-q3"
+    question="Why does a workflow where a scientist adapts each step based on what they observe resist automation?"
+    options={[
+      "Because such workflows never use plates or tubes",
+      "Because there's no fixed sequence of steps to encode when the process itself changes on the fly",
+      "Because automation cannot physically handle judgment calls of any kind",
+      "Because these workflows always involve irreplaceable samples",
+    ]}
+    answer={1}
+    explanation="Automation encodes a fixed sequence of steps. A workflow with no fixed sequence — because a person is deciding what to do next in real time — has nothing consistent to encode."
+  />
+  <Quiz
+    id="when-to-automate-q4"
+    question="What is a reasonable alternative to treating automation as all-or-nothing for a given protocol?"
+    options={[
+      "Automating only the repetitive middle of the protocol while leaving judgment-heavy steps to a person",
+      "Automating every protocol fully regardless of its structure",
+      "Never partially automating any workflow",
+      "Automating only protocols with irreplaceable samples",
+    ]}
+    answer={0}
+    explanation="Partial automation — encoding the tedious, repetitive portion while leaving setup or interpretation to a person — is often the pragmatic middle ground rather than an all-or-nothing choice."
+  />
+  <Quiz
+    id="when-to-automate-q5"
+    question="A protocol changes substantially every few months as the underlying science evolves. Why is this a warning sign for automation?"
+    options={[
+      "Because changing protocols cannot legally be automated",
+      "Because re-validating the automated method after each change may cost more than the automation saves",
+      "Because instruments cannot be reprogrammed once installed",
+      "Because only manual protocols are permitted to change over time",
+    ]}
+    answer={1}
+    explanation="Every change to a protocol risks requiring the automated method to be rebuilt and re-validated — an ongoing cost that can outweigh automation's benefit if changes are frequent."
+  />
+</QuizSet>

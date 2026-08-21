@@ -1,0 +1,118 @@
+Whether a schedule is static, dynamic, or somewhere between, it's ultimately deciding who gets to use what, and when. This section is about the resources actually being contested, and the specific ways two plates can end up wanting the same thing at the same time.
+
+### What counts as a resource
+
+Almost anything shared across plates is a resource a scheduler has to allocate: the robotic arm (only one plate can be moved at a time), each instrument (a reader can only measure one plate at once), each deck position (a nest can only hold one plate at a time), and consumables like tip boxes and reagent reservoirs, which run out and eventually need replenishing. A scheduler's real job is tracking the state of every one of these — busy or free, full or empty — and never assigning a plate to something already claimed by another.
+
+### The four classic conflict types
+
+- **Contention** — two plates need the same instrument at the same moment. One must wait; the scheduler decides which, based on priority or how much delay each can tolerate.
+- **Deadlock** — plate A is waiting for a resource plate B holds, while plate B is waiting for a resource plate A holds. Neither can proceed, and without detection, the whole system stalls silently rather than crashing loudly.
+- **Starvation** — a low-priority plate keeps getting passed over in favor of higher-priority work, and in the worst case, never actually gets its turn at all.
+- **Resource exhaustion** — a shared consumable (tips, reagent volume) runs out mid-run, and no plate needing it can proceed until it's replenished.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A deadlock shown as two plates each holding one resource the other needs, arranged in a cycle: plate A holds the reader and waits for the arm, while plate B holds the arm and waits for the reader, so neither can proceed."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <circle cx="200" cy="95" r="45" fill="#d8e8ff" stroke="#000" strokeWidth="1.5" />
+    <text x="200" y="100" fontSize="13" fontWeight="600" textAnchor="middle">PLATE A</text>
+    <text x="200" y="30" fontSize="10" fill="#666" textAnchor="middle">holds: READER</text>
+
+    <circle cx="440" cy="95" r="45" fill="#ffe0d8" stroke="#000" strokeWidth="1.5" />
+    <text x="440" y="100" fontSize="13" fontWeight="600" textAnchor="middle">PLATE B</text>
+    <text x="440" y="30" fontSize="10" fill="#666" textAnchor="middle">holds: ARM</text>
+
+    <path d="M245 85 Q320 55 395 85" fill="none" stroke="#000" strokeWidth="1.5" markerEnd="url(#rc1)" />
+    <text x="320" y="55" fontSize="9.5" textAnchor="middle">waiting for ARM</text>
+    <path d="M395 110 Q320 145 245 110" fill="none" stroke="#000" strokeWidth="1.5" markerEnd="url(#rc1)" />
+    <text x="320" y="150" fontSize="9.5" textAnchor="middle">waiting for READER</text>
+
+    <defs>
+      <marker id="rc1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each plate holds exactly what the other needs — a cycle of waiting with no possible resolution unless something intervenes.
+  </figcaption>
+</figure>
+
+### Preventing conflicts versus resolving them
+
+Some conflicts can be designed away entirely — pre-allocating a fixed nest to a plate for its whole run avoids ever contending for nest space, at the cost of holding that nest reserved even during steps that don't need it. Other conflicts are cheaper to just detect and resolve as they arise: a scheduler that notices a would-be deadlock before committing to it, and reorders which plate proceeds first, avoids the whole scenario without needing to reserve resources defensively the entire time.
+
+### Why this matters more as scale increases
+
+With one or two plates in flight, resource conflicts rarely materialize — there's little to contend over. As a system runs dozens of plates simultaneously to maximize throughput, contention, starvation, and exhaustion become the normal case rather than the exception, and a scheduler's ability to handle them gracefully is what actually determines whether adding more concurrent work increases throughput or just increases the number of things waiting on each other.
+
+Resource conflicts are about *what* two steps compete over. The next section covers a related but distinct constraint: *when*, in time, a step is allowed to happen relative to the ones around it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="resource-allocation-and-conflicts-q1"
+    question="What distinguishes a 'deadlock' from simple 'contention' between two plates?"
+    options={[
+      "Deadlock only occurs with tip boxes, while contention only occurs with instruments",
+      "In a deadlock, each plate is waiting for a resource the other one holds, creating a cycle where neither can ever proceed",
+      "Contention always resolves itself automatically, while deadlock requires no intervention",
+      "Deadlock and contention are the same conflict type described with different words",
+    ]}
+    answer={1}
+    explanation="Deadlock is a specific mutual-waiting cycle — plate A needs what B holds, and B needs what A holds — that stalls both indefinitely, unlike simple contention where one plate just waits its turn."
+  />
+  <Quiz
+    id="resource-allocation-and-conflicts-q2"
+    question="What is 'starvation' in the context of resource allocation?"
+    options={[
+      "A shared consumable like tips or reagent running out entirely",
+      "A low-priority plate repeatedly passed over in favor of higher-priority work, potentially never getting its turn",
+      "Two plates needing the same resource at the exact same moment",
+      "A plate that has run out of any steps left to perform",
+    ]}
+    answer={1}
+    explanation="Starvation specifically describes a plate being consistently deprioritized in favor of other work, to the point where it may never actually get access to what it needs."
+  />
+  <Quiz
+    id="resource-allocation-and-conflicts-q3"
+    question="What is the tradeoff of pre-allocating a fixed nest to a plate for its entire run to prevent nest contention?"
+    options={[
+      "It has no downside and should always be done",
+      "It holds the nest reserved even during steps that don't actually need it, reducing overall nest availability for other plates",
+      "It eliminates the need for any scheduling at all",
+      "It only works for static schedules, never dynamic ones",
+    ]}
+    answer={1}
+    explanation="Reserving a nest for a plate's whole duration prevents contention over that specific nest, but ties up the resource even when the plate isn't actively using it, at a real cost to overall throughput."
+  />
+  <Quiz
+    id="resource-allocation-and-conflicts-q4"
+    question="Why do resource conflicts become the normal case rather than the exception as more plates run concurrently?"
+    options={[
+      "Because instruments become less reliable with more plates in flight",
+      "Because with many plates simultaneously demanding the same limited shared resources, contention, starvation, and exhaustion arise far more often than with just one or two plates",
+      "Because scheduling algorithms stop working above a certain plate count",
+      "Because barcode scanning fails more often at higher plate counts",
+    ]}
+    answer={1}
+    explanation="More concurrent plates means more simultaneous demand on the same fixed set of shared resources, which is exactly what drives up the frequency of contention, starvation, and exhaustion."
+  />
+  <Quiz
+    id="resource-allocation-and-conflicts-q5"
+    question="What determines whether adding more concurrent plates to a system actually increases throughput?"
+    options={[
+      "The number of instruments alone, regardless of scheduling",
+      "The scheduler's ability to handle resource conflicts gracefully as they scale up with more concurrent work",
+      "Whether the plates are all identical in well count",
+      "The specific brand of robotic arm used",
+    ]}
+    answer={1}
+    explanation="Once conflicts become common at higher concurrency, it's the scheduler's handling of contention, starvation, and exhaustion that decides whether more plates translate into more actual throughput or just more waiting."
+  />
+</QuizSet>

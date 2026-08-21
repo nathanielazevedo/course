@@ -1,0 +1,112 @@
+Labware doesn't move itself between instruments — something has to physically pick it up, carry it, and set it down precisely. In many automated labs, that something is a robotic arm, and understanding how an arm actually moves starts with counting how many independent ways it can move at all.
+
+### Degrees of freedom
+
+A **degree of freedom (DOF)** is one independent way a robot's end can move or rotate — one joint, one axis. A simple arm that only slides along a single rail has one degree of freedom: it can move back and forth, and nothing else. An arm that can also lift up and down adds a second. Real lab robots typically have between three and six degrees of freedom, and the number determines what positions and orientations the arm's gripper can actually reach.
+
+### Cartesian arms: simple and predictable
+
+A **Cartesian (gantry) arm** moves along three straight, perpendicular axes — X, Y, and Z — much like a 3D printer's print head. Each axis moves independently in a straight line, which makes the arm's motion easy to predict and its mechanics comparatively simple and precise. The tradeoff is reach and flexibility: a Cartesian arm is generally confined to the rectangular volume its rails cover, and it approaches everything from directly above.
+
+### Articulated arms: more freedom, more complexity
+
+An **articulated (jointed) arm** — the kind that looks like a human arm, with a shoulder, elbow, and wrist — uses rotating joints instead of straight rails, typically giving it four to six degrees of freedom. This lets it reach around obstacles, approach a plate from an angle, and access positions a Cartesian arm's straight-line axes simply can't get to. The cost is complexity: more joints means more places for small errors to accumulate, and calculating exactly how each joint must rotate to reach a target position is a harder computation than moving three independent straight axes.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A Cartesian gantry arm shown moving along three straight perpendicular rails above a deck, next to an articulated arm shown with a shoulder, elbow, and wrist joint reaching toward a plate from an angle."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">CARTESIAN (GANTRY)</text>
+    <line x1="40" y1="40" x2="280" y2="40" stroke="#000" strokeWidth="2" />
+    <line x1="160" y1="40" x2="160" y2="140" stroke="#000" strokeWidth="2" />
+    <rect x="145" y="140" width="30" height="14" fill="#3464c8" />
+    <rect x="60" y="170" width="200" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.2" />
+
+    <text x="480" y="16" fontSize="11" fontWeight="600" textAnchor="middle">ARTICULATED</text>
+    <circle cx="480" cy="60" r="6" fill="#000" />
+    <line x1="480" y1="60" x2="440" y2="110" stroke="#000" strokeWidth="3" />
+    <circle cx="440" cy="110" r="6" fill="#000" />
+    <line x1="440" y1="110" x2="500" y2="150" stroke="#000" strokeWidth="3" />
+    <circle cx="500" cy="150" r="6" fill="#3464c8" />
+    <rect x="380" y="170" width="200" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.2" />
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A gantry arm trades reach and angle flexibility for mechanical simplicity; an articulated arm trades that simplicity for the ability to reach around and approach from any angle.
+  </figcaption>
+</figure>
+
+### Matching the arm to the deck
+
+The right choice of arm depends on the deck it serves. A compact system with instruments arranged in a simple line or grid, all approached from above, is well served by a Cartesian arm's straightforward, predictable motion. A larger, more crowded deck — instruments at different heights, some tucked behind others — often needs an articulated arm's ability to route around obstacles that a straight-line gantry simply couldn't clear.
+
+Degrees of freedom describe how an arm's *joints* can move; what actually happens at the very end of that arm — how it grips a plate once it gets there — is the subject of the next section.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="robotic-arms-degrees-of-freedom-q1"
+    question="What does a 'degree of freedom' describe in a robotic arm?"
+    options={[
+      "The total weight the arm can lift",
+      "One independent way the arm's end can move or rotate — one joint or one axis",
+      "The number of grippers attached to the arm",
+      "The maximum speed the arm can travel",
+    ]}
+    answer={1}
+    explanation="A degree of freedom is a single independent axis of motion or rotation; more degrees of freedom mean more ways the arm's end effector can be positioned and oriented."
+  />
+  <Quiz
+    id="robotic-arms-degrees-of-freedom-q2"
+    question="What is the main tradeoff of a Cartesian (gantry) arm compared to an articulated arm?"
+    options={[
+      "It has more degrees of freedom but is slower",
+      "It's simpler and more predictable to control, but confined to the rectangular volume its rails cover and generally approaches from above",
+      "It cannot be used in any automated system",
+      "It requires no calibration at all",
+    ]}
+    answer={1}
+    explanation="A gantry arm's straight-line axes make its motion simple and precise, but limit it to a rectangular reach envelope and a fixed top-down approach, unlike a jointed arm's flexibility."
+  />
+  <Quiz
+    id="robotic-arms-degrees-of-freedom-q3"
+    question="Why does an articulated arm require harder computation to reach a target position than a Cartesian arm?"
+    options={[
+      "Because it moves along three independent straight axes like a Cartesian arm",
+      "Because multiple rotating joints must each be calculated to reach a specific position, unlike independently moving straight axes",
+      "Because articulated arms don't actually have joints",
+      "Because articulated arms only move in two dimensions",
+    ]}
+    answer={1}
+    explanation="Determining the correct rotation for each joint of an articulated arm to reach a target point is a more complex calculation than simply moving three independent straight-line axes."
+  />
+  <Quiz
+    id="robotic-arms-degrees-of-freedom-q4"
+    question="What kind of deck layout is well suited to an articulated arm rather than a Cartesian arm?"
+    options={[
+      "A simple, compact deck with instruments arranged in a line, all approached from above",
+      "A crowded deck with instruments at different heights, some positioned where a straight-line approach couldn't reach",
+      "Any deck, since Cartesian and articulated arms perform identically",
+      "A deck with no obstacles at all",
+    ]}
+    answer={1}
+    explanation="An articulated arm's ability to route around obstacles and approach from an angle suits a crowded, complex deck that a gantry arm's straight-line rails couldn't navigate."
+  />
+  <Quiz
+    id="robotic-arms-degrees-of-freedom-q5"
+    question="How many degrees of freedom does a simple arm that can only slide along one rail have?"
+    options={[
+      "Zero, because it has no joints",
+      "One, since it can move independently along that single axis",
+      "Three, matching X, Y, and Z automatically",
+      "Six, matching a full articulated arm",
+    ]}
+    answer={1}
+    explanation="A single independent axis of motion — back and forth along one rail — counts as exactly one degree of freedom, regardless of how many other axes a more complex arm might add."
+  />
+</QuizSet>

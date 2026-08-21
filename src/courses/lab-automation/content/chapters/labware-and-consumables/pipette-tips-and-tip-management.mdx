@@ -1,0 +1,112 @@
+A pipette tip was introduced back in the liquid-handling chapter as the disposable part that touches liquid. What wasn't covered there is the *logistics* of tips — how a system that fires thousands of them a day keeps itself supplied, tracks what's been used, and avoids ever picking up the wrong one.
+
+### Tip boxes: the unit of supply
+
+Tips arrive and are stored in **tip boxes** — a rigid rack, usually matching an 8-, 12-, or 96-count grid, holding fresh tips upright and ready to be picked up. A tip box is itself built to the SBS footprint, so it sits in a deck position exactly like a plate does, and a robotic arm or liquid handler's own head can move to a specific well position in the box and pick up the tip sitting there — no different, mechanically, from picking up liquid from a plate well.
+
+### Tracking what's used
+
+An automated system needs to know, at every moment, which positions in a tip box still hold a tip and which are empty. This sounds trivial but matters enormously at scale: attempting to "pick up" from an already-empty position wastes a cycle at best, and at worst causes a downstream step to run with no tip attached at all — dispensing air into a well that was supposed to receive reagent. Systems track tip state with a simple internal model (a grid of used/unused flags, updated after every pickup) that must stay in sync with the box's actual physical state — if a tip is manually removed or a box is swapped without updating the system, the model becomes wrong silently.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 160"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A tip box grid where some positions still hold a tip, shown filled, and others have already been used, shown empty, illustrating that the system must track which positions remain available before attempting a pickup."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="140" y="10" width="360" height="130" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    {Array.from({ length: 8 }).map((_, r) => Array.from({ length: 12 }).map((_, c) => {
+      const used = (r * 12 + c) % 7 === 0 || (r * 12 + c) % 11 === 0;
+      return (
+        <g key={`${r}-${c}`}>
+          {used ? (
+            <circle cx={155 + c * 28} cy={25 + r * 15} r="3" fill="none" stroke="#999" strokeWidth="1" />
+          ) : (
+            <path d={`M${152 + c * 28} ${20 + r * 15} h6 v10 l-3 6 l-3 -6 z`} fill="#d8e8ff" stroke="#000" strokeWidth="0.6" />
+          )}
+        </g>
+      );
+    }))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Filled positions still hold a tip; empty circles mark positions already used. The system's internal model of this grid must match reality exactly.
+  </figcaption>
+</figure>
+
+### Never guessing which tip is which
+
+Beyond tracking availability, a system must never confuse tip *types* — a run needing 20 µL tips for one step and 200 µL tips for another must reliably load from the correct box at each step. This is usually handled by defining tip boxes as typed resources in the method itself (this deck position holds this tip type), rather than relying on a person to have loaded the boxes correctly by eye — the same reasoning that drives labware barcoding, covered next.
+
+### Running out mid-protocol
+
+A protocol that consumes more tips than a single box holds needs a plan for **replenishment** — either loading multiple boxes of the same type up front, or pausing to have a person (or a robotic arm serving a tip-box stack) swap in a fresh box mid-run. A system that simply runs out of tips with no plan for what happens next stalls the entire method, often at the worst possible moment — mid-transfer, with liquid already aspirated and nowhere to dispense it.
+
+Tips are consumed anonymously — one is as good as another of the same type. The next section covers labware that isn't anonymous at all: plates and tubes that must be individually identified and tracked throughout a run.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="pipette-tips-and-tip-management-q1"
+    question="Why can a robotic arm pick up a tip from a tip box using essentially the same mechanics as pipetting from a plate well?"
+    options={[
+      "Because tip boxes are built to the SBS footprint and sit in a deck position like a plate would",
+      "Because tips are liquid, not solid objects",
+      "Because tip boxes have no fixed positions for tips",
+      "Because robotic arms use a completely different mechanism for tip boxes than for plates",
+    ]}
+    answer={0}
+    explanation="A tip box follows the same SBS footprint as a plate, letting the system address a specific tip position the same way it would address a specific well."
+  />
+  <Quiz
+    id="pipette-tips-and-tip-management-q2"
+    question="What can happen if a system attempts to pick up a tip from a position that's already empty?"
+    options={[
+      "Nothing — the system automatically redirects to the nearest available position",
+      "At best it wastes a cycle; at worst a downstream step runs with no tip attached, dispensing air where reagent should go",
+      "The tip box is automatically replaced",
+      "The liquid handler shuts down permanently",
+    ]}
+    answer={1}
+    explanation="An empty-position pickup can silently fail to attach a tip, meaning subsequent aspirate or dispense commands operate with nothing actually happening at the physical level."
+  />
+  <Quiz
+    id="pipette-tips-and-tip-management-q3"
+    question="Why does a system's internal tip-tracking model become 'wrong silently' if a tip box is manually swapped without updating it?"
+    options={[
+      "Because the model only tracks tip type, not availability",
+      "Because the model assumes the physical box state matches its records, and any unrecorded change breaks that assumption without an obvious error",
+      "Because tip boxes cannot be swapped manually under any circumstances",
+      "Because the system automatically detects any manual tip removal",
+    ]}
+    answer={1}
+    explanation="The tracking model is only as accurate as its last update — a manual change the system doesn't know about creates a mismatch that produces wrong behavior with no immediate warning sign."
+  />
+  <Quiz
+    id="pipette-tips-and-tip-management-q4"
+    question="How do automated systems typically avoid loading the wrong tip type (e.g. 200 µL tips where 20 µL tips are needed)?"
+    options={[
+      "By relying on a person to visually verify tip boxes before every run",
+      "By defining tip boxes as typed resources within the method itself, so the system knows which deck position holds which tip type",
+      "By using only one universal tip type for all volumes",
+      "By requiring tips to be manually labeled before each pickup",
+    ]}
+    answer={1}
+    explanation="Encoding tip type as part of the method's resource definitions removes the need to trust a person's manual loading, the same logic behind labware barcoding covered in the next section."
+  />
+  <Quiz
+    id="pipette-tips-and-tip-management-q5"
+    question="Why is running out of tips mid-protocol a particularly bad failure mode without a replenishment plan?"
+    options={[
+      "Because it has no real consequence for the run",
+      "Because the method can stall at the worst possible moment, such as mid-transfer with liquid already aspirated and nowhere to dispense it",
+      "Because tips cannot be replenished once a run starts under any circumstances",
+      "Because it only affects the final well of a plate",
+    ]}
+    answer={1}
+    explanation="A protocol interrupted mid-transfer can leave liquid stranded in a tip with no planned next step, which is why replenishment — loading extra boxes or swapping mid-run — needs to be planned for in advance."
+  />
+</QuizSet>

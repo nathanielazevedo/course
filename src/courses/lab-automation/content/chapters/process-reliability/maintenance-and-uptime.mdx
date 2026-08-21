@@ -1,0 +1,110 @@
+Everything else in this chapter is about handling failure gracefully once it happens. Maintenance is about preventing as much of it as possible from happening in the first place — the ongoing work that keeps a system's failure rate low enough that alerting and recovery stay the exception, not the routine.
+
+### Preventive versus reactive maintenance
+
+**Reactive maintenance** happens after something breaks — fix it once it's already failed. **Preventive maintenance** happens on a fixed schedule, regardless of whether anything currently seems wrong: replacing a seal before it wears out completely, recalibrating a pipette before it drifts out of tolerance, cleaning a wash line before residue accumulates enough to matter. Preventive maintenance costs time and consumables on a schedule whether or not a failure was imminent that particular week — a cost paid specifically to avoid the much larger, less predictable cost of an unattended run failing partway through.
+
+### Why preventive maintenance connects directly to calibration and drift
+
+This is the same logic from the calibration section back in the liquid-handling chapter, generalized to every wearing part in the system, not just the pipette. Mechanical failure, established earlier in this chapter, is usually gradual — which means a fixed maintenance schedule is really a bet that the schedule's interval is shorter than the time it typically takes for wear to become a real problem. Too long an interval, and preventive maintenance stops actually preventing anything; too short, and it wastes time and parts replacing things that still had useful life left.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A wear curve rising gradually over time toward a failure threshold, with scheduled maintenance points marked at regular intervals along the curve, each one resetting the wear level back down before it ever reaches the threshold that would cause an actual failure."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="40" y1="140" x2="600" y2="140" stroke="#000" strokeWidth="1.2" />
+    <line x1="40" y1="40" x2="600" y2="40" stroke="#c0392b" strokeWidth="1" strokeDasharray="4 4" />
+    <text x="600" y="35" fontSize="9" fill="#c0392b" textAnchor="end">failure threshold</text>
+
+    <path d="M40 130 Q110 90 150 60 L150 130 Q220 90 260 60 L260 130 Q330 90 370 60 L370 130 Q440 90 480 60 L480 130 Q550 90 590 60" fill="none" stroke="#3464c8" strokeWidth="2" />
+    {[150, 260, 370, 480].map((x) => (
+      <g key={x}>
+        <line x1={x} y1="130" x2={x} y2="150" stroke="#000" strokeWidth="1.2" />
+        <text x={x} y="163" fontSize="8" fill="#666" textAnchor="middle">maintenance</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Scheduled maintenance resets accumulated wear before it ever reaches the threshold that would cause a real failure.
+  </figcaption>
+</figure>
+
+### Uptime as the number that ties this whole chapter together
+
+**Uptime** is the fraction of scheduled operating time a system is actually available and working — the single number that reflects how well failure modes, detection, walk-away planning, alerting, and maintenance are all working together in practice. A system with excellent detection and recovery but poor preventive maintenance still has low uptime, because it spends its time recovering from failures that better maintenance would have prevented outright. Uptime is a lagging indicator: it doesn't tell you which specific thing is wrong, but it tells you, honestly, whether everything in this chapter is actually working together or not.
+
+### Maintenance windows compete with the same scheduling constraints as everything else
+
+Performing maintenance takes an instrument offline, which means it competes for time against the throughput and walk-away goals from earlier in this course — the same scheduling tradeoffs covered in that chapter apply directly to deciding *when* maintenance happens, not just how often. Scheduling preventive maintenance during a planned downtime window, rather than interrupting a run in progress, is itself a scheduling decision with the same resource and timing considerations as any other step.
+
+This closes the chapter on process reliability — the categories of failure, detecting and recovering from them, honestly planning for walk-away operation, alerting a person when it matters, and the preventive maintenance that keeps failures rare in the first place. The final chapter of this course turns to the broader framework that governs all of this in a regulated setting: quality, compliance, and validation.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="maintenance-and-uptime-q1"
+    question="What is the key difference between reactive and preventive maintenance?"
+    options={[
+      "Reactive maintenance happens after something breaks; preventive maintenance happens on a fixed schedule regardless of whether a failure currently seems imminent",
+      "Reactive maintenance is always cheaper than preventive maintenance",
+      "Preventive maintenance only applies to software, not hardware",
+      "There is no meaningful difference between the two approaches",
+    ]}
+    answer={0}
+    explanation="Reactive maintenance responds to an already-occurred failure, while preventive maintenance proactively replaces or services parts on a schedule before they actually fail."
+  />
+  <Quiz
+    id="maintenance-and-uptime-q2"
+    question="Why is a fixed preventive maintenance schedule essentially a bet about the pace of mechanical wear?"
+    options={[
+      "Because the schedule assumes its interval is shorter than the typical time it takes for gradual wear to become a real problem — too long an interval stops preventing failures, too short wastes resources",
+      "Because maintenance schedules have no relationship to wear rates",
+      "Because preventive maintenance always happens at random intervals",
+      "Because mechanical wear only matters for pipettes, not other instruments",
+    ]}
+    answer={0}
+    explanation="Since mechanical failure develops gradually, a maintenance interval only works if it's shorter than the time wear typically takes to become a genuine problem — getting that interval wrong wastes resources or fails to prevent failures."
+  />
+  <Quiz
+    id="maintenance-and-uptime-q3"
+    question="What does 'uptime' actually measure, and why is it described as a lagging indicator?"
+    options={[
+      "The fraction of scheduled operating time a system is actually available and working; it's lagging because it reflects overall system health without pinpointing exactly which specific thing is wrong",
+      "The exact number of alerts sent per day",
+      "The total number of consumables used across a run",
+      "The speed at which a single instrument can process one plate",
+    ]}
+    answer={0}
+    explanation="Uptime aggregates the combined effect of failure modes, detection, maintenance, and recovery into one number — useful as an overall health signal, but it doesn't diagnose a specific root cause on its own."
+  />
+  <Quiz
+    id="maintenance-and-uptime-q4"
+    question="Why can a system with excellent detection and recovery still have poor uptime?"
+    options={[
+      "Because it spends time recovering from failures that better preventive maintenance would have prevented outright",
+      "Because detection and recovery always guarantee perfect uptime regardless of maintenance",
+      "Because uptime is unrelated to failure frequency",
+      "Because detection and recovery only affect software failures, not uptime",
+    ]}
+    answer={0}
+    explanation="Good recovery handles failures well after they occur, but if preventive maintenance is neglected, the system experiences more failures in the first place, dragging down overall uptime despite strong recovery."
+  />
+  <Quiz
+    id="maintenance-and-uptime-q5"
+    question="Why does scheduling maintenance during planned downtime, rather than interrupting an active run, connect back to earlier scheduling concepts from this course?"
+    options={[
+      "Because taking an instrument offline for maintenance competes for time against throughput and walk-away goals, subject to the same resource and timing scheduling tradeoffs as any other step",
+      "Because maintenance never actually requires taking an instrument offline",
+      "Because scheduling maintenance has no relationship to throughput or walk-away time",
+      "Because maintenance windows are exempt from all scheduling constraints",
+    ]}
+    answer={0}
+    explanation="Maintenance takes an instrument out of service, directly competing with the throughput and walk-away considerations covered earlier — deciding when maintenance happens is itself a scheduling decision with the same real tradeoffs."
+  />
+</QuizSet>

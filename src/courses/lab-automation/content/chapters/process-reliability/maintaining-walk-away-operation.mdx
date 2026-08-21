@@ -1,0 +1,114 @@
+Walk-away time was introduced back in the automated-laboratory chapter as one of automation's core benefits — a system running unattended for hours or overnight. Actually earning that unattended stretch, reliably, night after night, is a design discipline of its own.
+
+### Walk-away time is a claim that has to be defended continuously
+
+An overnight run isn't unattended because nothing could go wrong — it's unattended because everything that's *likely* to go wrong within that stretch has been anticipated and handled without a person. Every hour of claimed walk-away time is really a claim that the system can detect and either recover from or safely wait out any failure that occurs during that hour, using exactly the detection and recovery layers from the previous section. A system that claims 12 hours of walk-away time but actually needs a person to intervene after 4 doesn't have 12 hours of walk-away time — it has 4, and the rest was optimistic marketing.
+
+### The resource budget for an unattended stretch
+
+Every consumable a run depends on — tips, reagent volume, wash buffer — has to be provisioned for the *entire* unattended stretch up front, since there's no one available partway through to refill anything. This means walk-away duration and resource capacity are directly linked: extending an unattended run from 8 hours to 16 isn't just a scheduling change, it requires physically loading twice the tips, twice the reagent, and verifying the deck actually has room for that much supply before the run starts.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A timeline of an unattended overnight run, with markers along it for resource checkpoints: sufficient tips loaded, sufficient reagent loaded, sufficient wash buffer loaded, each verified before the run starts, since none can be replenished once the run begins without a person present."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="40" y1="90" x2="600" y2="90" stroke="#000" strokeWidth="1.5" />
+    <text x="40" y="115" fontSize="9" fill="#666">start (person present)</text>
+    <text x="600" y="115" fontSize="9" fill="#666" textAnchor="end">end (person returns)</text>
+
+    {[
+      { x: 120, label: "TIPS: 4,608" },
+      { x: 280, label: "REAGENT: 250 mL" },
+      { x: 440, label: "WASH: 2 L" },
+    ].map((r) => (
+      <g key={r.label}>
+        <circle cx={r.x} cy="90" r="6" fill="#3464c8" />
+        <line x1={r.x} y1="90" x2={r.x} y2="55" stroke="#3464c8" strokeWidth="1" />
+        <text x={r.x} y="45" fontSize="9" textAnchor="middle">{r.label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every consumable needed across the whole unattended stretch must be verified as sufficient before the run starts — there's no mid-run refill available.
+  </figcaption>
+</figure>
+
+### Redundancy as a walk-away strategy
+
+Where possible, systems extend safe walk-away duration by building in redundancy: a spare tip box loaded beyond the minimum needed, a backup reagent aliquot in case the primary one is contaminated, an alternate path for a step if its usual instrument reports an error. Redundancy trades deck space and consumable cost for a longer stretch of genuinely unattended operation — a direct extension of the resource-provisioning idea, aimed specifically at absorbing the unexpected rather than just the expected.
+
+### The limit that redundancy can't remove
+
+No amount of redundancy makes walk-away time unlimited. Some failures — a hardware fault that stops the arm entirely, a power interruption — simply cannot be worked around by any amount of spare consumables, and represent a genuine ceiling on how long a system can run without a person available to respond. Recognizing this ceiling honestly, rather than assuming a system can run indefinitely unattended, is part of realistic walk-away planning; a scheduled check-in before that ceiling is reached is a deliberate design choice, not a failure of the automation.
+
+Walk-away operation is about surviving the *expected* stretch of unattended time without incident. The next section covers what happens when the system needs to actively tell a person something is wrong, rather than silently handling it alone.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="maintaining-walk-away-operation-q1"
+    question="What does an unattended overnight run's walk-away time actually represent, according to this section?"
+    options={[
+      "A guarantee that nothing can possibly go wrong during that time",
+      "A claim that everything likely to go wrong within that stretch has been anticipated and can be detected and recovered from, or safely waited out, without a person",
+      "The maximum physical speed the system's instruments can achieve",
+      "A marketing figure with no relationship to actual system capability",
+    ]}
+    answer={1}
+    explanation="Walk-away time is a claim about the system's ability to handle likely failures unattended using its built-in detection and recovery layers, not an assumption that nothing will go wrong at all."
+  />
+  <Quiz
+    id="maintaining-walk-away-operation-q2"
+    question="Why is extending an unattended run from 8 hours to 16 hours not just a scheduling change?"
+    options={[
+      "Because every consumable the run depends on must be physically provisioned for the entire unattended stretch up front, since there's no one available to refill anything mid-run",
+      "Because longer runs automatically require fewer resources",
+      "Because scheduling changes have no effect on resource requirements",
+      "Because 16-hour runs are always run at a different facility",
+    ]}
+    answer={0}
+    explanation="Since no one can refill supplies partway through an unattended run, doubling the duration means physically doubling the loaded consumables and verifying the deck has room for them."
+  />
+  <Quiz
+    id="maintaining-walk-away-operation-q3"
+    question="What does building redundancy — like a spare tip box or backup reagent aliquot — actually buy a system?"
+    options={[
+      "Unlimited walk-away time with no remaining constraints",
+      "An extension of safe unattended duration by absorbing unexpected problems, at the cost of extra deck space and consumable expense",
+      "A guarantee against all possible hardware faults",
+      "A replacement for detection and recovery layers entirely",
+    ]}
+    answer={1}
+    explanation="Redundancy extends how long a system can run unattended by covering unexpected issues, but it's a tradeoff against deck space and cost, not a way to eliminate all failure risk."
+  />
+  <Quiz
+    id="maintaining-walk-away-operation-q4"
+    question="Why can't redundancy alone make walk-away time unlimited?"
+    options={[
+      "Because some failures — like a complete hardware fault or power interruption — simply cannot be worked around by any amount of spare consumables",
+      "Because redundancy always makes systems less reliable",
+      "Because regulations cap walk-away time regardless of system design",
+      "Because redundancy only applies to software failures, not hardware",
+    ]}
+    answer={0}
+    explanation="Certain catastrophic failures fall outside what any amount of extra consumables or backup paths can address, setting a genuine ceiling on unattended operation regardless of how much redundancy is built in."
+  />
+  <Quiz
+    id="maintaining-walk-away-operation-q5"
+    question="Why is scheduling a check-in before a system's walk-away ceiling is reached considered good design rather than a failure of automation?"
+    options={[
+      "Because acknowledging the real limits of unattended operation honestly, and planning around them, is part of realistic walk-away planning rather than pretending the system can run indefinitely",
+      "Because scheduled check-ins indicate the automation doesn't actually work",
+      "Because check-ins are only needed for manually operated systems",
+      "Because walk-away time has no actual practical limit",
+    ]}
+    answer={0}
+    explanation="Recognizing a genuine unattended-operation ceiling and planning a check-in before reaching it reflects honest engineering, rather than either overpromising walk-away duration or treating any limit as a system flaw."
+  />
+</QuizSet>

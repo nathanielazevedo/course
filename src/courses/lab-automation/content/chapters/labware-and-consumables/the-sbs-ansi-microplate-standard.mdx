@@ -1,0 +1,119 @@
+Every instrument covered in the last chapter — readers, cyclers, washers, imagers — has to physically accept the same plates. That's only possible because almost every plate in the world, regardless of manufacturer, shares one geometric standard. This section is about that standard and why it matters more than almost any single technique.
+
+### One footprint, many well counts
+
+The **SBS/ANSI standard** (originally set by the Society for Biomolecular Screening, now maintained by ANSI/SLAS) fixes the outer footprint of a microplate — its length, width, and the position of its corner notch — to the same dimensions regardless of how many wells are inside it. A 96-well plate, a 384-well plate, and a 1536-well plate all share the exact same footprint; what changes between them is only the well grid packed into that fixed rectangle.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three plates of identical outer footprint side by side, containing a ninety six well grid, a denser three hundred eighty four well grid, and an even denser fifteen thirty six well grid, illustrating that the outer dimensions never change even as well count increases."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 10, rows: 8, cols: 12, label: "96-WELL" },
+      { x: 230, rows: 16, cols: 24, label: "384-WELL" },
+      { x: 450, rows: 32, cols: 48, label: "1536-WELL" },
+    ].map((p) => (
+      <g key={p.label}>
+        <rect x={p.x} y="20" width="180" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        {Array.from({ length: p.rows }).map((_, r) =>
+          Array.from({ length: p.cols }).map((_, c) => (
+            <rect
+              key={`${r}-${c}`}
+              x={p.x + 8 + c * ((180 - 16) / p.cols)}
+              y={28 + r * ((120 - 16) / p.rows)}
+              width={(180 - 16) / p.cols - 1}
+              height={(120 - 16) / p.rows - 1}
+              fill="#d8e8ff"
+            />
+          )),
+        )}
+        <text x={p.x + 90} y="160" fontSize="12" fontWeight="600" textAnchor="middle">{p.label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Same outer rectangle, same corner notch, wildly different well density — that's the entire point of the standard.
+  </figcaption>
+</figure>
+
+### Why the footprint is the load-bearing detail
+
+An instrument's plate nest, gripper, or deck slot is machined to one specific footprint. Because that footprint never changes, the same nest that holds a 96-well plate also holds a 384-well plate without adjustment — a robotic arm that's been taught to grip "a plate" doesn't need to be re-taught for every well density it might encounter. This is the entire reason interchangeability across vendors and instrument generations is possible at all: a plate reader built by one company and a liquid handler built by another can share the same plate without either one knowing anything about the other.
+
+### What the standard does *not* fix
+
+The standard governs the outer envelope only. Well shape (round, square, conical), well depth, well volume, material (polystyrene, polypropylene), optical properties (clear, black, white), and surface treatment (untreated, tissue-culture treated, protein-binding) are all free to vary between plates of the same footprint and well count. Choosing among these is an assay decision, covered in the next section — the standard's job is only to guarantee that whatever plate gets chosen still fits every instrument on the deck.
+
+### A standard older than the automation built on it
+
+The SBS footprint predates most of the automation this course covers; it exists because early screening labs needed *any* fixed reference so equipment from different vendors could interoperate at all. Every later chapter on robotics, transport, and deck layout leans on this one fact without restating it: whatever the plate's contents or well count, its outer shape is a known, fixed quantity a system can be built around once and trust forever.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="sbs-ansi-microplate-standard-q1"
+    question="What does the SBS/ANSI standard actually fix about a microplate?"
+    options={[
+      "The well shape and surface treatment",
+      "The outer footprint — overall length, width, and corner notch position — regardless of well count",
+      "The exact material the plate is made from",
+      "The optical properties of the wells",
+    ]}
+    answer={1}
+    explanation="The standard fixes only the plate's outer envelope. Well count, shape, material, and optical properties are all free to vary independently of that footprint."
+  />
+  <Quiz
+    id="sbs-ansi-microplate-standard-q2"
+    question="Why can a 96-well plate and a 384-well plate both fit in the same instrument nest without adjustment?"
+    options={[
+      "Because both well densities happen to use identical well shapes",
+      "Because they share the exact same outer footprint even though their well grids differ",
+      "Because instrument nests automatically resize themselves",
+      "Because 384-well plates are simply smaller versions of 96-well plates",
+    ]}
+    answer={1}
+    explanation="The standard fixes outer dimensions across well densities, so a nest machined for that one footprint accepts any well count without modification."
+  />
+  <Quiz
+    id="sbs-ansi-microplate-standard-q3"
+    question="Why does the SBS footprint matter so much for interchangeability across vendors?"
+    options={[
+      "Because it lets a plate reader from one company and a liquid handler from another share the same plate without either knowing about the other's design",
+      "Because it standardizes the price of plates across manufacturers",
+      "Because it requires all vendors to use the same well material",
+      "Because it eliminates the need for robotic grippers entirely",
+    ]}
+    answer={0}
+    explanation="A shared, fixed outer footprint is what allows equipment from completely unrelated vendors to physically interoperate around the same plate."
+  />
+  <Quiz
+    id="sbs-ansi-microplate-standard-q4"
+    question="Which of the following is NOT fixed by the SBS/ANSI standard?"
+    options={[
+      "The plate's overall footprint",
+      "The position of the corner notch",
+      "The well's surface treatment (e.g. tissue-culture treated vs. untreated)",
+      "The overall plate length and width",
+    ]}
+    answer={2}
+    explanation="Surface treatment is an assay-specific choice left free by the standard, unlike footprint, notch position, and overall dimensions, which the standard fixes."
+  />
+  <Quiz
+    id="sbs-ansi-microplate-standard-q5"
+    question="Why can a robotic arm taught to grip 'a plate' handle plates of many different well densities without being re-taught?"
+    options={[
+      "Because well density has no physical existence",
+      "Because the outer footprint it was taught to grip stays identical across well densities under the standard",
+      "Because robotic arms only ever handle 96-well plates",
+      "Because grippers are re-calibrated automatically for each well count",
+    ]}
+    answer={1}
+    explanation="Since the gripper interacts with the plate's fixed outer shape, not its internal well grid, that same taught grip works regardless of how many wells the plate contains."
+  />
+</QuizSet>

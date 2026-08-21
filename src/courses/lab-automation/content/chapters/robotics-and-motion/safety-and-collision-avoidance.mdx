@@ -1,0 +1,109 @@
+A robotic arm doesn't know a person's hand is in its path any more than it knows a plate is fragile — it only knows the coordinates and paths it was given. Safety and collision avoidance are what stand between "the arm does exactly what it was programmed to do" and "the arm does that safely, even when something unplanned is in the way."
+
+### Collisions between moving parts
+
+The most direct risk is mechanical: an arm's own path intersecting something it shouldn't — another arm, an instrument's door mid-close, a plate left in the wrong spot by a prior step that went slightly wrong. Systems guard against this with **soft limits** (software-defined boundaries the arm is never allowed to command itself past, even if physically capable of reaching further) and, on multi-arm systems, **zone locking** — a shared area that only one arm may occupy at a time, with the other required to wait until it's clear, directly extending the coordination problem from the previous section.
+
+### Sensing the unexpected
+
+Soft limits and zone locks only guard against *planned* collisions the system already knows to avoid. Genuinely unexpected obstacles — a dropped tip box, a person reaching in — need active sensing. **Light curtains** (a plane of infrared beams around the working area) and **area scanners** detect an intrusion and can halt motion immediately; some arms carry **force/torque sensing** in the joints themselves, stopping the moment resistance exceeds what a normal, unobstructed motion should ever encounter.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A robotic work cell enclosed by a light curtain of vertical infrared beams along its perimeter. Inside, an arm reaches toward a plate. A hand breaking one beam near the edge triggers an immediate stop, shown by a red indicator, before the arm's path reaches that area."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="60" y="30" width="520" height="130" fill="none" stroke="#000" strokeWidth="1.5" strokeDasharray="2 2" />
+    {Array.from({ length: 24 }).map((_, i) => (
+      <line key={i} x1={70 + i * 22} y1="30" x2={70 + i * 22} y2="160" stroke="#3464c8" strokeWidth="0.6" opacity="0.4" />
+    ))}
+    <circle cx="320" cy="95" r="14" fill="#3464c8" />
+    <rect x="380" y="80" width="50" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+
+    <path d="M100 150 q10 -20 20 -30 q8 -8 12 -4" fill="none" stroke="#c0392b" strokeWidth="4" strokeLinecap="round" />
+    <circle cx="100" cy="150" r="20" fill="none" stroke="#c0392b" strokeWidth="2" strokeDasharray="3 3" />
+    <text x="140" y="180" fontSize="10" fill="#c0392b" textAnchor="middle">beam broken → stop</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A light curtain detects an intrusion at the perimeter and halts motion before the arm ever gets near it.
+  </figcaption>
+</figure>
+
+### Two different failure philosophies
+
+Preventing planned collisions (soft limits, zone locking) and detecting unplanned ones (light curtains, force sensing) solve different problems. The first assumes the system's own model of the deck is correct and simply won't let the arm violate it. The second assumes that model can be wrong, or that something outside it — a person, a dropped object — has entered a space the system never planned for. A safe system needs both: perfect adherence to a flawed plan is not safety, and neither is sensing alone without any planned boundaries to begin with.
+
+### Fail-safe, not just fail-stop
+
+A well-designed safety system doesn't just stop on detecting a problem — it stops in a state that doesn't make things worse. An arm gripping a plate that suddenly halts mid-motion should hold its grip rather than release and drop the plate; an emergency stop should de-energize motors in a way that leaves the arm exactly where it was, not wherever momentum carries it. This distinction — failing safely, not just failing — is why safety systems are engineered and certified separately from the productivity features of the same robot, and why they're treated as non-negotiable rather than tunable for convenience.
+
+This closes the chapter on robotics and motion — degrees of freedom, grippers, coordinate systems, deck transport, and the safety systems that make all of it trustworthy around people. With labware now able to move reliably and safely between instruments, the next chapter turns to how software actually talks to each of those instruments in the first place.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="safety-and-collision-avoidance-q1"
+    question="What is the purpose of 'soft limits' in a robotic arm's control software?"
+    options={[
+      "To detect a person unexpectedly entering the work area",
+      "To define software boundaries the arm is never allowed to command itself past, even if physically capable of reaching further",
+      "To increase the arm's maximum reach",
+      "To measure the force applied by the gripper",
+    ]}
+    answer={1}
+    explanation="Soft limits are software-enforced boundaries guarding against the arm being commanded into a space it shouldn't enter, independent of its physical reach capability."
+  />
+  <Quiz
+    id="safety-and-collision-avoidance-q2"
+    question="Why are light curtains and force/torque sensing needed in addition to soft limits and zone locking?"
+    options={[
+      "Because soft limits and zone locking already handle every possible collision scenario",
+      "Because those planned safeguards only prevent collisions the system already knows to avoid — active sensing is needed for genuinely unexpected obstacles like a person reaching in",
+      "Because light curtains replace the need for taught positions",
+      "Because force sensing is only useful for calibration, not safety",
+    ]}
+    answer={1}
+    explanation="Soft limits and zone locking rely on the system's own model of the deck being correct; sensing systems catch unplanned intrusions that model never accounted for."
+  />
+  <Quiz
+    id="safety-and-collision-avoidance-q3"
+    question="Why does a safe system need both planned-collision prevention and unplanned-intrusion detection, rather than just one?"
+    options={[
+      "Because planned prevention assumes a correct deck model, while detection catches cases where that model is wrong or something unplanned enters the space",
+      "Because regulations require exactly two separate safety mechanisms",
+      "Because zone locking and light curtains perform the exact same function",
+      "Because unplanned intrusions never actually occur in real labs",
+    ]}
+    answer={0}
+    explanation="Perfect adherence to a flawed plan isn't safety if the plan is wrong, and sensing alone without any planned boundaries misses collisions the system could have prevented outright — both are needed together."
+  />
+  <Quiz
+    id="safety-and-collision-avoidance-q4"
+    question="What does it mean for a safety system to be 'fail-safe' rather than merely 'fail-stop'?"
+    options={[
+      "It stops all motion instantly regardless of what the arm was holding",
+      "It stops in a state that doesn't make things worse — for example, holding a gripped plate rather than dropping it when halted mid-motion",
+      "It restarts the arm automatically after any stop",
+      "It ignores minor obstacles to avoid unnecessary stops",
+    ]}
+    answer={1}
+    explanation="Fail-safe means the stopped state itself is safe — like maintaining grip on a held plate — rather than simply halting motion in whatever way happens to occur."
+  />
+  <Quiz
+    id="safety-and-collision-avoidance-q5"
+    question="Why are safety systems typically engineered and certified separately from a robot's productivity features?"
+    options={[
+      "Because safety behavior is treated as non-negotiable rather than something that can be tuned for convenience",
+      "Because safety systems and productivity features use identical hardware",
+      "Because certification is only required for Cartesian arms, not articulated arms",
+      "Because safety systems are optional add-ons with no functional requirement",
+    ]}
+    answer={0}
+    explanation="Safety behaviors are treated as fixed, certified requirements rather than adjustable settings, distinguishing them from the tunable productivity aspects of the same robotic system."
+  />
+</QuizSet>

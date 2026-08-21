@@ -1,0 +1,112 @@
+A validated, well-designed method still runs on physical hardware, day after day, unattended. This chapter is about what keeps that unattended operation from quietly falling apart — starting with a clear-eyed look at how automated systems actually fail.
+
+### Mechanical failures: the physical world wearing down
+
+**Mechanical failure** covers anything physical breaking or degrading: a gripper losing grip force, a pipette's seals wearing out (the same drift covered back in the calibration section), a robotic arm's positioning drifting slightly out of tolerance over months of use. These failures are usually gradual — a system doesn't go from perfect to broken in one step, it degrades slowly until it crosses a threshold where results start being visibly affected, often well after that degradation actually began.
+
+### Software failures: the logic breaking down
+
+**Software failure** is when the controlling logic itself misbehaves — a scheduler miscalculating a timing window, a driver mishandling an unexpected response from an instrument, a bug that only appears under a specific, rare sequence of events. Unlike mechanical failure, software failure doesn't wear in gradually; it's either present in the code from the start (waiting for the right conditions to trigger it) or introduced suddenly by an update, which is why software changes deserve the same scrutiny as physical hardware changes.
+
+### Consumable failures: running out or running wrong
+
+**Consumable failure** happens when something the system depends on but doesn't own outright — tips, reagent volume, wash buffer — runs out mid-run, or turns out to be the wrong item entirely (an unlabeled reagent bottle swapped into the wrong position). This category was touched on directly in the tip-management and washer sections earlier in the course; it recurs here because it's one of the most common real-world causes of a failed run, precisely because it depends on correct human setup rather than anything the automated system controls on its own.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three failure categories compared by how they typically develop over time: mechanical failure shown as a slow gradual decline, software failure shown as a sudden trigger with no warning, and consumable failure shown as a hard stop when a resource is depleted or wrong."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { title: "MECHANICAL", path: "M20 20 Q60 25 100 45 T180 100" },
+      { title: "SOFTWARE", path: "M20 30 L140 30 L140 100 L180 100" },
+      { title: "CONSUMABLE", path: "M20 30 L120 30 L120 100 L180 100" },
+    ].map((g, i) => (
+      <g key={g.title} transform={`translate(${20 + i * 210}, 10)`}>
+        <text x="90" y="0" fontSize="10.5" fontWeight="600" textAnchor="middle">{g.title}</text>
+        <path d={g.path} fill="none" stroke="#3464c8" strokeWidth="2" />
+        <text x="90" y="130" fontSize="8.5" fill="#666" textAnchor="middle">time →</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each failure category has a distinct shape over time — gradual, sudden-but-latent, or an abrupt hard stop — which shapes how each is best detected.
+  </figcaption>
+</figure>
+
+### Human-introduced failures: the setup step that didn't happen
+
+A significant share of failures in every category above ultimately traces back to a human step upstream of the automated run itself: a plate loaded in the wrong orientation, a method file that wasn't updated to match a protocol change, a maintenance step that was skipped or done incorrectly. These aren't a separate technical category so much as a reminder that "automated" doesn't mean "no human involvement" — it means the human involvement moved earlier, into setup and maintenance, where a mistake is less visible in the moment but no less consequential later.
+
+### Why categorizing failure modes matters
+
+Knowing which category a failure belongs to shapes how it should be detected and prevented — a theme the rest of this chapter builds on directly. Mechanical failure is caught by monitoring for gradual drift before it crosses a threshold; software failure is caught by testing and careful change management rather than by watching for symptoms; consumable failure is caught by tracking supply state and verifying setup, not by inspecting the instrument itself. Treating every failure as one undifferentiated category of "something went wrong" makes it much harder to build the specific defenses each one actually needs.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="failure-modes-in-automation-q1"
+    question="Why is mechanical failure typically described as gradual rather than sudden?"
+    options={[
+      "Because mechanical parts never actually degrade over time",
+      "Because a system usually degrades slowly, crossing a threshold where results become visibly affected only well after the degradation actually began",
+      "Because mechanical failures only occur during initial installation",
+      "Because mechanical failure is always caused by software bugs",
+    ]}
+    answer={1}
+    explanation="Mechanical wear — seals, grippers, positioning drift — builds up slowly, meaning a system can be silently degrading for a while before it crosses a threshold that visibly affects results."
+  />
+  <Quiz
+    id="failure-modes-in-automation-q2"
+    question="How does software failure typically differ from mechanical failure in how it develops?"
+    options={[
+      "Software failure is always caused by mechanical wear",
+      "Software failure is either present in the code from the start (waiting for specific triggering conditions) or introduced suddenly by an update, rather than developing gradually",
+      "Software failure only occurs after years of continuous use",
+      "Software and mechanical failure develop in exactly the same gradual way",
+    ]}
+    answer={1}
+    explanation="Unlike gradual mechanical wear, a software bug exists as a latent defect waiting for the right trigger, or appears abruptly after a code change — it doesn't wear in over time the way hardware does."
+  />
+  <Quiz
+    id="failure-modes-in-automation-q3"
+    question="Why is consumable failure described as one of the most common real-world causes of a failed run?"
+    options={[
+      "Because it depends on correct human setup — loading the right reagent, enough tips — rather than anything the automated system controls entirely on its own",
+      "Because consumables are always more expensive than instruments",
+      "Because consumable failure only affects software, not hardware",
+      "Because consumables never actually run out during a properly designed run",
+    ]}
+    answer={0}
+    explanation="Since consumable state (correct reagent, sufficient tips) is set up by a person before the run starts, it introduces a common point of failure that the automated system itself can't fully guard against."
+  />
+  <Quiz
+    id="failure-modes-in-automation-q4"
+    question="What does the chapter mean by describing certain failures as 'human-introduced' rather than a separate technical category?"
+    options={[
+      "That human-introduced failures never actually occur in automated systems",
+      "That a mistake made during setup or maintenance — like a mislabeled reagent or outdated method file — moves human involvement earlier, where errors are less visible in the moment but still consequential later",
+      "That human-introduced failures only occur in manual, non-automated workflows",
+      "That automation removes all human involvement from a workflow entirely",
+    ]}
+    answer={1}
+    explanation="'Automated' shifts human involvement to setup and maintenance rather than eliminating it — a mistake made there is just as damaging, even though it happens before the run itself begins."
+  />
+  <Quiz
+    id="failure-modes-in-automation-q5"
+    question="Why does categorizing failure modes (mechanical, software, consumable) matter practically?"
+    options={[
+      "Because each category is best detected and prevented differently — drift monitoring for mechanical, testing and change management for software, supply tracking for consumables",
+      "Because only one category of failure actually matters in practice",
+      "Because categorization has no effect on how failures are detected or prevented",
+      "Because all three categories require exactly the same detection method",
+    ]}
+    answer={0}
+    explanation="Different failure categories call for different defenses — treating all failures as one undifferentiated problem makes it harder to build the specific detection and prevention each type actually requires."
+  />
+</QuizSet>

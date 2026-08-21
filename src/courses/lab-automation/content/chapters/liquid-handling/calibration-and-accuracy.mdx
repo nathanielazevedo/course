@@ -1,0 +1,115 @@
+Everything in this chapter — physics, technique, hardware, liquid classes — assumes the pipette is actually delivering the volume it claims to. That assumption has to be checked, regularly and rigorously, or every downstream measurement inherits a hidden error. This section is about how that check works.
+
+### Accuracy and precision are different things
+
+**Accuracy** is how close the delivered volume is to the *target* volume — set a pipette to 100 µL, and accuracy asks whether it actually delivered 100 µL. **Precision** is how close repeated deliveries are to *each other*, regardless of whether they hit the target. A pipette can be precise but inaccurate (consistently delivering 95 µL every time it's set to 100), or accurate on average but imprecise (bouncing between 90 and 110 µL around a true mean of 100). Both matter, but they're diagnosed and fixed differently — accuracy by adjustment, precision by mechanical wear or technique.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four targets. Top left: accurate and precise, shots clustered on the bullseye. Top right: precise but not accurate, shots clustered but off-center. Bottom left: accurate but not precise, shots centered but scattered. Bottom right: neither accurate nor precise, shots scattered and off-center."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 60, y: 10, title: "ACCURATE + PRECISE", pts: [[100,60],[103,58],[98,62],[101,61],[99,59]] },
+      { x: 350, y: 10, title: "PRECISE, NOT ACCURATE", pts: [[130,50],[133,48],[128,52],[131,51],[129,49]] },
+      { x: 60, y: 130, title: "ACCURATE, NOT PRECISE", pts: [[85,80],[115,42],[95,95],[105,60],[100,70]] },
+      { x: 350, y: 130, title: "NEITHER", pts: [[120,40],[145,65],[110,90],[135,50],[125,75]] },
+    ].map((g) => (
+      <g key={g.title} transform={`translate(${g.x}, ${g.y})`}>
+        <text x="50" y="0" fontSize="10" fontWeight="600" textAnchor="middle">{g.title}</text>
+        <circle cx="100" cy="70" r="30" fill="none" stroke="#000" strokeWidth="1" />
+        <circle cx="100" cy="70" r="18" fill="none" stroke="#000" strokeWidth="1" />
+        <circle cx="100" cy="70" r="6" fill="none" stroke="#000" strokeWidth="1" />
+        {g.pts.map(([px, py], i) => (
+          <circle key={i} cx={px} cy={py} r="3" fill="#3464c8" />
+        ))}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Precision is how tight the cluster is; accuracy is whether the cluster sits on the true target. A pipette can fail either one independently.
+  </figcaption>
+</figure>
+
+### How calibration is actually checked
+
+The standard method is **gravimetric**: dispense a target volume of water onto a precision balance and weigh it. Because water's density at a known temperature is well established, weight converts directly to volume. Repeating this several times at a given volume setting yields both numbers at once — the mean tells you accuracy (how close to target), the spread tells you precision (how consistent). This is done at multiple volumes across the pipette's range, since error isn't necessarily uniform — a pipette can be dead-on at its maximum volume and biased at its minimum.
+
+### Drift, and why it's inevitable
+
+No pipette holds calibration forever. Seals wear, springs fatigue, and mechanical tolerances shift with use — a gradual process called **drift**. A pipette that passed calibration six months ago is not guaranteed to still be within tolerance today, which is why labs recalibrate on a **schedule** (often every 3–6 months, more often for high-use or high-stakes instruments) rather than only after something looks wrong. Waiting for a visible problem means every run since the last good calibration is already suspect.
+
+### Automated systems don't get a pass
+
+It's tempting to assume a robotic liquid handler, doing the exact same motion every time, can't drift the way a human hand can. It still can — the mechanical piston and seals wear down regardless of who or what is operating the plunger. Automated systems are calibrated the same gravimetric way, often with the check built directly into routine maintenance, precisely because "the machine does it the same way every time" only guards against *inconsistency* — it says nothing about whether that consistent action is the *correct* one.
+
+Calibration closes the loop on this chapter: physics explains why volume can drift, technique and hardware choices manage that drift for difficult liquids, and calibration is how a lab actually verifies, on a schedule, that none of it has quietly gone wrong. With liquid handling now covered end to end, the next chapter turns to the instruments that liquid handling feeds into.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="calibration-and-accuracy-q1"
+    question="A pipette set to 100 µL consistently delivers 95 µL every time. How would this be described?"
+    options={[
+      "Accurate but not precise",
+      "Precise but not accurate",
+      "Both accurate and precise",
+      "Neither accurate nor precise",
+    ]}
+    answer={1}
+    explanation="Delivering the same wrong volume every time is high precision (tight, repeatable results) combined with low accuracy (consistently off from the true target)."
+  />
+  <Quiz
+    id="calibration-and-accuracy-q2"
+    question="Why does the gravimetric calibration method use a precision balance and water rather than measuring volume by eye?"
+    options={[
+      "Because water's density at a known temperature converts weight to volume reliably and precisely",
+      "Because balances are cheaper than volumetric glassware",
+      "Because water is the only liquid that can be pipetted accurately",
+      "Because weighing eliminates the need to test multiple volume settings",
+    ]}
+    answer={0}
+    explanation="Weight is easy to measure with high precision, and water's known density lets that weight be converted directly and reliably into a volume figure."
+  />
+  <Quiz
+    id="calibration-and-accuracy-q3"
+    question="Why is calibration checked at multiple volume settings across a pipette's range rather than just once at its maximum?"
+    options={[
+      "Because error isn't necessarily uniform — a pipette can be accurate at one volume and biased at another",
+      "Because balances can only weigh large volumes accurately",
+      "Because regulations require exactly three test points",
+      "Because minimum volume settings never need to be checked",
+    ]}
+    answer={0}
+    explanation="A pipette's accuracy can vary across its range, so checking only one setting could miss bias present at other volumes the pipette is actually used at."
+  />
+  <Quiz
+    id="calibration-and-accuracy-q4"
+    question="Why do labs recalibrate pipettes on a fixed schedule instead of waiting until a problem is visibly apparent?"
+    options={[
+      "Because drift is gradual and invisible until checked, so waiting for a visible problem means prior runs are already suspect",
+      "Because scheduled recalibration is required only for positive-displacement pipettes",
+      "Because a fixed schedule is cheaper than gravimetric testing",
+      "Because drift only occurs in pipettes older than five years",
+    ]}
+    answer={0}
+    explanation="Mechanical drift builds up gradually with no obvious symptom until it's tested. A schedule catches this before it silently compromises every run since the last calibration."
+  />
+  <Quiz
+    id="calibration-and-accuracy-q5"
+    question="Why do automated liquid handlers still need gravimetric calibration, even though they repeat the exact same motion every time?"
+    options={[
+      "Because consistency alone doesn't guarantee the consistent action is delivering the correct volume — mechanical wear can still cause drift",
+      "Because automated systems are inherently less accurate than manual pipetting",
+      "Because gravimetric testing is only meaningful for human-operated pipettes",
+      "Because automated pipettes don't use pistons or seals",
+    ]}
+    answer={0}
+    explanation="Repeating the same motion guards against inconsistency, not incorrectness — the mechanism still wears over time, so calibration verifies the repeated action is actually correct."
+  />
+</QuizSet>

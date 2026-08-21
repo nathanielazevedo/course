@@ -1,0 +1,110 @@
+Everything in this course so far has assumed a method already exists, ready to run on an automated system. This chapter is about how that method actually gets created — starting with the gap between a protocol written for a human and one a machine can execute.
+
+### A manual protocol speaks to a person, not a machine
+
+A manual protocol is written the way a person reads instructions: "add 50 µL of reagent to each well, then incubate for 30 minutes at room temperature." A person reading this fills in an enormous amount of implicit knowledge — how to hold the pipette, how to recognize "room temperature," what to do if a well looks off. None of that implicit knowledge transfers to a machine. An automated method has to make every one of those assumptions explicit: exactly which liquid class to use for the reagent, exactly which incubator and exactly what setpoint counts as the target temperature, exactly what "looks off" would even mean to something without eyes.
+
+### Translating, not just transcribing
+
+Turning a manual protocol into an automated method is not a word-for-word conversion — it's a translation between two fundamentally different ways of specifying work. "Mix gently" becomes a specific pipetting speed and a specific number of mix cycles. "Let it sit until the color develops" becomes a fixed timing window, because a machine can't watch for a color change unless a plate reader is explicitly built into the method to check for it. Some manual steps translate cleanly; others reveal that the original protocol was relying on a person's judgment in a way that has no obvious automated equivalent at all, and the protocol itself has to change to accommodate that.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A manual protocol instruction, mix gently and incubate until ready, shown being translated into an automated method with explicit parameters: a specific mix cycle count and speed, and a fixed timing window in minutes, replacing the implicit human judgment with exact machine instructions."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="20" width="260" height="90" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="150" y="14" fontSize="10" fontWeight="600" textAnchor="middle">MANUAL PROTOCOL</text>
+    <text x="35" y="45" fontSize="10">"Mix gently."</text>
+    <text x="35" y="70" fontSize="10">"Incubate until ready."</text>
+
+    <text x="320" y="70" fontSize="18" textAnchor="middle">→</text>
+
+    <rect x="360" y="20" width="260" height="90" fill="#e8f2e0" stroke="#000" strokeWidth="1.5" />
+    <text x="490" y="14" fontSize="10" fontWeight="600" textAnchor="middle">AUTOMATED METHOD</text>
+    <text x="375" y="45" fontSize="9.5" fontFamily="monospace">mix: 5 cycles @ 50 µL/s</text>
+    <text x="375" y="70" fontSize="9.5" fontFamily="monospace">incubate: 30 min, 22°C</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every implicit human judgment in a manual instruction has to become an explicit, exact parameter in the automated version.
+  </figcaption>
+</figure>
+
+### Where the science lives versus where the engineering lives
+
+A useful way to separate the work: the *science* of a protocol — why this reagent, why this concentration, why this incubation time — doesn't change when it's automated. The *engineering* — how the reagent is dispensed, how the incubation is timed and verified, how the result is captured — is entirely new work layered on top of an unchanged scientific core. Confusing the two causes real problems: changing the science to make automation easier corrupts the assay; refusing to change the engineering (insisting the automated system move exactly like a person's hand) often makes automation needlessly difficult or impossible.
+
+### Why this always requires a person who understands both sides
+
+Because this translation touches both the biology and the mechanics, it's rarely something either a bench scientist or an automation engineer can do entirely alone. A protocol translated by someone who doesn't understand the underlying chemistry risks automating a version of the assay that no longer works scientifically; one translated by someone who doesn't understand the equipment risks a method that's technically faithful to the paper protocol but impossible to actually execute reliably on real hardware.
+
+The rest of this chapter breaks this translation into its concrete pieces — starting with the most basic one: decomposing a protocol into individual, machine-executable steps.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="from-manual-protocol-to-automated-method-q1"
+    question="Why can't a manual protocol be automated through a direct, word-for-word conversion?"
+    options={[
+      "Because manual protocols never contain any useful information",
+      "Because a manual protocol relies on implicit human judgment and knowledge that has no automatic equivalent a machine can execute",
+      "Because automated methods cannot use any of the same reagents",
+      "Because manual protocols are always written in a foreign language",
+    ]}
+    answer={1}
+    explanation="A person reading a manual protocol fills in implicit knowledge — how to pipette, how to judge conditions — that has no direct machine equivalent, so the protocol must be translated, not merely transcribed."
+  />
+  <Quiz
+    id="from-manual-protocol-to-automated-method-q2"
+    question="What does the instruction 'mix gently' need to become in an automated method?"
+    options={[
+      "It can be used as-is with no changes",
+      "A specific, explicit parameter set — such as a defined mix speed and number of cycles",
+      "A request for a person to intervene manually every time",
+      "An instruction that is simply deleted from the method",
+    ]}
+    answer={1}
+    explanation="A vague human instruction like 'mix gently' has to be translated into concrete, executable parameters — a specific speed and cycle count — since a machine has no equivalent of 'gently' otherwise."
+  />
+  <Quiz
+    id="from-manual-protocol-to-automated-method-q3"
+    question="According to the distinction between the science and engineering of a protocol, what should NOT change when a protocol is automated?"
+    options={[
+      "The underlying scientific reasoning — why a specific reagent, concentration, or incubation time is used",
+      "The exact mechanics of how liquid is dispensed",
+      "The specific instrument used to incubate the plate",
+      "The timing verification method used to confirm a step's completion",
+    ]}
+    answer={0}
+    explanation="The scientific core of a protocol — the reasoning behind reagents, concentrations, and timings — should remain unchanged; it's the engineering layer around it that's newly built for automation."
+  />
+  <Quiz
+    id="from-manual-protocol-to-automated-method-q4"
+    question="What problem arises from changing a protocol's underlying science just to make automation easier?"
+    options={[
+      "It has no real consequence as long as the automated version runs faster",
+      "It corrupts the assay, since the science is what the whole protocol is actually meant to preserve",
+      "It only affects the ELN, not the LIMS",
+      "It makes the protocol easier to validate later",
+    ]}
+    answer={1}
+    explanation="The science is the part of a protocol that must stay intact through automation — altering it to simplify the engineering side undermines the actual purpose of running the assay at all."
+  />
+  <Quiz
+    id="from-manual-protocol-to-automated-method-q5"
+    question="Why does translating a protocol usually require someone who understands both the biology and the equipment?"
+    options={[
+      "Because either side alone risks either breaking the science or producing a method that's technically faithful but impossible to run reliably on real hardware",
+      "Because automation engineers never need to understand any science",
+      "Because bench scientists never need to understand any hardware",
+      "Because only automation software can perform this translation, with no human input",
+    ]}
+    answer={0}
+    explanation="A translation done without chemistry knowledge risks a scientifically broken method, while one done without hardware knowledge risks a technically correct but unexecutable one — both perspectives are needed together."
+  />
+</QuizSet>

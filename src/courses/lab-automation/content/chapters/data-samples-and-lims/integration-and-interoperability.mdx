@@ -1,0 +1,122 @@
+Every system covered in this course so far — instruments, drivers, the scheduler, the LIMS, the ELN — does its own job well in isolation. None of them are useful in isolation, though; the actual value of an automated lab comes from these systems working as one connected whole. This final section is about what makes that connection possible, and what makes it fail.
+
+### The integration problem
+
+**Integration** is the work of getting separate systems, often from different vendors with no shared design, to exchange information correctly. A scheduler needs to tell the LIMS a run has started; the LIMS needs to tell a reader's software which sample identities correspond to which wells; a captured result needs to flow from an instrument's parsing step, covered in the last section, into the LIMS record it belongs to. None of these connections come for free — each is a specific integration that has to be built, tested, and maintained.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four systems arranged around a center point — scheduler, instrument driver, LIMS, and ELN — each connected to the others by lines, representing the network of integrations a working automated lab actually depends on, more connections than any single system provides on its own."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 320, y: 30, label: "SCHEDULER" },
+      { x: 560, y: 110, label: "INSTRUMENT" },
+      { x: 320, y: 190, label: "LIMS" },
+      { x: 80, y: 110, label: "ELN" },
+    ].map((n, i, arr) => (
+      <g key={n.label}>
+        {arr.map((m, j) => i < j && (
+          <line key={j} x1={n.x} y1={n.y} x2={m.x} y2={m.y} stroke="#999" strokeWidth="1" strokeDasharray="3 3" />
+        ))}
+      </g>
+    ))}
+    {[
+      { x: 320, y: 30, label: "SCHEDULER" },
+      { x: 560, y: 110, label: "INSTRUMENT" },
+      { x: 320, y: 190, label: "LIMS" },
+      { x: 80, y: 110, label: "ELN" },
+    ].map((n) => (
+      <g key={n.label}>
+        <rect x={n.x - 55} y={n.y - 18} width="110" height="36" fill="#d8e8ff" stroke="#000" strokeWidth="1.5" />
+        <text x={n.x} y={n.y + 5} fontSize="10.5" fontWeight="600" textAnchor="middle">{n.label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A working automated lab depends on far more connections between systems than any single system provides on its own.
+  </figcaption>
+</figure>
+
+### Standards versus custom connections
+
+Some of this connection work is handled by the standardized instrument protocols covered earlier — SiLA 2, OPC-UA — which give a driver a predictable way to expose data to whatever's asking for it. But standards at the instrument-control layer don't automatically solve integration at the data layer: a LIMS and an ELN from two different vendors, or a custom scheduler and a commercial LIMS, often still need a **custom interface** built specifically to translate one system's data model into the other's expectations. Where a standard exists and both sides support it, integration is comparatively cheap; where it doesn't, someone has to build and maintain a bespoke translation layer.
+
+### Why interoperability is the goal, not just integration
+
+**Interoperability** is a step beyond one-off integration: it's the property of systems being able to exchange information *without* a custom-built bridge for every single pairing, because they agree on a shared format or protocol in the first place. An integration connects two specific systems; interoperability means any system that speaks the shared standard can connect to any other one that does, without bespoke work for each new pair. This is exactly why standards matter as much as they do throughout this course — every custom integration is a one-time cost paid again for every new system added, while a shared standard pays that cost once.
+
+### What breaks when integration is done poorly
+
+A poorly integrated system doesn't usually fail obviously — it fails the way capturing instrument data poorly does: silently. A scheduler that doesn't correctly notify the LIMS when a run starts leaves that run's results with no home to land in. A translation layer that maps one system's field slightly wrong produces data that looks complete and correct but is quietly attached to the wrong sample. Because these failures are invisible at the moment they happen, they're usually only discovered much later — during an audit, a re-analysis, or when someone notices a result that doesn't make sense — by which point the actual cause can be difficult to reconstruct.
+
+This closes the chapter on data, samples, and LIMS — identity, chain of custody, LIMS and ELN, capturing instrument data, and the integration work that ties every system in this course together. The next chapter turns from tracking what happened to designing what should happen: taking a manual protocol and turning it into an automated method in the first place.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="integration-and-interoperability-q1"
+    question="What does 'integration' specifically refer to in the context of an automated lab's systems?"
+    options={[
+      "The physical layout of instruments on a deck",
+      "The work of getting separate systems, often from different vendors, to exchange information correctly with each other",
+      "The process of calibrating a pipette",
+      "The act of barcoding a plate for the first time",
+    ]}
+    answer={1}
+    explanation="Integration is specifically about connecting distinct systems — scheduler, instruments, LIMS, ELN — so information flows correctly between them, which doesn't happen automatically just because each system works well on its own."
+  />
+  <Quiz
+    id="integration-and-interoperability-q2"
+    question="Why don't standardized instrument protocols like SiLA 2 or OPC-UA automatically solve integration at the data layer (e.g. between a LIMS and an ELN)?"
+    options={[
+      "Because those protocols only address instrument control, not the connections between data systems like a LIMS and ELN",
+      "Because SiLA 2 and OPC-UA already fully standardize LIMS-to-ELN communication",
+      "Because data-layer integration is never actually necessary",
+      "Because instrument protocols and data systems use identical formats by default",
+    ]}
+    answer={0}
+    explanation="Instrument-control standards solve one specific layer of the problem; connecting a LIMS and ELN from different vendors often still requires a custom-built interface unless both separately support a shared data standard."
+  />
+  <Quiz
+    id="integration-and-interoperability-q3"
+    question="What is the key difference between 'integration' and 'interoperability' as described in this section?"
+    options={[
+      "They are the same concept with different names",
+      "Integration connects two specific systems with a custom bridge; interoperability means systems can exchange information without a custom bridge for every pairing, because they share a common standard",
+      "Interoperability only applies to instrument hardware, not software systems",
+      "Integration is always cheaper to achieve than interoperability",
+    ]}
+    answer={1}
+    explanation="A one-off integration solves one specific connection; true interoperability means any system speaking a shared standard can connect to any other one that does, without repeated bespoke work."
+  />
+  <Quiz
+    id="integration-and-interoperability-q4"
+    question="Why does the section argue that a shared standard is more valuable than repeated custom integrations as a system grows?"
+    options={[
+      "Because custom integrations are always faster to build than adopting a standard",
+      "Because every custom integration is a one-time cost paid again for each new system added, while a shared standard pays that cost only once",
+      "Because standards eliminate the need for any LIMS or ELN",
+      "Because custom integrations never actually work in practice",
+    ]}
+    answer={1}
+    explanation="As more systems are added, repeatedly building custom bridges scales poorly compared to systems that already agree on a shared format, which only needs to be implemented once per system."
+  />
+  <Quiz
+    id="integration-and-interoperability-q5"
+    question="Why are poor integrations often discovered only much later, such as during an audit or re-analysis?"
+    options={[
+      "Because integration failures always crash the entire system immediately",
+      "Because failures like a missed LIMS notification or a mismapped field produce data that looks complete and correct, hiding the problem until something prompts closer scrutiny",
+      "Because audits are the only time integrations are ever actually tested",
+      "Because LIMS systems automatically flag every integration error in real time",
+    ]}
+    answer={1}
+    explanation="Integration failures tend to be silent — the data looks fine on the surface — so they typically surface only when someone later notices an inconsistency or investigates a result that doesn't add up."
+  />
+</QuizSet>

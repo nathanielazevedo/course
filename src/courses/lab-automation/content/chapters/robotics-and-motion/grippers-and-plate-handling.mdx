@@ -1,0 +1,116 @@
+Degrees of freedom get an arm's end to the right place. What's attached at that end — the gripper — is what actually takes hold of a plate, and getting that grip wrong is one of the most common ways an automated run fails physically rather than chemically.
+
+### The basic gripper: two fingers and a squeeze
+
+Most lab grippers are a **parallel-jaw gripper**: two fingers that close toward each other, squeezing a plate from opposite sides. Because plates share the SBS footprint, a gripper tuned to the standard plate width can grab any plate on the deck the same way, regardless of well count or well density inside it — the same reasoning that made the SBS standard matter for instrument nests applies just as directly to a gripper's jaws.
+
+### How hard is hard enough?
+
+Grip force is a genuine balancing act. Too loose, and the plate can shift or slip mid-transport — dropped, or worse, tilted enough to spill its contents without falling outright. Too tight, and rigid plastic plates can flex or crack, particularly thin-walled ones, and a plate held slightly out of true can seat incorrectly in the next nest it's placed into. Grippers are tuned, and in more advanced systems actively force-controlled, to apply just enough grip to prevent slipping without over-compressing the plate.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A parallel jaw gripper shown gripping a plate correctly with balanced force on both sides, next to two failure cases: gripping too loosely, causing the plate to slip and tilt, and gripping too tightly, causing the plate's wall to flex inward."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["CORRECT GRIP", "TOO LOOSE — SLIPS", "TOO TIGHT — FLEXES"].map((label, i) => (
+      <g key={label} transform={`translate(${20 + i * 210}, 10)`}>
+        <text x="90" y="10" fontSize="10.5" fontWeight="600" textAnchor="middle">{label}</text>
+        <rect
+          x={i === 1 ? 65 : 60}
+          y={i === 1 ? 55 : 50}
+          width="60"
+          height="30"
+          fill="#d8e8ff"
+          stroke="#000"
+          strokeWidth="1.2"
+          transform={i === 1 ? "rotate(8 90 70)" : undefined}
+        />
+        <rect x={i === 2 ? 42 : 35} y="45" width="10" height="40" fill="#999" />
+        <rect x={i === 2 ? 138 : 145} y="45" width="10" height="40" fill="#999" />
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The same gripper, tuned wrong in either direction, produces a different failure — a shifted plate or a deformed one.
+  </figcaption>
+</figure>
+
+### Alternatives to squeezing
+
+Not every gripper works by squeezing. **Vacuum grippers** use suction cups to lift a plate (or a lid) from above by adhering to a flat surface rather than clamping its sides — useful for thin lids or delicate labware that a jaw-style grip could damage. **Underside support grippers** slide a flat platform beneath the plate's flange rather than gripping its sides at all, which avoids any squeeze-related risk entirely at the cost of needing clear space to slide the platform in.
+
+### Handling more than just plates
+
+A gripper's job often extends beyond moving a closed plate: removing and replacing a plate's lid, separating a stack of plates one at a time from a hotel, or placing a plate precisely enough into a nest that has almost no tolerance for being off by even a millimeter. Each of these is a slightly different physical problem, and systems that need to do all of them sometimes swap grippers mid-run, or use a single gripper engineered with enough range to handle several tasks adequately rather than any one of them perfectly.
+
+Grippers get a plate reliably into and out of an arm's grasp. Where the arm actually knows to move it *to*, precisely and repeatably, is a question of coordinate systems — the subject of the next section.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="grippers-and-plate-handling-q1"
+    question="Why can a single parallel-jaw gripper tuned to the standard plate width handle any SBS-compliant plate, regardless of well count?"
+    options={[
+      "Because all plates weigh the same amount",
+      "Because the SBS standard fixes the outer footprint that the gripper's jaws interact with, independent of the well grid inside",
+      "Because grippers automatically adjust their jaw width for each well count",
+      "Because well count has no effect on plate handling under any standard",
+    ]}
+    answer={1}
+    explanation="The gripper interacts with the plate's fixed outer dimensions under the SBS standard, so the internal well grid — which does vary — never affects how the gripper grabs it."
+  />
+  <Quiz
+    id="grippers-and-plate-handling-q2"
+    question="What happens if a gripper applies too much force when gripping a plate?"
+    options={[
+      "The plate slips and shifts during transport",
+      "Rigid, especially thin-walled plates can flex or crack, and a plate held out of true may not seat correctly in the next nest",
+      "The plate becomes impossible to release",
+      "The gripper automatically loosens to compensate",
+    ]}
+    answer={1}
+    explanation="Excessive grip force risks flexing or cracking the plate and can leave it slightly misaligned, causing seating problems downstream, whereas too little force risks slipping instead."
+  />
+  <Quiz
+    id="grippers-and-plate-handling-q3"
+    question="When would a vacuum gripper be preferred over a standard parallel-jaw gripper?"
+    options={[
+      "When handling a thin lid or delicate labware that a side-clamping grip could damage",
+      "When gripping the heaviest possible plates",
+      "When the deck has no clear space above the plate",
+      "Only when handling tubes rather than plates",
+    ]}
+    answer={0}
+    explanation="A vacuum gripper lifts by suction from above rather than squeezing from the sides, which suits thin or delicate items a jaw-style grip could crack or deform."
+  />
+  <Quiz
+    id="grippers-and-plate-handling-q4"
+    question="What is the tradeoff of an underside support gripper compared to a jaw-style gripper?"
+    options={[
+      "It requires clear space to slide a platform beneath the plate's flange, but avoids any squeeze-related risk entirely",
+      "It can only be used on plates with no lids",
+      "It applies more grip force than a jaw-style gripper",
+      "It cannot support any weight at all",
+    ]}
+    answer={0}
+    explanation="By supporting the plate from below rather than squeezing its sides, this design eliminates flex or crack risk from gripping, but needs enough clearance to slide the support platform into place."
+  />
+  <Quiz
+    id="grippers-and-plate-handling-q5"
+    question="Why might a system swap grippers mid-run or use a gripper engineered for multiple tasks?"
+    options={[
+      "Because a single gripper design is never adequate for more than one task",
+      "Because handling a closed plate, a lid, or separating a plate stack are each slightly different physical problems that may need different gripping approaches",
+      "Because grippers must be replaced after every single transfer regardless of task",
+      "Because gripper swapping is required by the SBS standard",
+    ]}
+    answer={1}
+    explanation="Since moving a plate, removing a lid, and destacking plates each pose distinct mechanical challenges, systems handle the variety either by switching grippers or using one built with enough range to cover several tasks."
+  />
+</QuizSet>

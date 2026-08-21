@@ -1,0 +1,128 @@
+An automated system is not one machine — it's several kinds of parts working together, each with a different job. Recognizing which part you're looking at is the first step to understanding how any automated lab is put together.
+
+### The parts and what each one owns
+
+- **Instruments** — the devices that do the actual lab work: liquid handlers, plate readers, thermal cyclers, centrifuges, washers, sealers. Each one performs a narrow, specific action on labware placed in front of it.
+- **Labware** — the plates, tubes, tip boxes, and reservoirs that move between instruments carrying samples and reagents. Labware is the thing being acted on; it has no logic of its own.
+- **Transport** — the means by which labware physically moves from one instrument to the next: a robotic arm, a conveyor, or a human moving plates by hand in a semi-automated setup.
+- **Drivers** — the software that speaks each instrument's native language, turning a request like "read absorbance at 450 nm" into the exact bytes that instrument expects.
+- **The scheduler** — the software that decides what happens when: which instrument runs next, which plate goes where, and how to keep everything from colliding in time or space.
+- **Data and LIMS** — the layer that records what happened: which sample went where, what the instruments measured, and whether the run succeeded.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 260"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A scheduler at the top sends commands down to drivers, which control instruments. Transport moves labware between instruments. Instruments write results into data and LIMS, which reports back up to the scheduler."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="230" y="16" width="180" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="43" fontSize="12" fontWeight="600" textAnchor="middle">SCHEDULER</text>
+
+    <rect x="60" y="110" width="140" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="130" y="137" fontSize="12" fontWeight="600" textAnchor="middle">DRIVERS</text>
+
+    <rect x="250" y="110" width="140" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="137" fontSize="12" fontWeight="600" textAnchor="middle">TRANSPORT</text>
+
+    <rect x="440" y="110" width="140" height="44" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="510" y="137" fontSize="12" fontWeight="600" textAnchor="middle">DATA / LIMS</text>
+
+    <rect x="60" y="200" width="520" height="44" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="227" fontSize="12" fontWeight="600" textAnchor="middle">INSTRUMENTS + LABWARE</text>
+
+    <line x1="320" y1="60" x2="130" y2="110" stroke="#000" strokeWidth="1.2" markerEnd="url(#a1)" />
+    <line x1="320" y1="60" x2="320" y2="110" stroke="#000" strokeWidth="1.2" markerEnd="url(#a1)" />
+    <line x1="320" y1="60" x2="510" y2="110" stroke="#000" strokeWidth="1.2" markerEnd="url(#a1)" />
+    <line x1="130" y1="154" x2="320" y2="200" stroke="#000" strokeWidth="1.2" markerEnd="url(#a1)" />
+    <line x1="320" y1="154" x2="320" y2="200" stroke="#000" strokeWidth="1.2" markerEnd="url(#a1)" />
+    <line x1="510" y1="200" x2="510" y2="154" stroke="#3464c8" strokeWidth="1.2" markerEnd="url(#a2)" />
+
+    <defs>
+      <marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+      <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#3464c8" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The scheduler commands drivers and transport; instruments act on labware; results flow up into data and LIMS.
+  </figcaption>
+</figure>
+
+### Why the split matters
+
+Each part can change without breaking the others, as long as the interfaces between them stay stable. Swap a plate reader for a newer model, and only its driver needs to change — the scheduler still just asks for "read absorbance," unaware of what's underneath. Add a new instrument to the deck, and the scheduler only needs to know its capabilities and timing, not its internals.
+
+This separation is what makes a system *maintainable*. A lab that instead wires every instrument's quirks directly into one big control script ends up with a system where changing any one thing risks breaking everything else. The anatomy described here — instruments, labware, transport, drivers, scheduler, data — is the same shape almost every automated lab takes, whatever specific hardware fills each role.
+
+### A minimal system still has every part
+
+Even a single liquid handler running one script by itself has all six parts — they're just small or combined. The liquid handler is the instrument; its deck positions are the labware locations; its built-in arm is the transport; its onboard software is the driver; a simple sequential script is the scheduler; a log file is the data layer. Scaling up doesn't add new *kinds* of parts, it grows each one: more instruments, a real robotic arm instead of a built-in one, a scheduler that juggles conflicts, a LIMS instead of a log file.
+
+Seeing the anatomy this way sets up the next section's question directly: given that any of these parts can be simple or elaborate, when is building — or buying — the elaborate version actually worth it?
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="anatomy-of-an-automated-system-q1"
+    question="In the anatomy of an automated system, what is labware's role?"
+    options={[
+      "It decides which instrument runs next",
+      "It is the thing being acted on — plates, tubes, and tips that carry samples and reagents, with no logic of its own",
+      "It translates commands into device-specific bytes",
+      "It records what happened during the run",
+    ]}
+    answer={1}
+    explanation="Labware is passive — it holds samples and reagents and moves between instruments, but it doesn't decide anything or run any logic itself."
+  />
+  <Quiz
+    id="anatomy-of-an-automated-system-q2"
+    question="If a lab replaces its plate reader with a newer model, which part of the system should need to change?"
+    options={[
+      "Only that instrument's driver",
+      "The scheduler's entire logic",
+      "Every instrument's driver on the deck",
+      "The labware definitions",
+    ]}
+    answer={0}
+    explanation="Because the scheduler only asks for a capability like 'read absorbance' through a stable interface, swapping the instrument underneath should only require updating its driver."
+  />
+  <Quiz
+    id="anatomy-of-an-automated-system-q3"
+    question="Why does wiring every instrument's quirks directly into one big control script cause problems as a lab grows?"
+    options={[
+      "It makes the system run faster but less accurate",
+      "It removes the separation between parts, so changing any one thing risks breaking everything else",
+      "It is required by regulatory standards",
+      "It eliminates the need for a scheduler entirely",
+    ]}
+    answer={1}
+    explanation="Without separated interfaces between instruments, drivers, and scheduling logic, a change anywhere can ripple unpredictably through the whole script, making the system fragile to maintain."
+  />
+  <Quiz
+    id="anatomy-of-an-automated-system-q4"
+    question="A single liquid handler runs one sequential script by itself with no robotic arm. Which claim about its anatomy is correct?"
+    options={[
+      "It has no scheduler because there's no scheduling problem",
+      "It has all six parts, just small or combined — for example, the script itself acts as the scheduler",
+      "It has no driver because it's a single device",
+      "It cannot be called an automated system without a real transport arm",
+    ]}
+    answer={1}
+    explanation="Even a minimal setup has every part of the anatomy present in some form — a simple sequential script still plays the role of scheduler, just without needing to resolve conflicts."
+  />
+  <Quiz
+    id="anatomy-of-an-automated-system-q5"
+    question="What generally stays the same as a lab automation system scales from minimal to elaborate?"
+    options={[
+      "The number of kinds of parts — scaling grows each part rather than introducing new categories",
+      "The number of instruments involved, which never changes",
+      "The need for any data recording",
+      "The requirement for a robotic arm, which is present even in the smallest systems",
+    ]}
+    answer={0}
+    explanation="Scaling up adds more of each existing kind of part — more instruments, a real arm instead of a built-in one, a fuller scheduler — rather than introducing entirely new categories of parts."
+  />
+</QuizSet>

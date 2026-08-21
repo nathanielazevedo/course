@@ -1,0 +1,110 @@
+Sample identity was defined in the previous section as something that must survive every physical transformation. Barcoding — introduced earlier as a way to tell labware apart — is the mechanism that actually makes that survival possible in an automated system, and the record it produces is called the chain of custody.
+
+### From labware identity to sample identity
+
+Earlier, barcoding was framed around identifying a *plate*. The same mechanism extends to identifying a *sample*: each well, tube, or aliquot can be assigned its own identifier (sometimes the plate's barcode plus a well position, sometimes a fully independent code) that stays linked to that sample's identity regardless of which physical container it currently sits in. This is what lets a system say "this specific well, on this specific plate, holds this specific sample" — and keep that statement true even after the plate has been moved, split, or combined.
+
+### Chain of custody: a record of every handoff
+
+The **chain of custody** is the continuous, timestamped record of every time a sample changed hands or location — which instrument touched it, which person or system moved it, when it was transferred into a new container. In regulated or forensic contexts, chain of custody isn't a convenience, it's often a legal requirement: a result can be challenged and discarded if the chain of custody has a gap, because a gap means there's a window where the sample's identity or integrity can't actually be verified.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A horizontal chain of five linked events for one sample: collected, aliquoted, transferred to plate, read by instrument, and stored, each timestamped and connected, representing an unbroken chain of custody."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["COLLECTED", "ALIQUOTED", "PLATED", "READ", "STORED"].map((label, i) => (
+      <g key={label} transform={`translate(${20 + i * 125}, 40)`}>
+        <circle cx="40" cy="40" r="35" fill="#d8e8ff" stroke="#000" strokeWidth="1.5" />
+        <text x="40" y="44" fontSize="9.5" fontWeight="600" textAnchor="middle">{label}</text>
+        <text x="40" y="90" fontSize="8" fill="#666" textAnchor="middle">{`t+${i * 20}m`}</text>
+        {i < 4 && <line x1="78" y1="40" x2="105" y2="40" stroke="#000" strokeWidth="1.5" markerEnd="url(#bc1)" />}
+      </g>
+    ))}
+    <defs>
+      <marker id="bc1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every link in the chain is recorded with a timestamp and an actor — a person or an instrument — leaving no unaccounted gap.
+  </figcaption>
+</figure>
+
+### Why automation makes this easier, not harder — if built correctly
+
+A person handling a sample manually has to remember to log every handoff, which is exactly the kind of tedious, easy-to-skip record-keeping that gets forgotten under time pressure. An automated system, by contrast, can log every scan and every transfer automatically as a side effect of the barcode verification already covered — the same scan that confirms "this is the right plate" before a step also produces the timestamped record that the chain of custody needs. The chain of custody isn't extra work bolted onto automation; it's a natural byproduct of doing barcode verification properly at every step.
+
+### What breaks a chain of custody
+
+A gap appears whenever a transfer happens without a corresponding scan — a person manually moving a tube between racks without re-scanning it, a step in a method that was configured to skip verification for speed. Each of these gaps means the system's confidence in "this is still the same sample" drops to whatever a person is willing to vouch for from memory, which is precisely the unreliability barcoding exists to eliminate in the first place.
+
+Barcoding and chain of custody keep a sample's identity intact as it physically moves. The next section covers where all of that identity information, along with everything else about a sample and its results, actually lives: the LIMS.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="barcodes-and-chain-of-custody-q1"
+    question="How does barcoding extend from identifying labware to identifying an individual sample?"
+    options={[
+      "By assigning each well, tube, or aliquot its own identifier that stays linked to that sample's identity regardless of its current container",
+      "By using the same barcode for every sample on a given plate",
+      "By replacing sample identity entirely with plate identity",
+      "By requiring a separate physical scanner for each sample type",
+    ]}
+    answer={0}
+    explanation="Extending barcoding down to the sample level lets a system track a specific sample's identity independent of which container or plate it currently happens to occupy."
+  />
+  <Quiz
+    id="barcodes-and-chain-of-custody-q2"
+    question="Why is a gap in the chain of custody treated as a serious problem, sometimes even a legal one?"
+    options={[
+      "Because a gap has no real consequence for data quality",
+      "Because a gap means there's a window where the sample's identity or integrity cannot actually be verified",
+      "Because gaps only matter for reagents, not samples",
+      "Because chain of custody is purely a labeling convention",
+    ]}
+    answer={1}
+    explanation="An unrecorded handoff creates a period where nothing confirms the sample wasn't swapped, mishandled, or mislabeled — which is why regulated and forensic contexts treat such gaps as invalidating."
+  />
+  <Quiz
+    id="barcodes-and-chain-of-custody-q3"
+    question="Why does automation make maintaining a chain of custody easier rather than harder, when built correctly?"
+    options={[
+      "Because automated systems never need to scan a barcode",
+      "Because the same barcode scan already used to verify correct labware can automatically produce the timestamped record the chain of custody needs, as a natural side effect",
+      "Because chain of custody is not needed in automated systems",
+      "Because automation eliminates the need for any identity tracking",
+    ]}
+    answer={1}
+    explanation="Barcode verification at each step, already done to confirm correct labware, doubles as the timestamped log entry the chain of custody requires — no extra manual record-keeping needed."
+  />
+  <Quiz
+    id="barcodes-and-chain-of-custody-q4"
+    question="What specifically creates a gap in a chain of custody?"
+    options={[
+      "Any time a sample is stored at the correct temperature",
+      "A transfer that happens without a corresponding scan — such as a manual move between racks with no re-scan, or a method step configured to skip verification",
+      "Any time a sample is read by a plate reader",
+      "Whenever a sample's aliquot count increases",
+    ]}
+    answer={1}
+    explanation="A gap specifically arises when a physical handoff isn't paired with a scan recording it, leaving no verifiable trace that the sample's identity was preserved through that transfer."
+  />
+  <Quiz
+    id="barcodes-and-chain-of-custody-q5"
+    question="What does a gap in the chain of custody reduce the system's confidence in a sample's identity to?"
+    options={[
+      "Zero, permanently invalidating every prior record",
+      "Whatever a person is willing to vouch for from memory, since no automated verification covers that gap",
+      "The barcode's manufacturing specification",
+      "The plate's original SBS footprint",
+    ]}
+    answer={1}
+    explanation="Once a handoff isn't captured by a scan, the only remaining assurance of identity is unverified human recollection — exactly the unreliability barcoding and chain-of-custody tracking are meant to remove."
+  />
+</QuizSet>

@@ -1,0 +1,112 @@
+A plate reader collapses a well down to a single number — one absorbance value, one fluorescence intensity. Sometimes that's not enough: a biologist doesn't just want to know a well *has* cells, they want to know how many, what shape, where the signal sits inside each one. That requires a picture, not a number, and a different category of instrument to produce it.
+
+### From a number to an image
+
+An **imaging system**, at its simplest, is a microscope built to move automatically from well to well and capture a digital image of each one, instead of a person manually adjusting a stage and looking through an eyepiece. Where a plate reader reports one intensity value per well, an imager reports a full picture — every cell, every structure, every spatial relationship inside it, preserved.
+
+### High-content screening: turning images into measurements
+
+**High-content screening (HCS)** is the practice of extracting *many* quantitative measurements from each image automatically — cell count, cell size, shape, and how strongly and *where* a fluorescent marker localizes within each cell (nucleus vs. cytoplasm, for instance). This is fundamentally different from a plate reader's single number: instead of one average signal per well, HCS produces a distribution of measurements *per cell*, across potentially thousands of cells per well. A drug that kills half the cells and leaves the other half completely unaffected looks identical, on average, to a drug that mildly stresses every cell — but the two are obviously different biologically, and only a per-cell distribution can tell them apart.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A well shown as a plate reader would see it, a single number, next to the same well shown as an imaging system would see it, individual cells each with their own measurements, illustrating that averaging hides the fact that half the cells responded strongly while the rest did not."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">PLATE READER</text>
+    <circle cx="160" cy="100" r="70" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="160" y="106" fontSize="16" fontWeight="600" textAnchor="middle">0.52</text>
+    <text x="160" y="122" fontSize="9" fill="#666" textAnchor="middle">one average value</text>
+
+    <text x="470" y="16" fontSize="11" fontWeight="600" textAnchor="middle">IMAGING / HCS</text>
+    <circle cx="470" cy="100" r="70" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    {[
+      [440, 75], [500, 80], [455, 105], [485, 115], [430, 120], [505, 100],
+    ].map(([cx, cy], i) => (
+      <circle key={i} cx={cx} cy={cy} r="9" fill={i % 2 ? "#3464c8" : "#d8e8ff"} stroke="#000" strokeWidth="1" />
+    ))}
+    <text x="470" y="150" fontSize="9" fill="#666" textAnchor="middle">per-cell measurements</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Two populations that average to the same signal can look identical to a plate reader and completely different under per-cell imaging.
+  </figcaption>
+</figure>
+
+### The cost: data volume and processing time
+
+This resolution comes at a price. A single well might yield several images across multiple fluorescence channels, and a full plate multiplies that by 96 or 384 wells — quickly reaching gigabytes per plate. Unlike a plate reader's single number per well, an image needs **image analysis** software afterward to actually extract the cell count, shape, and intensity measurements the assay cares about — the raw picture itself isn't the result, it's the input to a separate computational step. That analysis pipeline, and where it fits into the overall data flow, becomes its own significant piece of infrastructure, one this course returns to when it covers data, samples, and LIMS.
+
+### Where imaging fits in a workflow
+
+Because imaging is slower and produces far more data than absorbance or fluorescence reading, it's typically reserved for assays where per-cell detail is the actual point — screening drug candidates for cellular effects, tracking how cells change shape or migrate over time — rather than used as a default. For anything a single well-level number can answer, a standard plate reader remains faster, simpler, and cheaper to run at scale.
+
+This closes out the chapter on laboratory instruments — detection, thermal control, mechanical handling, washing, and imaging. The next chapter turns to the physical standard all of this equipment is built around: labware itself.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="imaging-and-high-content-systems-q1"
+    question="What is the fundamental difference between what a plate reader reports and what an imaging system reports?"
+    options={[
+      "A plate reader reports one intensity value per well; an imaging system captures a full picture preserving spatial detail inside the well",
+      "A plate reader captures images; an imaging system only reports numbers",
+      "There is no meaningful difference between the two",
+      "An imaging system can only be used with luminescent assays",
+    ]}
+    answer={0}
+    explanation="A plate reader collapses a well to a single averaged number, while an imaging system preserves the actual spatial picture — every cell and structure — inside that well."
+  />
+  <Quiz
+    id="imaging-and-high-content-systems-q2"
+    question="Why can two very different biological effects — half the cells killed vs. all cells mildly stressed — look identical to a plate reader?"
+    options={[
+      "Because plate readers cannot detect cell viability at all",
+      "Because a plate reader only reports an average signal per well, hiding the underlying per-cell distribution that would distinguish the two",
+      "Because both effects always produce identical images",
+      "Because high-content screening cannot distinguish these cases either",
+    ]}
+    answer={1}
+    explanation="An averaged, well-level signal can be identical between the two scenarios even though the underlying per-cell reality is completely different — only per-cell data reveals the distinction."
+  />
+  <Quiz
+    id="imaging-and-high-content-systems-q3"
+    question="What does high-content screening (HCS) add beyond simply capturing an image of each well?"
+    options={[
+      "It automatically extracts many quantitative per-cell measurements — count, size, shape, marker localization — from each image",
+      "It replaces the need for fluorescence or luminescence entirely",
+      "It reduces the number of images needed per plate",
+      "It eliminates the need for image analysis software",
+    ]}
+    answer={0}
+    explanation="HCS is specifically the practice of turning raw images into quantitative per-cell measurements automatically, not just the act of capturing the images themselves."
+  />
+  <Quiz
+    id="imaging-and-high-content-systems-q4"
+    question="Why does an imaging system's raw output require a separate image analysis step, unlike a plate reader's output?"
+    options={[
+      "Because the image itself is the input to a computational step that extracts the actual measurements — cell count, shape, intensity — the assay cares about",
+      "Because images cannot be stored digitally",
+      "Because plate readers also require image analysis software",
+      "Because image analysis is optional and rarely performed",
+    ]}
+    answer={0}
+    explanation="A plate reader already outputs the number a scientist wants; an imaging system outputs a picture that must still be processed by analysis software to yield usable measurements."
+  />
+  <Quiz
+    id="imaging-and-high-content-systems-q5"
+    question="Why is imaging typically reserved for specific assays rather than used as a default detection method?"
+    options={[
+      "Because it is slower and produces far more data than absorbance or fluorescence reading, which are faster and cheaper for anything a single number can answer",
+      "Because imaging cannot be automated at all",
+      "Because imaging systems cannot detect fluorescent signals",
+      "Because regulations prohibit routine use of imaging",
+    ]}
+    answer={0}
+    explanation="Imaging's speed and data-volume costs make it worthwhile specifically when per-cell detail is the point of the assay; otherwise a standard plate reader is the faster, simpler choice."
+  />
+</QuizSet>

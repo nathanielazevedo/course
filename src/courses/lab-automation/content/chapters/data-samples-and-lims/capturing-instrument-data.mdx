@@ -1,0 +1,115 @@
+The LIMS is where a sample's results are supposed to end up. Getting them there — from the raw output an instrument actually produces to a structured record a person or system can query later — is its own step, and one that's easy to underestimate.
+
+### Raw output is rarely usable as-is
+
+An instrument's native output is built around its own internal format, not the lab's data model: a plate reader might output a grid of raw intensity values labeled only by well position, with no reference to which sample was actually in each well; an imager might produce a folder of image files per plate, with metadata about exposure settings but nothing linking a given image to a sample ID. Before any of this becomes a usable result, it has to be joined against the identity information covered earlier in this chapter — this is where a plate's barcode, scanned and recorded during the run, gets matched up with the well-by-well data an instrument reports at the end of it.
+
+### Parsing: turning a file into structured data
+
+**Parsing** is the process of reading an instrument's raw output format and extracting the specific values that matter — a number from a fixed column position in a text file, a field from a proprietary binary format, a value buried in a vendor-specific XML structure. Every instrument model, and often every software version of the same instrument, can have a subtly different output format, which is why parsing logic is usually instrument-specific and has to be revalidated whenever a vendor updates their software.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A raw instrument output file with well positions and intensity values but no sample information, being parsed and joined against a barcode-linked sample identity table, producing one final structured record per sample ready for the LIMS."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="20" width="190" height="120" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="115" y="14" fontSize="10" fontWeight="600" textAnchor="middle">RAW OUTPUT</text>
+    <text x="35" y="40" fontSize="9" fontFamily="monospace">A1  0.382</text>
+    <text x="35" y="55" fontSize="9" fontFamily="monospace">A2  0.401</text>
+    <text x="35" y="70" fontSize="9" fontFamily="monospace">A3  0.290</text>
+
+    <text x="320" y="90" fontSize="18" textAnchor="middle">+</text>
+
+    <rect x="360" y="20" width="190" height="120" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="455" y="14" fontSize="10" fontWeight="600" textAnchor="middle">IDENTITY TABLE</text>
+    <text x="375" y="40" fontSize="9" fontFamily="monospace">A1  SAMPLE-004</text>
+    <text x="375" y="55" fontSize="9" fontFamily="monospace">A2  SAMPLE-005</text>
+    <text x="375" y="70" fontSize="9" fontFamily="monospace">A3  SAMPLE-006</text>
+
+    <line x1="320" y1="150" x2="320" y2="165" stroke="#000" strokeWidth="1.2" />
+    <text x="320" y="163" fontSize="16" textAnchor="middle">↓</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A well position alone means nothing until it's joined against the identity information recorded during the run, producing one linked, structured record per sample.
+  </figcaption>
+</figure>
+
+### Validation before anything is trusted
+
+Parsed data isn't automatically correct data. A well that failed to read (an instrument error, a bubble in the well) can produce a value that looks numerically plausible but is scientifically meaningless — a **flag** or **error code** the instrument reported alongside the number, easy to discard if the parsing step only looks at the numeric column. Validation checks that values fall within physically sensible ranges, that every expected well actually has a value, and that any instrument-reported error flags are captured and carried forward rather than silently dropped — because a missing or wrong value that goes unflagged looks identical, downstream, to a real result.
+
+### Automated capture versus manual transcription
+
+The whole reason this matters as an automation topic, not just a data-management one, is the alternative: a person manually reading numbers off an instrument's screen and typing them into a spreadsheet. That transcription step is a well-documented source of error — a mistyped digit, a row copied to the wrong sample — that automated capture eliminates entirely, but only if the parsing and identity-matching described here are built correctly. Automating the capture badly (matching the wrong barcode to the wrong plate of data) is arguably worse than a careful manual transcription, because it fails silently and looks exactly as authoritative as a correct automated result.
+
+With results correctly captured and linked to sample identity, the final section of this chapter looks at getting all of these systems — instruments, scheduler, LIMS, ELN — to actually talk to each other as one coherent whole.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="capturing-instrument-data-q1"
+    question="Why isn't an instrument's raw output usually usable as a final result on its own?"
+    options={[
+      "Because instruments never produce any numeric data",
+      "Because it's built around the instrument's own format, often labeled only by well position with no link to which sample was in that well",
+      "Because raw output is always encrypted",
+      "Because raw output only applies to imaging instruments",
+    ]}
+    answer={1}
+    explanation="Raw output typically identifies a well position but not the sample identity within it — that link has to be established separately using barcode and identity information from the run."
+  />
+  <Quiz
+    id="capturing-instrument-data-q2"
+    question="Why does parsing logic often need to be instrument-specific and revalidated after a vendor software update?"
+    options={[
+      "Because every instrument model, and even different software versions of the same instrument, can have subtly different output formats",
+      "Because parsing only applies to text files, not binary formats",
+      "Because vendors never update their instrument software",
+      "Because parsing logic is universal across all instruments",
+    ]}
+    answer={0}
+    explanation="Output format differences between instrument models and software versions mean parsing logic tuned to one format can silently break or misread data from another without revalidation."
+  />
+  <Quiz
+    id="capturing-instrument-data-q3"
+    question="Why is validating parsed data important, even after successful parsing?"
+    options={[
+      "Because a well that failed to read can produce a numerically plausible but scientifically meaningless value, and instrument-reported error flags need to be captured, not silently dropped",
+      "Because validation is only needed for manually transcribed data",
+      "Because parsing always produces perfectly correct values with no need for checks",
+      "Because validation replaces the need for barcode matching",
+    ]}
+    answer={0}
+    explanation="A parsed number can look fine while actually representing a failed read; validation checks ranges, completeness, and error flags so such failures don't pass through as legitimate results."
+  />
+  <Quiz
+    id="capturing-instrument-data-q4"
+    question="Why can badly automated data capture be worse than careful manual transcription?"
+    options={[
+      "Because automated capture is always slower than manual transcription",
+      "Because a mismatched barcode or wrong data linkage fails silently and looks exactly as authoritative as a correct result, unlike an obvious human transcription error",
+      "Because automated capture cannot produce any usable output at all",
+      "Because manual transcription never contains errors",
+    ]}
+    answer={1}
+    explanation="A badly built automated pipeline that matches the wrong identity to the wrong data produces results indistinguishable in appearance from correct ones, whereas manual errors are at least sometimes catchable."
+  />
+  <Quiz
+    id="capturing-instrument-data-q5"
+    question="What step links a well's raw numeric value to the correct sample identity?"
+    options={[
+      "Joining the well-by-well instrument output against the identity information recorded (via barcode) during the run",
+      "Relying on the instrument to automatically know which sample is in each well with no external input",
+      "Manually re-typing the values into the LIMS after every run",
+      "Discarding well position information entirely",
+    ]}
+    answer={0}
+    explanation="Since raw instrument data is typically keyed only by well position, it must be explicitly joined against the sample identity data established via barcode scanning during the run."
+  />
+</QuizSet>

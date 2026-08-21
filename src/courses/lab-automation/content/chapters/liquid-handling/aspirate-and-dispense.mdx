@@ -1,0 +1,110 @@
+Every liquid-handling action, however complex the protocol, breaks down into two motions: pulling liquid in and pushing it back out. Getting these two motions right — including a scoop of small details around them — is most of what separates an accurate pipetting step from a sloppy one.
+
+### Aspirate: pulling liquid in
+
+**Aspiration** draws liquid into the tip. Three things determine whether it goes well:
+
+- **Tip depth.** Too shallow, and the tip pulls in air along with liquid (an **aspirate short**). Too deep, and liquid clings to the *outside* of the tip, carrying extra volume out that wasn't measured. The right depth is just below the surface, adjusted as the liquid level drops.
+- **Aspiration speed.** Pulling too fast creates turbulence and air bubbles, especially in viscous liquids; pulling too slow wastes time across a large run. Speed is tuned per liquid type.
+- **A settling pause.** After the piston stops moving, the liquid inside the tip needs a brief moment to stop moving too — releasing the tip immediately can leave liquid still sloshing at the exact moment it's supposed to be static.
+
+### Dispense: pushing liquid out
+
+**Dispensing** has its own set of decisions:
+
+- **Contact vs. no-contact.** Dispensing with the tip touching the destination's liquid or wall (**dispense to wall** or **dispense to liquid**) controls where the droplet forms and avoids stray splashing; dispensing into open air above the well is faster but riskier for small volumes.
+- **Blow-out.** Because some liquid always remains adhered to the tip's interior walls, a final extra push of air — the **blow-out** — expels that remainder. Skipping it under-delivers volume, gradually, over every single well.
+- **Reverse pipetting.** For foamy or viscous liquids, drawing in *more* than the target volume and dispensing only the intended amount (leaving the excess in the tip) avoids the bubbles a standard aspirate/dispense would create.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A cycle diagram: aspirate draws liquid up into the tip, a brief pause lets it settle, dispense pushes it into the destination, and blow-out expels the residual film left on the tip's walls."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["ASPIRATE", "PAUSE", "DISPENSE", "BLOW-OUT"].map((label, i) => (
+      <g key={label} transform={`translate(${20 + i * 155}, 20)`}>
+        <rect x="0" y="0" width="135" height="90" fill={i % 2 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.5" />
+        <text x="67" y="50" fontSize="12" fontWeight="600" textAnchor="middle">{label}</text>
+        {i < 3 && <text x="147" y="50" fontSize="16" textAnchor="middle">→</text>}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every accurate transfer runs this full cycle — skipping the pause or the blow-out is a common source of small, systematic volume error.
+  </figcaption>
+</figure>
+
+### Why small details compound
+
+None of these steps individually moves the needle much on a single transfer. The problem is scale: an error of half a percent per well, repeated across a 384-well plate and then across dozens of plates, becomes a systematic bias in an entire dataset — not random noise that averages out, but a consistent skew in one direction, because the same mistake (say, skipping blow-out) happens the same way every time. That's the core reason automated liquid handling exists: not because a person can't aspirate and dispense correctly once, but because a machine does the same correct sequence every single time, at any scale.
+
+With aspirate and dispense understood as the two core motions, the next section looks at the hardware that actually executes them — tips, channels, and heads.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="aspirate-and-dispense-q1"
+    question="What happens if a pipette tip aspirates from too shallow a depth in the liquid?"
+    options={[
+      "Liquid clings to the outside of the tip, adding extra volume",
+      "The tip pulls in air along with the liquid, an 'aspirate short'",
+      "The plunger moves too slowly",
+      "The blow-out step becomes unnecessary",
+    ]}
+    answer={1}
+    explanation="Too shallow a tip depth draws in air alongside the liquid, undermining the accuracy of the volume aspirated."
+  />
+  <Quiz
+    id="aspirate-and-dispense-q2"
+    question="What is the purpose of the brief settling pause after aspiration?"
+    options={[
+      "To let the tip cool down before dispensing",
+      "To let liquid inside the tip stop moving before the tip is withdrawn or moved",
+      "To allow air bubbles to form intentionally",
+      "To trigger the blow-out step automatically",
+    ]}
+    answer={1}
+    explanation="Liquid can still be in motion right after the piston stops. A short pause lets it settle so the volume held in the tip is stable and accurate."
+  />
+  <Quiz
+    id="aspirate-and-dispense-q3"
+    question="What problem does the 'blow-out' step address?"
+    options={[
+      "Air bubbles that form during aspiration",
+      "A residual film of liquid that clings to the tip's inner walls after a normal dispense",
+      "Liquid clinging to the outside of the tip",
+      "Turbulence from dispensing too quickly",
+    ]}
+    answer={1}
+    explanation="Some liquid always adheres to the tip's interior. Blow-out uses an extra push of air to expel that remainder; skipping it under-delivers volume every time."
+  />
+  <Quiz
+    id="aspirate-and-dispense-q4"
+    question="Why is reverse pipetting useful for a foamy or viscous liquid?"
+    options={[
+      "It draws in more liquid than needed and dispenses only the target amount, avoiding the bubbles a standard aspirate/dispense would create",
+      "It skips the aspirate step entirely",
+      "It always dispenses the full volume drawn into the tip",
+      "It requires no blow-out step at all",
+    ]}
+    answer={0}
+    explanation="By aspirating extra volume and dispensing only the intended amount (keeping the excess in the tip), reverse pipetting avoids the turbulence and foam a standard dispense would create with such liquids."
+  />
+  <Quiz
+    id="aspirate-and-dispense-q5"
+    question="Why does a small, half-percent pipetting error matter more in automation than it would for a single manual transfer?"
+    options={[
+      "Because automated pipettes are inherently less accurate than manual ones",
+      "Because the same systematic error repeats identically across every well and every plate, becoming a consistent skew rather than random noise",
+      "Because automation always uses larger volumes than manual pipetting",
+      "Because half a percent error only matters in regulated environments",
+    ]}
+    answer={1}
+    explanation="A consistent mistake like skipping blow-out happens the same way on every single transfer, turning a tiny per-well error into a systematic bias across an entire dataset at scale."
+  />
+</QuizSet>

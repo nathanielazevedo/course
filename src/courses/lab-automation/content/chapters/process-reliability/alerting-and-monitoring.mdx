@@ -1,0 +1,117 @@
+A system running unattended still needs a way to reach a person when something exceeds what it can handle on its own. Alerting and monitoring are the two halves of that connection — one watching continuously, the other speaking up only when it matters.
+
+### Monitoring: watching continuously, saying nothing most of the time
+
+**Monitoring** is the ongoing collection of a system's state — instrument status, consumable levels, timing versus plan, error counts — whether or not anything is currently wrong. Most of what monitoring collects is never looked at directly; its real value is as a **historical record**, useful after the fact for diagnosing a failure (was this instrument already drifting for days before it finally errored?) and for spotting slow trends before they become a real problem, connecting directly to the gradual mechanical drift covered earlier in this chapter.
+
+### Alerting: speaking up only when it matters
+
+**Alerting** is the deliberate act of interrupting a person — a notification, a page, an alarm — specifically because something needs their attention now rather than being reviewable later. The entire value of an alert depends on it being rare enough to trust: a system that alerts on every minor fluctuation trains the person receiving those alerts to ignore them, which defeats the purpose the very first time an alert actually matters.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A continuous monitoring stream of small data points running along a timeline, mostly unremarkable, with one point spiking above a threshold line that triggers a distinct alert reaching a person, illustrating that monitoring collects constantly while alerting surfaces only the rare event that crosses a defined threshold."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="40" y1="120" x2="600" y2="120" stroke="#000" strokeWidth="1.2" />
+    <line x1="40" y1="70" x2="600" y2="70" stroke="#c0392b" strokeWidth="1" strokeDasharray="4 4" />
+    <text x="600" y="65" fontSize="9" fill="#c0392b" textAnchor="end">alert threshold</text>
+
+    {Array.from({ length: 30 }).map((_, i) => {
+      const spike = i === 21;
+      const y = spike ? 50 : 110 - Math.sin(i / 2) * 8;
+      return <circle key={i} cx={50 + i * 18} cy={y} r={spike ? 5 : 2.5} fill={spike ? "#c0392b" : "#3464c8"} />;
+    })}
+    <line x1="428" y1="50" x2="428" y2="20" stroke="#c0392b" strokeWidth="1.5" markerEnd="url(#am1)" />
+    <text x="428" y="14" fontSize="9" fill="#c0392b" textAnchor="middle">ALERT SENT</text>
+    <defs>
+      <marker id="am1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#c0392b" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Everything is monitored continuously; only the rare event that actually crosses a real threshold becomes an alert.
+  </figcaption>
+</figure>
+
+### Setting the threshold correctly is the whole problem
+
+The hard part of alerting isn't the notification mechanism — it's deciding exactly where the line sits between "worth interrupting someone for" and "worth logging quietly." Too sensitive, and alert fatigue sets in, the same trust-eroding problem described above. Too lax, and a real problem sits unaddressed for hours because nothing ever crossed the threshold that would have flagged it. Getting this right usually means tuning thresholds against real historical data from monitoring — the same data collected passively during normal operation becomes the evidence used to calibrate what "abnormal" actually looks like for that specific system.
+
+### Escalation: not every alert deserves the same response
+
+Beyond a single yes/no threshold, mature alerting systems distinguish **severity** — a reagent running low soon is worth a routine notification a person can act on during business hours; an arm that's stopped mid-motion with a gripped plate needs someone paged immediately, day or night. Routing every alert through the same channel, at the same urgency, either buries the truly urgent ones in routine noise or turns every minor notice into a middle-of-the-night page nobody wants to receive.
+
+### Why alerting connects directly to walk-away time
+
+An alert that fires but reaches no one accomplishes nothing — the previous section's honest accounting of walk-away time only holds if a genuinely urgent alert reliably reaches an actual person during that unattended stretch. This is why alerting infrastructure (redundant notification channels, confirmed delivery, an on-call schedule) is treated as seriously as the detection logic that triggers it — a perfect detection system with a broken notification path fails exactly as badly as no detection at all.
+
+Alerting and monitoring keep a person informed without needing to watch constantly. The final section of this chapter turns to the ongoing, scheduled work that keeps the system itself from needing those alerts in the first place: maintenance.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="alerting-and-monitoring-q1"
+    question="What is the primary value of most data collected by continuous monitoring?"
+    options={[
+      "It is reviewed by a person in real time for every data point collected",
+      "It serves as a historical record useful for diagnosing failures after the fact and spotting slow trends before they become real problems",
+      "It automatically triggers an alert for every value collected",
+      "It replaces the need for any alerting system entirely",
+    ]}
+    answer={1}
+    explanation="Most monitoring data is never looked at directly in the moment — its value comes from being available afterward to diagnose issues and detect gradual trends like mechanical drift."
+  />
+  <Quiz
+    id="alerting-and-monitoring-q2"
+    question="Why does an alerting system that fires on every minor fluctuation defeat its own purpose?"
+    options={[
+      "Because it trains the person receiving alerts to ignore them, undermining trust exactly when a genuinely important alert eventually occurs",
+      "Because minor fluctuations are always more important than major ones",
+      "Because frequent alerts always indicate a broken monitoring system",
+      "Because alerts should never be based on thresholds at all",
+    ]}
+    answer={0}
+    explanation="An alert's usefulness depends on rarity — if people learn to dismiss constant low-value alerts, they'll also dismiss the rare one that actually matters, defeating the entire point."
+  />
+  <Quiz
+    id="alerting-and-monitoring-q3"
+    question="What is the core challenge in setting an alert threshold, according to the section?"
+    options={[
+      "Choosing the notification mechanism, like email versus a page",
+      "Deciding exactly where the line sits between something worth interrupting a person for and something worth only logging quietly",
+      "Ensuring every threshold is set as low as technically possible",
+      "Eliminating the need for monitoring data entirely",
+    ]}
+    answer={1}
+    explanation="The real difficulty is calibrating where 'abnormal enough to alert' begins — too sensitive causes fatigue, too lax lets real problems go unnoticed, and finding the right line is the hard part, not the notification method itself."
+  />
+  <Quiz
+    id="alerting-and-monitoring-q4"
+    question="Why do mature alerting systems distinguish severity levels rather than routing every alert the same way?"
+    options={[
+      "Because routing every alert with the same urgency either buries truly urgent problems in routine noise or turns minor notices into unwanted urgent pages",
+      "Because severity levels are only relevant for regulated environments",
+      "Because all alerts are equally urgent regardless of context",
+      "Because severity distinctions eliminate the need for thresholds",
+    ]}
+    answer={0}
+    explanation="Treating a low-priority notice and a genuinely urgent failure identically either desensitizes people to real urgency or creates unnecessary disruption for routine matters — severity routing avoids both."
+  />
+  <Quiz
+    id="alerting-and-monitoring-q5"
+    question="Why is alerting infrastructure (redundant channels, confirmed delivery, on-call schedules) treated as seriously as the detection logic itself?"
+    options={[
+      "Because an alert that fires but reaches no one accomplishes nothing — a perfect detection system with a broken notification path fails just as badly as no detection at all",
+      "Because notification infrastructure is more important than detection logic",
+      "Because alerting infrastructure replaces the need for monitoring",
+      "Because detection logic is never actually necessary if alerting works",
+    ]}
+    answer={0}
+    explanation="Detection only matters if the resulting alert actually reaches a person during the unattended stretch — a broken notification path renders even perfect detection worthless in practice."
+  />
+</QuizSet>

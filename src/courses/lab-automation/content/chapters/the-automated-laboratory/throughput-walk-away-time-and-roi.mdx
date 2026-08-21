@@ -1,0 +1,120 @@
+The previous section framed automation as a judgment call. This one puts numbers on it. Three measurements — throughput, walk-away time, and return on investment — turn "is this worth automating" from a feeling into a calculation.
+
+### Throughput
+
+**Throughput** is how many samples or plates a system processes per unit time. It's the most visible number, and the one vendors advertise, but it's easy to measure wrong. The throughput that matters is *sustained* throughput — what the system does over an 8-hour shift or a week — not the peak speed of its fastest single step. A liquid handler that pipettes a plate in two minutes is not doing much for total throughput if the plate then waits twenty minutes for a reader that's busy with something else. Throughput is a property of the whole workflow, not any one instrument in it.
+
+### Walk-away time
+
+**Walk-away time** is how long a system runs unattended before it needs a person again — to reload tips, refill reagents, or intervene on an error. A system that runs for ten minutes and then needs someone standing by isn't meaningfully more automated than manual work; a system that runs for eighteen hours overnight has actually freed a person's time, not just their hands.
+
+Walk-away time is often the more important number of the two. A system can have modest throughput and still be extremely valuable if it runs unattended overnight, because the *person's* time — not the machine's — was the actual bottleneck.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 180"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Two timelines. The manual timeline shows a person present the entire eight-hour span. The automated timeline shows a short setup period, then a long unattended walk-away span, then a short check-in period, covering the same eight hours."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="20" y="30" fontSize="12" fontWeight="600">MANUAL</text>
+    <rect x="120" y="14" width="480" height="30" fill="#ffe0d8" stroke="#000" strokeWidth="1.2" />
+    <text x="360" y="34" fontSize="10.5" textAnchor="middle">person present — entire run</text>
+
+    <text x="20" y="100" fontSize="12" fontWeight="600">AUTOMATED</text>
+    <rect x="120" y="84" width="50" height="30" fill="#ffe0d8" stroke="#000" strokeWidth="1.2" />
+    <text x="145" y="104" fontSize="9" textAnchor="middle">setup</text>
+    <rect x="170" y="84" width="380" height="30" fill="#e8f2e0" stroke="#000" strokeWidth="1.2" />
+    <text x="360" y="104" fontSize="10.5" textAnchor="middle">walk-away — unattended</text>
+    <rect x="550" y="84" width="50" height="30" fill="#ffe0d8" stroke="#000" strokeWidth="1.2" />
+    <text x="575" y="104" fontSize="9" textAnchor="middle">check</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Both spans cover the same eight hours. Automation doesn't just do the work — it moves most of that time out of "a person must be present."
+  </figcaption>
+</figure>
+
+### Return on investment
+
+**ROI** ties throughput and walk-away time to money. In its simplest form: what did automation cost to build and maintain, versus what did it save in labor, error, and time? A rough version of the calculation is:
+
+```
+ROI = (manual cost per run − automated cost per run) × runs per year
+      ─────────────────────────────────────────────────────────────
+                          automation cost
+```
+
+The automated cost per run isn't zero — reagents, tips, and maintenance still cost money — but the *labor* portion drops sharply, especially once walk-away time is high enough that one person can oversee several runs at once rather than being tied to any single one.
+
+### Why all three numbers, not just one
+
+A high-throughput system with no walk-away time still consumes a person's whole day, just faster. A system with long walk-away time but low throughput may still be worth it if labor was the actual constraint. And a system with great throughput and walk-away time can still have poor ROI if it was wildly expensive to build for a workflow that only runs occasionally — which loops straight back to the frequency and volume questions from the previous section. None of the three numbers alone tells the whole story; together, they're the case for or against automating a given workflow.
+
+With the automated laboratory now defined — what it is, what it replaces, its anatomy, and when it pays off — the next chapter goes down to the mechanical core every automated lab shares: liquid handling.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="throughput-walk-away-roi-q1"
+    question="Why is 'sustained' throughput a better measure than the peak speed of a system's fastest single step?"
+    options={[
+      "Peak speed is always higher than sustained throughput, so it should be reported instead",
+      "Throughput is a property of the whole workflow — a fast step feeding into a slower bottleneck doesn't raise total output",
+      "Sustained throughput ignores instrument speed entirely",
+      "Peak speed can't be measured accurately in any lab",
+    ]}
+    answer={1}
+    explanation="A single fast step means little if the plate then waits on a busier downstream instrument. What matters is what the whole workflow produces over a realistic stretch of time, like a shift."
+  />
+  <Quiz
+    id="throughput-walk-away-roi-q2"
+    question="Why can walk-away time matter more than raw throughput in some cases?"
+    options={[
+      "Because throughput is never actually measurable",
+      "Because if a person's time, not the machine's speed, was the real bottleneck, freeing that time is the actual value delivered",
+      "Because walk-away time and throughput are the same measurement",
+      "Because regulations require walk-away time over throughput",
+    ]}
+    answer={1}
+    explanation="A system with modest throughput but long unattended operation can still be highly valuable, because it frees the person who would otherwise have to stay present the whole time."
+  />
+  <Quiz
+    id="throughput-walk-away-roi-q3"
+    question="In the simplified ROI calculation, what determines how much the labor-cost savings from automation matter overall?"
+    options={[
+      "The number of runs per year the savings are multiplied across",
+      "The color of the labware used",
+      "Only the one-time cost of the hardware",
+      "Whether the protocol is regulated"
+    ]}
+    answer={0}
+    explanation="The per-run savings (manual cost minus automated cost) get multiplied by how many times the workflow runs per year — the same fixed-cost-spread logic from the automation decision itself."
+  />
+  <Quiz
+    id="throughput-walk-away-roi-q4"
+    question="A system has excellent throughput and walk-away time, but was very expensive to build for a workflow that only runs a handful of times a year. What does this suggest?"
+    options={[
+      "The ROI could still be poor, because the fixed automation cost isn't being spread across enough runs",
+      "ROI is guaranteed to be strong whenever throughput and walk-away time are both good",
+      "Throughput and walk-away time make the automation cost irrelevant",
+      "This scenario is impossible in practice",
+    ]}
+    answer={0}
+    explanation="Good throughput and walk-away time don't guarantee good ROI — if the workflow runs rarely, the large fixed cost never gets divided across enough runs to pay for itself."
+  />
+  <Quiz
+    id="throughput-walk-away-roi-q5"
+    question="Why does the chapter argue that throughput, walk-away time, and ROI need to be considered together rather than any one alone?"
+    options={[
+      "Because each measures a different aspect, and a system can score well on one while failing on another",
+      "Because they are three names for the same underlying number",
+      "Because only ROI is ever relevant in practice",
+      "Because throughput and walk-away time cannot both be measured in the same system",
+    ]}
+    answer={0}
+    explanation="A system can be fast but not unattended, unattended but not high-volume, or fast and unattended but poor value for money — each metric exposes a failure mode the others miss."
+  />
+</QuizSet>

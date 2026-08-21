@@ -1,0 +1,112 @@
+Barcodes and chain-of-custody records generate a constant stream of facts about samples — what they are, where they've been, what's happened to them. All of that information has to live somewhere, be queryable, and stay trustworthy over the life of a project. That's the job of two related but distinct systems: the LIMS and the ELN.
+
+### LIMS: the system of record for samples
+
+A **Laboratory Information Management System (LIMS)** is the database, and the software around it, that tracks samples through their entire lifecycle — registration, every location and transformation from the chain of custody, every result generated, and its current status. When a barcode is scanned anywhere in an automated workflow, it's very often the LIMS being queried or updated behind the scenes: looking up what that sample is, or recording what just happened to it. A LIMS is built around structured, consistent records — the same fields, the same format, for every sample of a given type — because that consistency is what makes it possible to search, filter, and report across thousands of samples reliably.
+
+### ELN: the record of what a scientist did and decided
+
+An **Electronic Lab Notebook (ELN)** serves a different purpose: it's where a scientist records the *narrative* of an experiment — why a protocol was chosen, what was observed, what was concluded, alongside less structured content like photos, sketches, and free-text notes. Where a LIMS wants every record to look the same, an ELN is deliberately open-ended, because the reasoning behind an experiment often can't be forced into a fixed set of fields without losing something important.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 180"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A LIMS shown as a structured grid of consistent sample records with fixed fields, next to an ELN shown as an open notebook page with free form text, a sketch, and a photo, representing structured tracking data versus narrative experimental context."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">LIMS</text>
+    <rect x="20" y="30" width="280" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    {Array.from({ length: 5 }).map((_, r) => (
+      <g key={r}>
+        <line x1="20" y1={30 + (r + 1) * 20} x2="300" y2={30 + (r + 1) * 20} stroke="#e2e2e2" strokeWidth="1" />
+        <text x="35" y={44 + r * 20} fontSize="9" fill="#333">{`SAMPLE-${100 + r}  |  status: active`}</text>
+      </g>
+    ))}
+
+    <text x="480" y="16" fontSize="11" fontWeight="600" textAnchor="middle">ELN</text>
+    <rect x="360" y="30" width="260" height="120" fill="#fafafa" stroke="#000" strokeWidth="1.5" />
+    <path d="M375 55 h230 M375 68 h180 M375 95 q20 -15 40 0 t40 0" fill="none" stroke="#999" strokeWidth="1.2" />
+    <rect x="470" y="105" width="60" height="35" fill="#d8e8ff" stroke="#000" strokeWidth="1" />
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A LIMS enforces uniform structure for reliable tracking; an ELN allows the messier, contextual record of how and why an experiment happened.
+  </figcaption>
+</figure>
+
+### Why both are needed, and why they're linked
+
+Neither system alone captures everything a lab needs to remember. A LIMS without an ELN has perfect tracking of *what* happened to every sample but no record of *why* a scientist made the choices they did along the way. An ELN without a LIMS has rich context but no reliable, structured way to answer "where is sample 4471 right now" across thousands of entries. In practice, the two are usually linked — an ELN entry references the specific LIMS sample IDs it discusses, so a scientist's narrative reasoning and the system's structured tracking data can each be found starting from the other.
+
+### Why structure and openness can't be merged into one system
+
+It's tempting to imagine a single system doing both jobs, but the requirements actively conflict: the rigid structure a LIMS needs to make thousands of records searchable and comparable is the same rigidity that would strip an ELN entry of the nuance a scientist needs to record. Keeping them as separate, linked systems lets each optimize for what it's actually for, rather than compromising both to be adequate at everything.
+
+The LIMS holds a sample's structured history; the next section covers how the raw output of an instrument — a plate reader's numbers, an imager's files — actually gets into that record in the first place.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="lims-and-electronic-lab-notebooks-q1"
+    question="What is the primary purpose of a LIMS?"
+    options={[
+      "To record a scientist's narrative reasoning and free-text observations about an experiment",
+      "To track samples through their entire lifecycle with structured, consistent records enabling reliable search and reporting",
+      "To store photos and sketches from lab notebooks",
+      "To replace the need for barcoding entirely",
+    ]}
+    answer={1}
+    explanation="A LIMS is built around structured, uniform records specifically so that thousands of samples can be searched, filtered, and reported on reliably — that consistency is the whole point."
+  />
+  <Quiz
+    id="lims-and-electronic-lab-notebooks-q2"
+    question="Why is an ELN deliberately open-ended rather than structured like a LIMS?"
+    options={[
+      "Because the reasoning and observations behind an experiment often can't be forced into fixed fields without losing important context",
+      "Because ELNs are only used for regulatory compliance",
+      "Because ELNs never need to reference specific samples",
+      "Because open-ended records are easier to search than structured ones",
+    ]}
+    answer={0}
+    explanation="An ELN captures narrative context — why choices were made, what was observed — which is inherently less uniform than sample tracking data and would lose nuance if forced into rigid fields."
+  />
+  <Quiz
+    id="lims-and-electronic-lab-notebooks-q3"
+    question="What does a LIMS lack without a linked ELN?"
+    options={[
+      "Nothing — a LIMS is fully self-sufficient",
+      "A record of why a scientist made specific choices during an experiment, even though it tracks what happened to every sample",
+      "The ability to track sample location at all",
+      "The ability to record barcode scans",
+    ]}
+    answer={1}
+    explanation="A LIMS alone captures structured tracking data — status, location, results — but not the reasoning or narrative context behind decisions, which is what an ELN is built to hold."
+  />
+  <Quiz
+    id="lims-and-electronic-lab-notebooks-q4"
+    question="How are LIMS and ELN systems typically connected in practice?"
+    options={[
+      "They are entirely separate with no connection between them",
+      "An ELN entry references specific LIMS sample IDs, letting a scientist's narrative and the structured tracking data each be found starting from the other",
+      "The ELN replaces the LIMS once a project is complete",
+      "The LIMS automatically generates ELN entries with no human input",
+    ]}
+    answer={1}
+    explanation="Linking ELN entries to LIMS sample IDs lets someone move between the structured tracking record and the narrative context for the same sample, since neither alone tells the whole story."
+  />
+  <Quiz
+    id="lims-and-electronic-lab-notebooks-q5"
+    question="Why can't a single system effectively merge LIMS-style structure with ELN-style openness?"
+    options={[
+      "Because the rigidity needed for reliable structured search would strip away the nuance an ELN entry needs to capture",
+      "Because LIMS and ELN systems use incompatible barcode formats",
+      "Because merging them would eliminate the need for chain of custody",
+      "Because only one of the two systems is ever actually necessary",
+    ]}
+    answer={0}
+    explanation="The structural rigidity that makes a LIMS reliably searchable directly conflicts with the flexible, contextual nature an ELN needs — keeping them separate lets each be optimized for its own purpose."
+  />
+</QuizSet>

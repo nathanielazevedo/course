@@ -1,0 +1,115 @@
+Validation, back in the assay-development chapter, was about proving a *method* measures what it claims to. Before a method can even be validated, the *equipment* it runs on has to be validated first — proof that the hardware itself is installed correctly, operates correctly, and performs correctly for its intended use. That three-stage proof is IQ, OQ, and PQ.
+
+### Installation Qualification: is it installed correctly?
+
+**IQ** confirms that a piece of equipment was delivered, installed, and configured exactly as specified — the right model, the right software version, connected correctly, positioned correctly, powered and networked as required. IQ doesn't test whether the instrument *works*, only whether it's physically and configurably present the way it's supposed to be. An instrument that fails IQ hasn't necessarily malfunctioned — it might simply be wired wrong, running an unapproved software version, or missing a required accessory.
+
+### Operational Qualification: does it work correctly, in general?
+
+**OQ** tests the instrument's core functions across its full operating range, independent of any specific assay — does the thermal cycler actually reach and hold its specified temperatures, does the liquid handler deliver volumes within its specified accuracy tolerance, does the reader detect a known reference standard correctly. OQ answers "does this instrument do what its specification claims it can do," using generic, instrument-level tests rather than any particular protocol.
+
+### Performance Qualification: does it work correctly, for this specific use?
+
+**PQ** is the most specific stage: does the instrument perform correctly running the *actual* method it will be used for, under the *actual* conditions of real use. This is where instrument qualification meets the method validation from the assay-development chapter — PQ often runs the specific validated method itself, on this specific piece of qualified equipment, confirming that the combination of instrument and method together produces the expected result.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three sequential stages building on each other: installation qualification confirming the instrument is installed correctly, operational qualification confirming it functions correctly across its general operating range, and performance qualification confirming it performs correctly running the actual intended method, each stage required before the next can begin."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { label: "IQ", sub: "installed correctly?" },
+      { label: "OQ", sub: "functions correctly, generally?" },
+      { label: "PQ", sub: "performs correctly, for this use?" },
+    ].map((s, i) => (
+      <g key={s.label} transform={`translate(${20 + i * 210}, 30)`}>
+        <rect x="0" y="0" width="190" height="90" fill={i === 2 ? "#e8f2e0" : "#d8e8ff"} stroke="#000" strokeWidth="1.5" />
+        <text x="95" y="35" fontSize="16" fontWeight="700" textAnchor="middle">{s.label}</text>
+        <text x="95" y="60" fontSize="9.5" textAnchor="middle">{s.sub}</text>
+        {i < 2 && <text x="205" y="50" fontSize="16" textAnchor="middle">→</text>}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each stage builds on the one before it — there's no point testing operation on an instrument that wasn't installed correctly, or testing a specific method on one whose general operation was never confirmed.
+  </figcaption>
+</figure>
+
+### Why the three stages have to happen in this order
+
+Testing operational function on an instrument that hasn't passed IQ risks discovering a problem that's actually just a wiring or configuration error, wasting time chasing a phantom performance issue. Testing a specific method's performance (PQ) on an instrument that hasn't passed OQ risks the reverse problem — a method appears to fail when the real cause is a general instrument malfunction that has nothing to do with that specific method at all. Each stage exists to rule out a category of problem before the next stage's more specific, more expensive testing begins.
+
+### Requalification: this isn't a one-time stamp either
+
+Like method validation, IQ/OQ/PQ isn't a permanent certification earned once and never revisited. A significant repair, a relocation, a major software update, or simply the passage of a scheduled interval typically triggers **requalification** — rerunning some or all of these stages to confirm the instrument still meets the standard it originally passed. This mirrors the same principle from method validation: any meaningful change is a claim that needs its own evidence, not an assumption that yesterday's qualification still applies today.
+
+With the instrument itself qualified and the method validated on top of it, the next section covers the record that ties both together over time and makes them defensible after the fact: the audit trail.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="iq-oq-and-pq-q1"
+    question="What does Installation Qualification (IQ) actually confirm?"
+    options={[
+      "That the instrument works correctly across its full operating range",
+      "That the equipment was delivered, installed, and configured exactly as specified — the right model, software version, and connections",
+      "That the instrument performs correctly for a specific validated method",
+      "That the instrument's electronic records satisfy Part 11 requirements",
+    ]}
+    answer={1}
+    explanation="IQ checks physical and configuration correctness — is the right equipment installed the right way — without yet testing whether it actually functions correctly."
+  />
+  <Quiz
+    id="iq-oq-and-pq-q2"
+    question="How does Operational Qualification (OQ) differ from Performance Qualification (PQ)?"
+    options={[
+      "OQ tests core instrument functions generically across its operating range; PQ tests the instrument running the actual intended method under real conditions of use",
+      "OQ and PQ are the same test performed twice for redundancy",
+      "OQ only applies to software, while PQ only applies to hardware",
+      "PQ happens before OQ in the typical qualification sequence",
+    ]}
+    answer={0}
+    explanation="OQ verifies general instrument capability using generic tests, while PQ verifies performance specifically for the actual method and conditions the instrument will really be used under."
+  />
+  <Quiz
+    id="iq-oq-and-pq-q3"
+    question="Why does testing operational function (OQ) before installation is confirmed (IQ) risk wasting time?"
+    options={[
+      "Because a problem discovered might actually be a wiring or configuration error rather than a genuine performance issue, since installation was never confirmed correct first",
+      "Because OQ tests are always more expensive than IQ tests",
+      "Because OQ can only be performed after PQ is complete",
+      "Because installation issues never affect instrument performance testing",
+    ]}
+    answer={0}
+    explanation="Skipping ahead to operational testing risks chasing what looks like a performance problem when the real cause is simply an installation or configuration mistake that IQ would have caught first."
+  />
+  <Quiz
+    id="iq-oq-and-pq-q4"
+    question="Why does PQ specifically connect to the method validation concept from the assay-development chapter?"
+    options={[
+      "Because PQ often runs the specific validated method itself on the qualified equipment, confirming the instrument-and-method combination produces the expected result",
+      "Because PQ has no relationship to method validation at all",
+      "Because PQ replaces the need for method validation entirely",
+      "Because PQ only tests instrument specifications, never actual methods",
+    ]}
+    answer={0}
+    explanation="PQ is where instrument qualification and method validation meet — testing the actual validated method on the actual qualified instrument to confirm they work correctly together."
+  />
+  <Quiz
+    id="iq-oq-and-pq-q5"
+    question="What typically triggers requalification of an instrument that previously passed IQ/OQ/PQ?"
+    options={[
+      "Nothing — IQ/OQ/PQ is a permanent certification that never needs revisiting",
+      "A significant repair, relocation, major software update, or a scheduled interval passing",
+      "Only a change in the barcode format used on labware",
+      "Only a change to the LIMS software, never the instrument itself",
+    ]}
+    answer={1}
+    explanation="Meaningful changes to an instrument — repairs, relocation, software updates, or simply time passing on a set schedule — trigger requalification, mirroring the same principle that changes require their own supporting evidence."
+  />
+</QuizSet>

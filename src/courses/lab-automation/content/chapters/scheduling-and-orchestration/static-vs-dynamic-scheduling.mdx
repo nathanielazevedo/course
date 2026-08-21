@@ -1,0 +1,117 @@
+Given the scheduling problem, there are two fundamentally different strategies for solving it: work everything out in advance, or decide as you go. Most real systems land somewhere between the two, but understanding the pure forms first makes the tradeoff clear.
+
+### Static scheduling: the plan is fixed before the run starts
+
+**Static scheduling** computes the entire timeline in advance — every instrument assignment, every timing, for every plate — before the method ever begins executing. Because the whole plan exists up front, it can be checked and optimized as a whole: a scheduling algorithm can search for the arrangement that minimizes idle time or maximizes throughput, in a way that's very hard to do if decisions are only made one step at a time. The tradeoff is fragility — a static schedule assumes the world matches the plan exactly, and it has no natural way to react to something running a few seconds slower or faster than predicted.
+
+### Dynamic scheduling: decide as you go
+
+**Dynamic scheduling** decides what runs next in real time, based on the system's actual current state, rather than a plan made in advance. Instead of computing every instrument assignment ahead of time, a dynamic scheduler continuously asks "what's ready to run, and what's free to run it on?" and assigns work accordingly. This handles real-world variability gracefully — an instrument running long simply delays what depends on it, without invalidating a master plan — but sacrifices the global optimization a static schedule can achieve, since decisions are made locally and can't see far into the future.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Static scheduling shown as a single fixed timeline computed once before the run, versus dynamic scheduling shown as a decision loop that repeatedly checks what is ready and what is free, deciding each next step as the run progresses."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="160" y="16" fontSize="11" fontWeight="600" textAnchor="middle">STATIC</text>
+    <rect x="20" y="30" width="280" height="30" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+    <text x="160" y="50" fontSize="10" textAnchor="middle">entire timeline computed once, up front</text>
+    <line x1="160" y1="60" x2="160" y2="90" stroke="#000" strokeWidth="1.2" markerEnd="url(#sd1)" />
+    <rect x="20" y="90" width="280" height="30" fill="#f0f0f0" stroke="#000" strokeWidth="1.2" />
+    <text x="160" y="110" fontSize="10" textAnchor="middle">executed as planned — no re-deciding</text>
+
+    <text x="480" y="16" fontSize="11" fontWeight="600" textAnchor="middle">DYNAMIC</text>
+    <circle cx="480" cy="90" r="55" fill="none" stroke="#000" strokeWidth="1.5" />
+    <text x="480" y="80" fontSize="10" textAnchor="middle">what's ready?</text>
+    <text x="480" y="98" fontSize="10" textAnchor="middle">what's free?</text>
+    <text x="480" y="116" fontSize="10" textAnchor="middle">assign next step</text>
+    <path d="M525 65 A 55 55 0 0 1 525 115" fill="none" stroke="#3464c8" strokeWidth="1.5" markerEnd="url(#sd2)" />
+
+    <defs>
+      <marker id="sd1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+      <marker id="sd2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#3464c8" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A static schedule commits to a plan once; a dynamic scheduler continuously re-evaluates what's actually ready and available.
+  </figcaption>
+</figure>
+
+### Why real systems blend both
+
+Pure static scheduling is brittle in a physical world where instrument timing always has some variance. Pure dynamic scheduling, decided moment to moment with no lookahead, can make locally reasonable choices that turn out badly later — assigning the arm to a low-priority task right before a time-critical one becomes ready, for instance. Most production schedulers use a **hybrid**: a static plan sets rough priorities and expected timing, while a dynamic layer handles the moment-to-moment execution and adapts when reality departs from that plan.
+
+### The real tradeoff: predictability versus resilience
+
+Choosing where a system sits between static and dynamic is really choosing between predictability and resilience. A highly static schedule is easy to reason about and audit before it ever runs — useful in regulated environments where a method's exact timeline matters. A more dynamic schedule tolerates the unpredictability of real hardware better, at the cost of a schedule that's harder to fully predict in advance. Neither is universally correct; the right balance depends on how much variability the actual hardware produces and how much that variability can be tolerated.
+
+Scheduling strategy decides *when* decisions get made. The next section looks at *what* those decisions are actually about: the specific resources being allocated and the conflicts that arise over them.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="static-vs-dynamic-scheduling-q1"
+    question="What is the main advantage of static scheduling over dynamic scheduling?"
+    options={[
+      "It reacts instantly to unexpected instrument delays",
+      "Because the entire timeline is known in advance, it can be globally optimized for things like minimizing idle time",
+      "It requires no advance planning at all",
+      "It never needs to be recalculated once created",
+    ]}
+    answer={1}
+    explanation="Having the full plan up front allows a scheduling algorithm to search for a globally optimized arrangement, something much harder to achieve when decisions are made one step at a time."
+  />
+  <Quiz
+    id="static-vs-dynamic-scheduling-q2"
+    question="What is the key weakness of a purely static schedule in a real physical system?"
+    options={[
+      "It cannot be computed before the run starts",
+      "It assumes the world matches the plan exactly and has no natural way to react to instruments running faster or slower than predicted",
+      "It requires more computing power than dynamic scheduling",
+      "It cannot handle more than one plate at a time",
+    ]}
+    answer={1}
+    explanation="A static plan is fragile because real hardware timing varies — the plan has no built-in mechanism to adapt when actual execution departs from the precomputed schedule."
+  />
+  <Quiz
+    id="static-vs-dynamic-scheduling-q3"
+    question="How does dynamic scheduling decide what runs next?"
+    options={[
+      "By following a fixed timeline computed before the run began",
+      "By continuously checking what work is ready and what resources are currently free, and assigning accordingly in real time",
+      "By randomly assigning instruments to tasks",
+      "By always prioritizing whichever plate arrived first regardless of readiness",
+    ]}
+    answer={1}
+    explanation="A dynamic scheduler makes ongoing, real-time decisions based on current system state, rather than committing to a plan made before execution started."
+  />
+  <Quiz
+    id="static-vs-dynamic-scheduling-q4"
+    question="What risk does a purely dynamic scheduler with no lookahead face?"
+    options={[
+      "It cannot execute any task at all",
+      "It can make locally reasonable choices — like assigning the arm to a low-priority task — that turn out badly once a time-critical task becomes ready shortly after",
+      "It always produces identical schedules to a static scheduler",
+      "It requires the entire timeline to be computed in advance anyway",
+    ]}
+    answer={1}
+    explanation="Because dynamic decisions are made without seeing far into the future, a locally sensible assignment can conflict with something more urgent that emerges moments later."
+  />
+  <Quiz
+    id="static-vs-dynamic-scheduling-q5"
+    question="What is the fundamental tradeoff between static and dynamic scheduling approaches?"
+    options={[
+      "Cost versus speed of the instruments involved",
+      "Predictability, which favors static scheduling, versus resilience to real-world variability, which favors dynamic scheduling",
+      "Accuracy of pipetting versus accuracy of temperature control",
+      "Whether barcoding is required or not",
+    ]}
+    answer={1}
+    explanation="A more static approach is easier to audit and predict in advance; a more dynamic approach tolerates real hardware unpredictability better — the choice trades one benefit against the other."
+  />
+</QuizSet>

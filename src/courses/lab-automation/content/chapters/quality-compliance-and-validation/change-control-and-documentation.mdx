@@ -1,0 +1,109 @@
+Every previous section in this chapter has been about proving something is trustworthy: the equipment, the records, the audit trail. This final section is about what happens *before* anything changes at all — the deliberate discipline that keeps a validated, qualified, documented system from quietly drifting out of the state it was proven to be in.
+
+### Why any change is a threat to everything already proven
+
+By this point in the course, a real pattern should be familiar: a method was validated (assay-development chapter), an instrument was qualified (previous section), and both records are protected by an audit trail. Every one of those proofs is a statement about a *specific* configuration — this exact method, on this exact instrument, with this exact software version. Change any part of that configuration, and the proof no longer automatically applies to whatever exists afterward, even if the change seems small or clearly beneficial. **Change control** is the formal process that keeps this from happening by accident.
+
+### What change control actually requires
+
+A change-controlled environment doesn't forbid change — it requires that change be deliberate, reviewed, and recorded rather than informal. A typical change control process requires: a documented request describing exactly what's changing and why, an assessment of what else that change could affect (does updating this driver's version affect the scheduler's timing assumptions? does a new reagent lot require re-validation?), approval from someone with the authority to weigh that impact, and a record of the decision and its reasoning that becomes part of the system's permanent history.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A four step change control process: request describing the proposed change, impact assessment identifying what else it could affect, approval from an authorized reviewer, and implementation with a permanent record of the decision, each step required before a change to a validated system takes effect."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["REQUEST", "IMPACT ASSESSMENT", "APPROVAL", "IMPLEMENT + RECORD"].map((label, i) => (
+      <g key={label} transform={`translate(${10 + i * 158}, 30)`}>
+        <rect x="0" y="0" width="145" height="80" fill={i === 3 ? "#e8f2e0" : "#d8e8ff"} stroke="#000" strokeWidth="1.5" />
+        <text x="72" y="30" fontSize="10" fontWeight="600" textAnchor="middle">{label.split(" ")[0]}</text>
+        {label.split(" ").length > 1 && <text x="72" y="45" fontSize="10" fontWeight="600" textAnchor="middle">{label.split(" ").slice(1).join(" ")}</text>}
+        {i < 3 && <text x="157" y="45" fontSize="16" textAnchor="middle">→</text>}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every change to a validated, qualified system passes through the same deliberate sequence before it takes effect.
+  </figcaption>
+</figure>
+
+### Why impact assessment is the hardest step
+
+The genuinely difficult part of change control isn't the paperwork — it's accurately identifying everything a change could actually affect, especially in an automated system where components interact in ways covered throughout this course: a scheduler's timing assumptions, a driver's expected instrument responses, a method's validated parameters. A change assessed narrowly ("this only updates the reader's firmware") can miss a real consequence ("the firmware update also changed the reader's response timing, which the driver's status-polling logic was tuned around"). This is exactly why change control review typically involves people with a broad view across the system, not just whoever is making the specific change.
+
+### Documentation as the connective tissue across this whole chapter
+
+Every mechanism covered in this chapter — GxP's general expectation, Part 11's electronic record requirements, IQ/OQ/PQ, audit trails — ultimately depends on documentation existing and being accurate. Change control is where that documentation is actively kept in sync with reality, rather than slowly diverging from it as the system evolves. A system with excellent original documentation that never gets updated as changes accumulate ends up, after enough time, effectively undocumented — the paperwork exists, but it no longer describes the system actually running.
+
+### Why this closes the course
+
+This course began by describing lab automation as a chain of interacting parts — hardware, control, orchestration — layered on top of real laboratory science. Change control is the discipline that keeps that entire chain provably trustworthy over its whole working life, not just on the day it was first built and validated. Every earlier chapter — liquid handling, instruments, robotics, scheduling, data, reliability — described how to build and run an automated lab well; this final chapter described how to prove, and keep proving, that it actually is what it claims to be.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="change-control-and-documentation-q1"
+    question="Why does even a small, clearly beneficial change threaten a system's existing validation and qualification?"
+    options={[
+      "Because validation and qualification are statements about a specific configuration, and changing any part of that configuration means the proof no longer automatically applies afterward",
+      "Because small changes are always scientifically worse than large ones",
+      "Because validation only applies to instruments, never to configuration changes",
+      "Because change control only matters for changes that fail testing",
+    ]}
+    answer={0}
+    explanation="Validation and qualification are tied to an exact configuration; any change, however small or beneficial it seems, means that specific proof no longer covers whatever exists after the change without further verification."
+  />
+  <Quiz
+    id="change-control-and-documentation-q2"
+    question="What does change control actually require, rather than forbidding change altogether?"
+    options={[
+      "That change be deliberate, reviewed, and recorded — a documented request, impact assessment, approval, and a permanent record of the decision",
+      "That no changes ever be made to a validated system",
+      "That only the original system installer can ever make changes",
+      "That changes be made informally without any review process",
+    ]}
+    answer={0}
+    explanation="Change control doesn't block change — it formalizes it, requiring a documented request, an assessment of impact, approval, and a lasting record, rather than allowing changes to happen informally."
+  />
+  <Quiz
+    id="change-control-and-documentation-q3"
+    question="Why is impact assessment described as the hardest step in change control?"
+    options={[
+      "Because it's purely a paperwork exercise with no real difficulty",
+      "Because accurately identifying everything a change could affect is genuinely hard in an automated system where components interact — a narrow assessment can miss real downstream consequences",
+      "Because impact assessment is only required for hardware changes, never software",
+      "Because impact assessment is always skipped in practice",
+    ]}
+    answer={1}
+    explanation="The real challenge is anticipating indirect consequences — like a firmware update subtly affecting a driver's timing assumptions — which requires broad system knowledge, not just filling out a form."
+  />
+  <Quiz
+    id="change-control-and-documentation-q4"
+    question="Why does the section argue that a system with excellent original documentation can still end up 'effectively undocumented' over time?"
+    options={[
+      "Because if documentation isn't kept in sync with accumulating changes, the paperwork stops describing the system as it actually runs, even though the paperwork itself still exists",
+      "Because documentation always becomes illegible after a few years",
+      "Because original documentation is deleted automatically after validation",
+      "Because effective documentation only matters during the initial IQ stage",
+    ]}
+    answer={0}
+    explanation="Documentation that isn't actively maintained through change control diverges from reality as the system evolves — the records exist, but they no longer reflect what's actually running."
+  />
+  <Quiz
+    id="change-control-and-documentation-q5"
+    question="How does the chapter frame the relationship between building an automated lab well and proving it works well?"
+    options={[
+      "As unrelated concerns — building well and proving compliance are entirely separate disciplines",
+      "As two halves of the same task — earlier chapters covered building and running an automated lab well, while this chapter covered proving, and continuing to prove, that it actually is what it claims to be",
+      "As a claim that proving compliance is more important than the underlying engineering",
+      "As a claim that once validated, a system requires no further proof of any kind",
+    ]}
+    answer={1}
+    explanation="The chapter frames quality and compliance as the ongoing proof layered on top of the engineering covered throughout the rest of the course — both are necessary, and neither substitutes for the other."
+  />
+</QuizSet>

@@ -1,0 +1,113 @@
+Every instrument covered so far can do its one job well. What none of them can do alone is decide *when* to do it relative to everything else happening on the same deck. That coordination question — the scheduling problem — is what turns a collection of capable instruments into a single working system.
+
+### Why one instrument at a time isn't the bottleneck
+
+A liquid handler pipetting a plate, a reader measuring it, and a washer cleaning the next one could each, individually, run as fast as their own hardware allows. The actual constraint is almost never any single instrument's speed — it's the fact that they all share a limited number of resources: one robotic arm to move plates between them, a fixed number of nests to hold plates in transit, and often a strict order dictated by the assay's chemistry (you can't read a plate before it's washed). Scheduling exists because these shared, limited resources force decisions no individual instrument can make on its own.
+
+### The core question a scheduler answers
+
+At its simplest, a scheduler decides: given several plates that each need a sequence of steps done, and a shared set of instruments and transport to do them with, what runs next, on what, right now? That question sounds simple for one plate running through one sequence of steps in isolation. It becomes genuinely hard the moment multiple plates are in flight simultaneously, each at a different stage of its own sequence, all competing for the same reader, the same arm, the same tip boxes.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three plates each following the same sequence of liquid handler, incubator, then reader, but staggered in time so that at a given moment plate one is being read while plate two is incubating and plate three is at the liquid handler, all competing for the arm to move them between stations."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <text x="20" y="20" fontSize="10" fill="#666">TIME →</text>
+    {["PLATE 1", "PLATE 2", "PLATE 3"].map((label, r) => (
+      <g key={label} transform={`translate(20, ${35 + r * 50})`}>
+        <text x="0" y="16" fontSize="10.5" fontWeight="600">{label}</text>
+        {["LIQUID HANDLER", "INCUBATOR", "READER"].map((step, i) => (
+          <rect
+            key={step}
+            x={90 + (i + r) * 140}
+            y="0"
+            width="130"
+            height="28"
+            fill={i === 0 ? "#d8e8ff" : i === 1 ? "#e8f2e0" : "#ffe0d8"}
+            stroke="#000"
+            strokeWidth="1"
+          />
+        ))}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every plate follows the same sequence, staggered — so at any moment, several plates are simultaneously demanding the same shared resources.
+  </figcaption>
+</figure>
+
+### Why a bad schedule looks like a slow system, not a wrong one
+
+A poorly scheduled system doesn't usually produce wrong results — it produces a *slow* one. Plates sit waiting for an arm that's busy elsewhere; a reader idles while the next plate is still five steps away from being ready for it. Nothing is technically broken, but throughput — the very number covered back in the automated-laboratory chapter — quietly collapses, because the schedule failed to keep the shared resources continuously busy on useful work.
+
+The remaining sections of this chapter break the scheduling problem down piece by piece: how far in advance a schedule can be planned, how shared resources are actually allocated, how timing constraints between steps are enforced, and what happens when something in a running schedule goes wrong.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-scheduling-problem-q1"
+    question="Why is scheduling necessary even when every individual instrument can run at its own maximum speed?"
+    options={[
+      "Because instruments are inherently unreliable without scheduling",
+      "Because instruments share limited resources — like one robotic arm and a fixed order dictated by assay chemistry — that force coordination decisions no single instrument can make alone",
+      "Because scheduling makes each individual instrument run faster",
+      "Because instruments cannot function without a schedule at all",
+    ]}
+    answer={1}
+    explanation="The bottleneck isn't any one instrument's speed — it's the shared, limited resources (arm, nests, order constraints) that multiple plates must compete for simultaneously."
+  />
+  <Quiz
+    id="the-scheduling-problem-q2"
+    question="What makes the scheduling question genuinely hard, as opposed to trivial?"
+    options={[
+      "Running a single plate through a single sequence of steps in isolation",
+      "Multiple plates in flight simultaneously, each at a different stage, all competing for the same shared instruments and transport",
+      "Any instrument running slower than expected",
+      "A protocol that only uses one instrument the whole way through",
+    ]}
+    answer={1}
+    explanation="A single plate moving through a fixed sequence alone is simple; the difficulty emerges once several plates at different stages all compete for the same limited resources at once."
+  />
+  <Quiz
+    id="the-scheduling-problem-q3"
+    question="What does a poorly scheduled system typically produce, according to the section?"
+    options={[
+      "Incorrect experimental results",
+      "A slow system — plates and instruments sit idle waiting on each other, even though nothing is technically broken",
+      "A system that cannot run at all",
+      "Data that is impossible to interpret",
+    ]}
+    answer={1}
+    explanation="Bad scheduling manifests as collapsed throughput — resources sitting idle or plates waiting — rather than incorrect science, since the instruments themselves still function correctly."
+  />
+  <Quiz
+    id="the-scheduling-problem-q4"
+    question="At its core, what question does a scheduler answer at any given moment?"
+    options={[
+      "What is the correct chemistry for this assay?",
+      "Given several plates needing a sequence of steps, and shared instruments and transport, what runs next, on what, right now?",
+      "How should the deck be physically laid out?",
+      "Which pipette tip type should be loaded?",
+    ]}
+    answer={1}
+    explanation="Scheduling is fundamentally about deciding, moment to moment, which plate gets which shared resource next, given everything else already in progress."
+  />
+  <Quiz
+    id="the-scheduling-problem-q5"
+    question="Why does the presence of a strict step order (e.g. 'can't read before washing') matter to the scheduling problem?"
+    options={[
+      "It has no bearing on scheduling since instruments run independently",
+      "It's one of the constraints, alongside shared resources, that forces coordination decisions the scheduler must resolve",
+      "It only matters for single-plate protocols",
+      "It eliminates the need for any resource sharing",
+    ]}
+    answer={1}
+    explanation="A fixed chemistry-driven order is one of the real constraints — alongside limited shared resources — that makes deciding what runs next a genuine coordination problem rather than a free-for-all."
+  />
+</QuizSet>

@@ -1,0 +1,111 @@
+Every plate, tube, and well moving through the systems covered so far holds something real: a specific sample, from a specific source, with its own history. Losing track of which sample is which — even briefly — can make an otherwise perfect run scientifically worthless. This section is about what "identity" means for a sample and why it has to be actively maintained.
+
+### What a sample's identity actually consists of
+
+A sample's identity is more than a name — it's the full set of facts that make one sample distinguishable from every other: where it came from (a patient, a cell line, a reagent lot), when it was collected or created, what's happened to it since (diluted, split, frozen and thawed), and where it currently physically sits. Two tubes that look identical, sitting in the same rack, can hold samples with completely different identities — the only thing that actually distinguishes them is the identity recorded against each one.
+
+### Identity has to survive every physical transformation
+
+The hard part isn't recording identity once — it's carrying it correctly through every operation a sample undergoes. When a sample is split into multiple aliquots, each resulting tube needs an identity that traces back to the original *and* distinguishes it from its siblings. When two reagents are combined into a new well, that well's identity is now a function of both inputs, not either one alone. A system that tracks identity only at the start and end of a workflow, without updating it at every transformation in between, ends up with data that looks complete but is quietly disconnected from what actually happened physically.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A single source tube labeled with an identity splits into three aliquot tubes, each carrying a new identity that still traces back to the original source, illustrating how identity must be propagated and updated through a physical transformation rather than simply copied."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="270" y="10" width="100" height="40" fill="#d8e8ff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="34" fontSize="11" fontWeight="600" textAnchor="middle">SOURCE-001</text>
+
+    {[100, 320, 540].map((x, i) => (
+      <g key={i}>
+        <line x1="320" y1="50" x2={x} y2="110" stroke="#000" strokeWidth="1.2" markerEnd="url(#si1)" />
+        <rect x={x - 55} y="110" width="110" height="40" fill="#e8f2e0" stroke="#000" strokeWidth="1.2" />
+        <text x={x} y="134" fontSize="10" fontWeight="600" textAnchor="middle">{`SOURCE-001-A${i + 1}`}</text>
+      </g>
+    ))}
+    <text x="320" y="180" fontSize="9.5" fill="#666" textAnchor="middle">each aliquot: distinct identity, traceable lineage</text>
+    <defs>
+      <marker id="si1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#000" /></marker>
+    </defs>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Splitting one sample into aliquots isn't just a physical action — it's an identity operation that must be recorded as it happens.
+  </figcaption>
+</figure>
+
+### Lineage: identity plus history
+
+Beyond just "which sample is this," most systems also need **lineage** — the full chain of what a sample was derived from and what was done to it along the way. Lineage answers questions identity alone can't: if a result looks wrong, which source sample, which reagent lot, which specific run produced it? Without lineage, a bad result is a dead end; with it, a bad result is the start of an investigation that can actually be traced back to its cause.
+
+### Why this is a prerequisite, not a feature
+
+Everything explored in this chapter's remaining sections — barcodes, LIMS, capturing instrument data — exists to serve this one underlying need: keeping identity and lineage accurate as a sample moves through a system that, left unmanaged, has no idea one tube's contents from another's. Get sample identity wrong, and no amount of instrument precision or scheduling sophistication elsewhere in this course produces trustworthy results.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="sample-identity-and-tracking-q1"
+    question="What actually constitutes a sample's 'identity' beyond just a name or label?"
+    options={[
+      "Only the sample's physical color and volume",
+      "The full set of facts distinguishing it from others: its source, when it was collected, what's happened to it since, and where it currently sits",
+      "Only the barcode printed on its container",
+      "Only the instrument that last processed it",
+    ]}
+    answer={1}
+    explanation="Identity is the complete set of distinguishing facts about a sample — its origin, history, and current state — not just a label attached to its container."
+  />
+  <Quiz
+    id="sample-identity-and-tracking-q2"
+    question="Why is tracking identity only at the start and end of a workflow, without updating it during transformations, a problem?"
+    options={[
+      "It has no downside since start and end are the only points that matter",
+      "It produces data that looks complete but is disconnected from what actually physically happened at each intermediate step, like a split or combination",
+      "It only affects reagent tracking, not sample tracking",
+      "It automatically corrects itself at the final step",
+    ]}
+    answer={1}
+    explanation="Transformations like splitting a sample or combining reagents change identity in ways that must be captured as they happen — skipping that leaves records that appear complete but don't reflect reality."
+  />
+  <Quiz
+    id="sample-identity-and-tracking-q3"
+    question="When a sample is split into multiple aliquots, what does each resulting tube's identity need to capture?"
+    options={[
+      "Only a copy of the original sample's identity, unchanged",
+      "An identity that traces back to the original source while also distinguishing it from its sibling aliquots",
+      "No identity at all, since aliquots are considered identical",
+      "Only the timestamp of the split operation",
+    ]}
+    answer={1}
+    explanation="Each aliquot needs its own distinct identity while still preserving a traceable link back to the source it was derived from — both parts matter."
+  />
+  <Quiz
+    id="sample-identity-and-tracking-q4"
+    question="What does 'lineage' add beyond basic sample identity?"
+    options={[
+      "Nothing — lineage and identity are the same concept",
+      "The full chain of what a sample was derived from and what was done to it, letting a bad result be traced back to its cause",
+      "Only the sample's current physical location",
+      "Only the barcode format used on the container",
+    ]}
+    answer={1}
+    explanation="Lineage extends identity with history — tracing a result back through source samples, reagent lots, and specific runs, which identity alone doesn't provide."
+  />
+  <Quiz
+    id="sample-identity-and-tracking-q5"
+    question="Why is sample identity described as a prerequisite for the rest of the chapter's topics rather than one feature among several?"
+    options={[
+      "Because barcodes, LIMS, and instrument data capture all exist specifically to keep identity and lineage accurate as a sample moves through the system",
+      "Because identity tracking is unrelated to barcoding or LIMS",
+      "Because instrument precision matters more than identity tracking",
+      "Because lineage is only relevant in regulated environments",
+    ]}
+    answer={0}
+    explanation="The later topics in this chapter are mechanisms that serve the underlying need established here — without accurate identity, none of those mechanisms produce trustworthy results."
+  />
+</QuizSet>

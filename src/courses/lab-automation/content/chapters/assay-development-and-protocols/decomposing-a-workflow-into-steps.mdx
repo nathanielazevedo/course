@@ -1,0 +1,109 @@
+Translating a protocol's language, as the previous section covered, is only half the job. The other half is structural: breaking a continuous procedure into the discrete, individually executable steps an automated system actually runs.
+
+### A protocol is a paragraph; a method is a list
+
+A written protocol often describes a procedure in flowing, connected prose — several actions bundled into one sentence, conditions and exceptions woven through the narrative. An automated method needs the opposite: a strict, ordered list of atomic operations, each one a single, unambiguous instruction to a specific instrument. Decomposition is the process of pulling that list out of the prose — identifying every discrete action buried in a sentence like "wash the plate three times, then add substrate and read after 15 minutes" (three wash cycles, a dispense step, a fixed-duration wait, a read step — four operations, not one).
+
+### Where to draw the line between one step and the next
+
+Not every decomposition is equally useful. A step defined too coarsely ("prepare the plate") hides several distinct operations behind one label, making it impossible for a scheduler to reason about timing or resources within it. A step defined too finely (breaking a single pipetting motion into "lower the pipette," "aspirate," "raise the pipette" as three separate scheduled steps) adds bookkeeping overhead without adding any real control. The useful boundary is usually the smallest unit that a scheduler might need to reason about independently — something that has its own timing constraint, its own resource requirement, or its own possible failure mode worth tracking on its own.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A single protocol sentence, wash the plate three times then add substrate and read after fifteen minutes, decomposed into four discrete numbered steps: wash cycle one, wash cycle two, wash cycle three, dispense substrate, and read after a fixed wait, each an atomic operation a scheduler can act on independently."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="20" y="20" width="600" height="34" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="320" y="41" fontSize="10" textAnchor="middle">"Wash the plate three times, then add substrate and read after 15 minutes."</text>
+
+    {["WASH ×3", "DISPENSE", "WAIT 15m", "READ"].map((label, i) => (
+      <g key={label} transform={`translate(${30 + i * 152}, 90)`}>
+        <rect x="0" y="0" width="130" height="40" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+        <text x="65" y="25" fontSize="10.5" fontWeight="600" textAnchor="middle">{label}</text>
+        {i < 3 && <text x="140" y="25" fontSize="14" textAnchor="middle">→</text>}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    One bundled sentence in a protocol becomes several distinct steps a scheduler can independently track, time, and recover from.
+  </figcaption>
+</figure>
+
+### Steps need inputs, outputs, and preconditions
+
+Beyond just ordering, each decomposed step needs to be defined with what it requires before it can run (the right plate present, the right reagent loaded) and what it produces when it's done (a plate now washed, a value now read). This is what lets the scheduling concepts from the earlier chapter — sequence dependencies, timing windows, resource requirements — actually attach to something concrete. A step with no defined precondition can't be checked before it runs; a step with no defined output gives the next step nothing to depend on.
+
+### Decomposition reveals hidden assumptions
+
+The act of decomposing a protocol often surfaces gaps the original manual version never had to address, because a person filled them in without noticing. "Wash the plate" implicitly assumes a specific number of wash cycles and a specific residual volume a technician would just eyeball — decomposing it into an explicit step forces someone to actually specify those numbers, sometimes for the first time. This is frequently where automating a protocol first exposes that it was never as precisely defined as everyone assumed.
+
+With a protocol broken into discrete, schedulable steps, the next section covers a different kind of change automation often invites: shrinking and refining those steps to make the whole assay faster and cheaper to run.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="decomposing-a-workflow-into-steps-q1"
+    question="Why can't an automated method run directly from a protocol written in flowing prose?"
+    options={[
+      "Because prose cannot describe any chemistry",
+      "Because an automated method needs a strict, ordered list of atomic operations, while prose often bundles several actions into one sentence",
+      "Because protocols are always too short to automate",
+      "Because prose format is illegal in regulated labs",
+    ]}
+    answer={1}
+    explanation="A method requires discrete, individually executable steps, while a written protocol's prose often combines multiple distinct actions into a single connected sentence that needs to be pulled apart."
+  />
+  <Quiz
+    id="decomposing-a-workflow-into-steps-q2"
+    question="What problem occurs when a step is defined too coarsely, like 'prepare the plate'?"
+    options={[
+      "It runs faster than a finely decomposed step",
+      "It hides several distinct operations behind one label, making it impossible for a scheduler to reason about timing or resources within it",
+      "It requires no scheduling logic at all",
+      "It eliminates the need for barcode tracking",
+    ]}
+    answer={1}
+    explanation="A step that bundles multiple distinct operations under one vague label prevents the scheduler from tracking timing, resources, or failure at the level of granularity it actually needs."
+  />
+  <Quiz
+    id="decomposing-a-workflow-into-steps-q3"
+    question="What is a useful rule of thumb for deciding how finely to decompose a protocol into steps?"
+    options={[
+      "Decompose to the smallest possible physical motion every time",
+      "Use the smallest unit a scheduler might need to reason about independently — something with its own timing constraint, resource requirement, or failure mode",
+      "Always match the exact sentence structure of the original protocol",
+      "Combine as many actions as possible into a single step to reduce complexity",
+    ]}
+    answer={1}
+    explanation="The useful boundary between steps is defined by what the scheduler actually needs to track independently, not by an arbitrary level of physical granularity in either direction."
+  />
+  <Quiz
+    id="decomposing-a-workflow-into-steps-q4"
+    question="Why do decomposed steps need defined inputs (preconditions) and outputs?"
+    options={[
+      "Because this is what lets scheduling concepts like sequence dependencies and resource requirements actually attach to something concrete",
+      "Because inputs and outputs are only relevant for LIMS integration",
+      "Because a step without inputs or outputs runs faster",
+      "Because this eliminates the need for timing windows",
+    ]}
+    answer={0}
+    explanation="Preconditions and outputs give the scheduler something concrete to check before running a step and something concrete for the next step to depend on — without them, scheduling constraints have nothing to attach to."
+  />
+  <Quiz
+    id="decomposing-a-workflow-into-steps-q5"
+    question="Why does decomposing a manual protocol sometimes reveal that it was never as precisely defined as assumed?"
+    options={[
+      "Because decomposition always simplifies protocols beyond recognition",
+      "Because a person filled in implicit details, like an exact wash-cycle count, without ever writing them down — decomposition forces those details to be made explicit for the first time",
+      "Because manual protocols never specify any parameters at all",
+      "Because decomposition only applies to protocols that were already well documented",
+    ]}
+    answer={1}
+    explanation="A manual instruction like 'wash the plate' relies on a technician's unwritten judgment; forcing it into an explicit automated step often exposes that those specifics were never actually pinned down before."
+  />
+</QuizSet>

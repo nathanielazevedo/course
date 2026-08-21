@@ -1,0 +1,105 @@
+A pipette looks simple — a plunger, a tip, a number on a dial — but underneath, it's manipulating air pressure to move liquid precisely. Understanding that mechanism explains almost every quirk and failure mode covered later in this chapter.
+
+### Air displacement, the common case
+
+Most pipettes work by **air displacement**: a piston moves inside a sealed cylinder, and the column of air between the piston and the liquid transmits that motion. Push the plunger down and air is expelled from the tip; the piston then rises as it draws liquid up, pulled by the resulting vacuum; push down again and that same air column pushes the liquid back out.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Cross section of a pipette. A piston sits inside a cylinder above a column of air, which sits above a disposable tip. As the piston rises, the air column expands, drawing liquid up into the tip through the vacuum created."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="270" y="20" width="100" height="60" fill="#e8e8e8" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="14" fontSize="11" textAnchor="middle" fill="#666">piston</text>
+
+    <rect x="285" y="80" width="70" height="70" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="400" y="118" fontSize="11" textAnchor="middle" fill="#666">air column</text>
+
+    <path d="M285 150 h70 l-25 60 h-20 z" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+    <text x="320" y="215" fontSize="11" textAnchor="middle" fill="#666">liquid drawn into tip</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The piston never touches the liquid — it moves a sealed column of air that pulls or pushes liquid through the disposable tip.
+  </figcaption>
+</figure>
+
+Because the piston never touches the liquid, the tip can be swapped between samples without contaminating the pipette's internals — that disposability is the whole reason air-displacement pipettes dominate the lab.
+
+### Positive displacement, for the exceptions
+
+Some liquids don't behave under an air cushion: they're too viscous, too volatile, or they foam. **Positive displacement** pipettes solve this with a piston that sits *inside* the tip itself and directly contacts the liquid, with no air gap at all. There's no air column to compress, expand, or be thrown off by a liquid's own vapor pressure, so the volume delivered matches the volume displaced far more reliably. The tradeoff is cost — the tips themselves contain a moving part, not just a disposable cone.
+
+### Why air compresses, and why that matters
+
+Air is compressible; liquid, for practical purposes, is not. That single fact is the root of most pipetting error. If the air column had zero compressibility, plunger travel would translate to liquid volume perfectly. In reality, some of the piston's motion goes into compressing or expanding the air rather than moving the liquid boundary — and how much depends on temperature, altitude, and the liquid's own vapor pressure pushing back into that air column. A volatile liquid (like ethanol) evaporates into the air gap and changes its own effective volume before the pipette even finishes drawing it up.
+
+This is why pipettes are calibrated for water and why unusual liquids need different technique or hardware entirely — the physics of an air cushion doesn't treat every liquid the same, a theme the rest of this chapter builds on directly.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="physics-of-a-pipette-q1"
+    question="In an air-displacement pipette, what does the piston actually move?"
+    options={[
+      "The liquid directly, since the piston sits inside the tip",
+      "A sealed column of air, which in turn pulls or pushes the liquid",
+      "Nothing — the tip has its own separate piston",
+      "The tip itself, up and down",
+    ]}
+    answer={1}
+    explanation="The piston moves inside a cylinder above the tip, displacing an air column. That air column is what transmits force to the liquid, not the piston directly."
+  />
+  <Quiz
+    id="physics-of-a-pipette-q2"
+    question="Why can an air-displacement pipette's tip be safely swapped between different samples?"
+    options={[
+      "Because the piston never contacts the liquid — only the disposable tip does",
+      "Because the piston is cleaned between every use",
+      "Because air-displacement pipettes don't actually touch any liquid",
+      "Because the tip has no contact with the air column",
+    ]}
+    answer={0}
+    explanation="Since the piston only ever touches an air column, not the liquid itself, only the disposable tip contacts each sample — making tip changes sufficient to prevent cross-contamination."
+  />
+  <Quiz
+    id="physics-of-a-pipette-q3"
+    question="Why does a positive displacement pipette handle a viscous or foaming liquid more reliably than an air-displacement pipette?"
+    options={[
+      "It uses a much larger air column to compensate",
+      "Its piston contacts the liquid directly inside the tip, eliminating the air cushion that such liquids disrupt",
+      "It uses two separate air columns instead of one",
+      "It only works with volatile liquids"
+    ]}
+    answer={1}
+    explanation="With no air gap between piston and liquid, there's no compressible cushion for a viscous or foaming liquid to disrupt — the volume displaced matches the volume delivered directly."
+  />
+  <Quiz
+    id="physics-of-a-pipette-q4"
+    question="Why is air's compressibility the root of most pipetting error, according to the physics described?"
+    options={[
+      "Because liquid is more compressible than air",
+      "Because some of the piston's travel compresses or expands the air rather than moving the liquid boundary, and that fraction varies with conditions",
+      "Because compressible air always doubles the delivered volume",
+      "Because pipettes cannot be calibrated for compressible gases",
+    ]}
+    answer={1}
+    explanation="Since air compresses and liquid effectively doesn't, plunger motion doesn't translate perfectly into liquid movement — the mismatch depends on temperature, altitude, and the liquid's vapor pressure."
+  />
+  <Quiz
+    id="physics-of-a-pipette-q5"
+    question="Why does pipetting a volatile liquid like ethanol introduce error specifically related to the air column?"
+    options={[
+      "Ethanol dissolves the pipette tip",
+      "Ethanol evaporates into the air gap, changing the effective volume of air before the liquid is fully drawn up",
+      "Ethanol is heavier than water and sinks in the tip",
+      "Volatile liquids cannot be pipetted with any type of pipette",
+    ]}
+    answer={1}
+    explanation="A volatile liquid's vapor pressure adds gas into the air column itself, altering how the column behaves compared to the water it was calibrated against."
+  />
+</QuizSet>

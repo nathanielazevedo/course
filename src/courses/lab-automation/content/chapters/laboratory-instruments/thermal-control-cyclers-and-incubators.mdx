@@ -1,0 +1,113 @@
+Many reactions in a lab don't happen at room temperature — they need to be held steady, or moved through a precise sequence of temperatures, before anything measurable occurs. Two instruments do most of that work, and they solve very different problems.
+
+### Incubators: hold steady
+
+An **incubator** maintains one condition — usually temperature, often humidity and CO₂ as well — over an extended period, from hours to days. Cell culture is the classic use: living cells need 37 °C, roughly 5% CO₂, and high humidity to survive and grow, and any of those drifting for long stretches can kill an entire plate of cells. An incubator's whole job is *stability*: hold the setpoint against whatever the outside environment (or the door opening) throws at it.
+
+### Thermal cyclers: move through a program
+
+A **thermal cycler** does the opposite — it deliberately and rapidly moves a sample through a repeating sequence of temperatures. The canonical use is **PCR** (polymerase chain reaction), which needs three temperature steps repeated 20–40 times: a high temperature to separate DNA strands (**denaturation**), a lower temperature for short DNA primers to bind (**annealing**), and a middle temperature for an enzyme to copy the strand (**extension**). Getting from one step to the next quickly and evenly across every well is what separates a good thermal cycler from a slow one.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 200"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A temperature-versus-time plot showing three repeating peaks and valleys: a high plateau for denaturation, a lower plateau for annealing, and a middle plateau for extension, repeating as a cycle."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="50" y1="20" x2="50" y2="170" stroke="#000" strokeWidth="1.5" />
+    <line x1="50" y1="170" x2="600" y2="170" stroke="#000" strokeWidth="1.5" />
+    <text x="20" y="95" fontSize="11" fill="#666" textAnchor="middle" transform="rotate(-90 20 95)">TEMP</text>
+    <text x="325" y="192" fontSize="11" fill="#666" textAnchor="middle">TIME</text>
+
+    <path
+      d="M50 60 h60 v-30 h50 v50 h50 v-20 h50 M260 60 h60 v-30 h50 v50 h50 v-20 h50 M470 60 h60 v-30 h50 v50 h50"
+      fill="none" stroke="#3464c8" strokeWidth="2"
+    />
+    <text x="100" y="20" fontSize="9" textAnchor="middle" fill="#666">denature</text>
+    <text x="185" y="90" fontSize="9" textAnchor="middle" fill="#666">anneal</text>
+    <text x="235" y="30" fontSize="9" textAnchor="middle" fill="#666">extend</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A PCR program cycles through denaturation, annealing, and extension temperatures dozens of times, doubling the target DNA sequence each cycle.
+  </figcaption>
+</figure>
+
+### The engineering problem: even, fast temperature change
+
+Both instrument types face the same underlying challenge: a plate is a large, uneven mass, and heat doesn't move through it instantly. A thermal cycler's block must bring every well to the *same* temperature at the *same* time — a well at the plate's edge that lags behind the center by even a degree or two can mean that well's reaction under- or over-performs relative to its neighbors, silently. This is why cyclers use metal blocks with active heating and cooling elements (Peltier devices, most commonly) rather than an air oven — metal conducts heat far more evenly and quickly than air can.
+
+Incubators face the inverse version of the same problem: instead of moving fast, they must resist disturbance. Opening the door to load a plate lets in room-temperature, low-humidity air, and a well-designed incubator recovers its setpoint quickly rather than leaving cells in a swinging environment for the next hour.
+
+### Automating around them
+
+Both instruments are naturally suited to automation because their "action" is just time passing at a controlled condition — a scheduler hands a plate to an incubator or cycler, waits the required duration, and then retrieves it, with the instrument itself doing nothing that needs supervision in between. That waiting period, multiplied across many plates running staggered programs, is exactly the kind of scheduling problem covered later in this course.
+
+Temperature is one axis of instrument control; the next section covers instruments that move plates and samples through mechanical, rather than thermal, forces.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="thermal-control-cyclers-incubators-q1"
+    question="What is the primary design goal of an incubator, as distinct from a thermal cycler?"
+    options={[
+      "Moving rapidly through a sequence of different temperatures",
+      "Holding one steady condition — temperature, humidity, CO₂ — stably over an extended period",
+      "Separating DNA strands through repeated heating",
+      "Reading fluorescent or absorbance signals from a plate",
+    ]}
+    answer={1}
+    explanation="An incubator's whole purpose is stability against disturbance, unlike a thermal cycler, which is built to move quickly and repeatedly between different temperatures."
+  />
+  <Quiz
+    id="thermal-control-cyclers-incubators-q2"
+    question="In a PCR thermal cycle, what is the purpose of the high-temperature denaturation step?"
+    options={[
+      "To let a DNA polymerase enzyme copy the strand",
+      "To separate the two strands of the DNA double helix",
+      "To let short primers bind to the DNA",
+      "To keep cells alive between cycles",
+    ]}
+    answer={1}
+    explanation="Denaturation uses high heat to split the double-stranded DNA into single strands, which is the precondition for primers to bind and the enzyme to copy them in later steps."
+  />
+  <Quiz
+    id="thermal-control-cyclers-incubators-q3"
+    question="Why do thermal cyclers typically use metal blocks with Peltier elements rather than an air oven?"
+    options={[
+      "Metal blocks are cheaper to manufacture than air ovens",
+      "Metal conducts heat far more evenly and quickly than air, which is necessary for every well to reach the same temperature at the same time",
+      "Air ovens cannot reach the temperatures PCR requires",
+      "Peltier elements only work with plastic labware",
+    ]}
+    answer={1}
+    explanation="Uneven or slow heat transfer means some wells lag behind others in temperature, silently skewing their reactions — metal blocks minimize that lag far better than air does."
+  />
+  <Quiz
+    id="thermal-control-cyclers-incubators-q4"
+    question="What happens to an incubator's environment when its door is opened to load a plate, and why does this matter?"
+    options={[
+      "Nothing changes, since incubators are sealed from outside air",
+      "Room-temperature, low-humidity air enters, and a well-designed incubator must recover its setpoint quickly to avoid prolonged disturbance to cells",
+      "The CO₂ level automatically increases to compensate",
+      "The incubator must be fully powered down and restarted",
+    ]}
+    answer={1}
+    explanation="Opening the door lets in outside air that disrupts the controlled condition; recovery speed determines how much cells are actually exposed to an unstable environment."
+  />
+  <Quiz
+    id="thermal-control-cyclers-incubators-q5"
+    question="Why are incubators and thermal cyclers naturally well suited to automation?"
+    options={[
+      "Because their 'action' is largely just time passing at a controlled condition, requiring no supervision once a plate is loaded",
+      "Because they never need to be calibrated or maintained",
+      "Because they can only be operated by robots, not humans",
+      "Because they don't require any scheduling logic at all",
+    ]}
+    answer={0}
+    explanation="Once a plate is placed and a program started, both instruments simply need time to elapse under controlled conditions — a scheduler can hand off a plate and retrieve it later with nothing to supervise in between."
+  />
+</QuizSet>

@@ -1,0 +1,112 @@
+A method that ran correctly once, on one plate, on one day, hasn't actually proven much. Validation and reproducibility are about establishing — with evidence, not assumption — that a method produces trustworthy results consistently, across the conditions it will actually be used under.
+
+### Validation: proving the method measures what it claims to
+
+**Validation** is the deliberate process of testing a method against known answers to confirm it produces correct results, not just plausible-looking ones. This typically means running the method against samples with a known, independently established outcome — a reference standard, a previously characterized sample — and confirming the automated method's result matches what's already known to be true. A method that has never been checked against a known answer hasn't been validated; it's only been observed to run without crashing, which is a much weaker claim.
+
+### Reproducibility: getting the same answer every time
+
+**Reproducibility** is a related but distinct property: does the method give the same result when run again, on a different day, by a different instrument of the same model, or by a different operator setting it up? A method can be accurate on one particular run and still be poorly reproducible if small, uncontrolled variations between runs produce meaningfully different results — which defeats much of the point of automating in the first place, since consistency was one of the core motivations back in the automated-laboratory chapter.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Two scatter plots. The first shows repeated runs of a validated, reproducible method clustered tightly around the known correct value. The second shows repeated runs of an unvalidated or poorly reproducible method scattered widely and off from the known correct value, illustrating that both accuracy against a known answer and tight repeat-to-repeat consistency are required."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      { x: 30, title: "VALIDATED + REPRODUCIBLE", pts: [[100,60],[103,58],[98,62],[101,61],[99,59],[102,60]] },
+      { x: 340, title: "NOT YET VALIDATED", pts: [[70,40],[130,80],[90,95],[115,50],[75,70],[125,65]] },
+    ].map((g) => (
+      <g key={g.title} transform={`translate(${g.x}, 20)`}>
+        <text x="100" y="0" fontSize="10.5" fontWeight="600" textAnchor="middle">{g.title}</text>
+        <line x1="100" y1="30" x2="100" y2="120" stroke="#999" strokeWidth="1" strokeDasharray="3 3" />
+        <text x="115" y="30" fontSize="8.5" fill="#666">known value</text>
+        {g.pts.map(([px, py], i) => (
+          <circle key={i} cx={px} cy={py} r="4" fill="#3464c8" />
+        ))}
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Validation checks results land on the known correct answer; reproducibility checks they land there consistently, run after run.
+  </figcaption>
+</figure>
+
+### Where reproducibility actually breaks
+
+Reproducibility failures rarely trace back to the automated steps executing incorrectly — they usually trace back to something the method assumed was constant but wasn't: a reagent lot that behaves slightly differently from the one used during development, an instrument of the same model with a subtly different calibration, an environmental condition (ambient humidity, room temperature) the original validation never accounted for varying. Identifying these hidden dependencies is often the hardest part of establishing reproducibility, because the method's own logic can be entirely correct while still producing inconsistent results due to an external factor no one thought to control.
+
+### Validation is not a one-time event
+
+A method validated once, at its original volume and reagent lot, doesn't stay validated forever without further checking. Every change covered earlier in this chapter — miniaturizing a volume, optimizing a wash count, swapping a reagent supplier — potentially invalidates the original validation, because each change is a claim that the method still measures the same thing, and that claim needs its own evidence. This is why validation and change control are treated as an ongoing discipline in regulated environments rather than a box checked once during initial development — a theme the later chapter on quality and compliance returns to directly.
+
+This closes the chapter on assay development and protocols — translating manual protocols, decomposing them into steps, optimizing and miniaturizing them, planning for controls and edge cases, and validating that the whole result holds up reliably. The next chapter turns to keeping that reliability intact once the method is actually running unattended, day after day.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="validation-and-reproducibility-q1"
+    question="What does it mean for a method to be 'validated,' as opposed to simply 'observed to run without crashing'?"
+    options={[
+      "The method has been deliberately tested against samples with a known, independently established outcome and confirmed to match that known answer",
+      "The method has been run exactly once successfully",
+      "The method has never produced an error message",
+      "The method has been reviewed by a person without running any tests",
+    ]}
+    answer={0}
+    explanation="Validation specifically means checking results against a known correct answer, not just confirming the method executes without technical failure — those are very different claims."
+  />
+  <Quiz
+    id="validation-and-reproducibility-q2"
+    question="How does reproducibility differ from validation?"
+    options={[
+      "Reproducibility checks whether the method gives the same result across repeated runs, days, instruments, or operators, whereas validation checks whether a result matches a known correct answer",
+      "Reproducibility and validation are the same concept",
+      "Reproducibility only applies to manual protocols, not automated ones",
+      "Reproducibility means running the method exactly once with no repeats",
+    ]}
+    answer={0}
+    explanation="Validation is about accuracy against a known truth; reproducibility is about consistency across repeated executions under varying real-world conditions — a method can have one without the other."
+  />
+  <Quiz
+    id="validation-and-reproducibility-q3"
+    question="Why do reproducibility failures often trace back to something outside the automated steps themselves?"
+    options={[
+      "Because the method's logic is often entirely correct while an external factor — a different reagent lot, a differently calibrated instrument, an uncontrolled environmental condition — varies between runs",
+      "Because automated steps are always the direct cause of reproducibility failures",
+      "Because reproducibility is unrelated to reagent lots or instrument calibration",
+      "Because environmental conditions never affect assay results",
+    ]}
+    answer={0}
+    explanation="A method can execute its programmed steps flawlessly every time while still producing inconsistent results, if something the original validation assumed was constant actually varies between runs."
+  />
+  <Quiz
+    id="validation-and-reproducibility-q4"
+    question="Why does miniaturizing a protocol's volume potentially invalidate its original validation?"
+    options={[
+      "Because any change to volume, reagent, or optimization is a claim the method still measures the same thing, and that claim needs its own supporting evidence",
+      "Because miniaturization always automatically re-validates the method",
+      "Because volume changes have no effect on validation status",
+      "Because validation only applies to the original, unmodified protocol forever",
+    ]}
+    answer={0}
+    explanation="Every meaningful change to a validated method — including miniaturization — is an implicit claim that the assay still behaves the same way, which needs to be checked again rather than assumed."
+  />
+  <Quiz
+    id="validation-and-reproducibility-q5"
+    question="Why is validation treated as an ongoing discipline rather than a single event completed during initial development?"
+    options={[
+      "Because subsequent changes to the method — reagent lots, optimization, miniaturization — each potentially invalidate the original validation and require their own re-checking",
+      "Because validation only needs to happen once and is permanent afterward",
+      "Because ongoing validation is only required for methods that fail their first test",
+      "Because validation and reproducibility are unrelated to change control",
+    ]}
+    answer={0}
+    explanation="Because changes to a method can silently alter what it's actually measuring, validation has to be revisited whenever such changes occur, rather than treated as permanently settled after the first pass."
+  />
+</QuizSet>

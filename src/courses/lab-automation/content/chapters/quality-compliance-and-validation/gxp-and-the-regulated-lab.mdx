@@ -1,0 +1,105 @@
+Everything covered so far in this course has been about making automation work well technically — accurate, reliable, fast. In a regulated lab, working well isn't enough on its own; the lab also has to *prove* it works well, to a standard an outside regulator can verify. That proof obligation is what GxP is about.
+
+### What GxP actually means
+
+**GxP** is an umbrella term for a family of "good practice" regulations — **GLP** (Good Laboratory Practice), **GMP** (Good Manufacturing Practice), **GCP** (Good Clinical Practice) — each governing a different stage of getting a product (usually a drug or medical device) from research to market. The "x" stands in for whichever practice applies to the specific stage of work; the common thread across all of them is the same underlying expectation: work has to be done consistently, documented thoroughly, and be traceable back to exactly how and by whom it was performed.
+
+### Why GxP changes what "correct" means
+
+Outside a regulated context, a result is correct if it's scientifically accurate — the assay measured what it claims to measure. Inside a GxP environment, a result also has to be **defensible**: not just correct, but demonstrably produced by a documented, validated process that a regulator or auditor could review months or years later and reconstruct exactly what happened. A perfectly accurate result produced by an undocumented, unvalidated process can still fail a GxP audit, because the standard isn't only "is this true," it's "can you prove this is true, to someone who wasn't there."
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Two overlapping circles. One labeled scientifically correct, the other labeled demonstrably compliant. Only the overlapping center region, where both are true at once, satisfies GxP requirements — a result correct but undocumented, or documented but wrong, both fall outside that acceptable region."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <circle cx="260" cy="90" r="90" fill="#d8e8ff" opacity="0.6" stroke="#000" strokeWidth="1.2" />
+    <circle cx="380" cy="90" r="90" fill="#e8f2e0" opacity="0.6" stroke="#000" strokeWidth="1.2" />
+    <text x="190" y="60" fontSize="10.5" fontWeight="600" textAnchor="middle">SCIENTIFICALLY</text>
+    <text x="190" y="75" fontSize="10.5" fontWeight="600" textAnchor="middle">CORRECT</text>
+    <text x="450" y="60" fontSize="10.5" fontWeight="600" textAnchor="middle">DEMONSTRABLY</text>
+    <text x="450" y="75" fontSize="10.5" fontWeight="600" textAnchor="middle">COMPLIANT</text>
+    <text x="320" y="95" fontSize="10.5" fontWeight="700" textAnchor="middle">GxP</text>
+    <text x="320" y="110" fontSize="9" textAnchor="middle">ACCEPTABLE</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Only results that are both scientifically correct and demonstrably compliant satisfy a GxP standard — either alone falls short.
+  </figcaption>
+</figure>
+
+### Why automation is a natural fit for GxP, but not automatically compliant
+
+Automated systems, in principle, are well suited to this kind of proof: they execute the same documented steps every time, and can log every action as it happens rather than relying on a person's memory or handwritten notes after the fact. But automation doesn't earn GxP compliance simply by existing — a system has to be deliberately built and operated to actually produce that documentation, log those actions completely, and make that record available for review. An automated system run carelessly is just as capable of failing a GxP audit as a manual process run carelessly; the technology creates the opportunity for compliance, it doesn't guarantee it.
+
+### Why this chapter comes last in the course
+
+Every topic covered earlier in this course — instrument control, scheduling, data capture, error recovery, maintenance — becomes the actual substance a GxP audit examines. A regulator reviewing an automated method isn't checking the biology twice; they're checking whether the engineering behind it (the very engineering this course has covered) was itself documented, controlled, and verifiable. GxP is less a separate technical topic and more a lens applied over everything already covered, which is why this final chapter revisits several earlier ideas — electronic records, validation, audit trails, change control — specifically through that lens.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="gxp-and-the-regulated-lab-q1"
+    question="What is the common thread across the different practices covered under the GxP umbrella (GLP, GMP, GCP)?"
+    options={[
+      "Each requires a completely different scientific method with no shared principles",
+      "Work must be done consistently, documented thoroughly, and traceable back to exactly how and by whom it was performed",
+      "GxP only applies to instrument calibration",
+      "GxP regulations only govern clinical trials, not laboratory work",
+    ]}
+    answer={1}
+    explanation="Despite governing different stages of bringing a product to market, GLP, GMP, and GCP share the same core expectation: documented, consistent, and traceable work."
+  />
+  <Quiz
+    id="gxp-and-the-regulated-lab-q2"
+    question="Why can a scientifically accurate result still fail a GxP audit?"
+    options={[
+      "Because GxP audits never actually check scientific accuracy",
+      "Because the result also needs to be demonstrably produced by a documented, validated process an auditor could reconstruct later — accuracy alone isn't sufficient",
+      "Because GxP audits only apply to manual protocols",
+      "Because scientifically accurate results are automatically exempt from any documentation requirement",
+    ]}
+    answer={1}
+    explanation="GxP requires both correctness and demonstrable compliance — an undocumented or unvalidated process can fail an audit even if its result happens to be scientifically true."
+  />
+  <Quiz
+    id="gxp-and-the-regulated-lab-q3"
+    question="Why are automated systems well suited to GxP requirements in principle?"
+    options={[
+      "Because they execute the same documented steps every time and can log every action as it happens, rather than relying on a person's memory or handwritten notes",
+      "Because automated systems are automatically exempt from GxP regulations",
+      "Because automation eliminates the need for any documentation",
+      "Because GxP only applies to manual processes, not automated ones",
+    ]}
+    answer={0}
+    explanation="Automation's consistency and built-in logging naturally support the traceability and documentation GxP demands, compared to relying on manual notes and memory."
+  />
+  <Quiz
+    id="gxp-and-the-regulated-lab-q4"
+    question="Why doesn't simply using an automated system guarantee GxP compliance?"
+    options={[
+      "Because a system still has to be deliberately built and operated to actually produce complete documentation and make that record available for review — carelessness can still fail an audit",
+      "Because GxP compliance is impossible to achieve with any automated system",
+      "Because automated systems are inherently less accurate than manual ones",
+      "Because GxP only evaluates hardware, never software",
+    ]}
+    answer={0}
+    explanation="Automation creates the opportunity for compliance through consistent execution and logging, but a carelessly operated automated system can still fail to produce the documentation an audit requires."
+  />
+  <Quiz
+    id="gxp-and-the-regulated-lab-q5"
+    question="Why does the chapter describe GxP as 'a lens applied over everything already covered' rather than a separate technical topic?"
+    options={[
+      "Because a GxP audit examines whether the engineering from earlier in the course — instrument control, scheduling, data capture, error recovery — was itself documented, controlled, and verifiable",
+      "Because GxP has no relationship to any of the earlier chapters",
+      "Because GxP only concerns the biology of an assay, not its automation",
+      "Because GxP replaces the need for validation entirely",
+    ]}
+    answer={0}
+    explanation="Rather than introducing entirely new technical content, GxP reframes the same engineering topics covered throughout the course around the question of whether they were documented and verifiable enough to withstand review."
+  />
+</QuizSet>

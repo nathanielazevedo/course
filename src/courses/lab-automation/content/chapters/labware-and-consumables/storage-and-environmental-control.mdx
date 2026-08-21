@@ -1,0 +1,108 @@
+Labware doesn't only exist while it's actively being pipetted, spun, or read — most of its life is spent waiting: on a deck between steps, in a queue overnight, or in long-term storage between runs entirely. What happens to it during that waiting time can matter just as much as what happens during active processing.
+
+### What degrades while nothing seems to be happening
+
+Samples and reagents left at the wrong temperature, humidity, or light exposure degrade even when no instrument is actively touching them. A protein sample left at room temperature for hours can denature; a light-sensitive reagent left under lab lighting can break down before it's ever used; an open plate left in dry air can lose volume to evaporation well by well, unevenly, well before anyone would think of it as an "error" in the assay itself. None of these failures look like a broken instrument — they look like an assay that simply didn't work, and tracing them back to a storage lapse is often much harder than tracing a mechanical failure.
+
+### On-deck storage: short-term holding within a run
+
+Many automated systems include an **on-deck hotel** or **carousel** — a small refrigerated or ambient storage unit built into the system itself, holding plates that are queued for a later step in the same run. This solves a real timing problem: a scheduler often needs a plate to sit for an exact incubation period between two steps, and an on-deck storage unit lets that waiting happen under controlled conditions without occupying a full external incubator or requiring a person to intervene.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A carousel storage unit shown as a circular arrangement of plate slots at a controlled temperature, with an arm reaching in to retrieve one plate at its scheduled time while the others continue waiting under stable conditions."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <circle cx="320" cy="100" r="80" fill="none" stroke="#000" strokeWidth="1.5" strokeDasharray="4 4" />
+    {Array.from({ length: 10 }).map((_, i) => {
+      const angle = (i / 10) * 2 * Math.PI;
+      const x = 320 + 80 * Math.cos(angle);
+      const y = 100 + 80 * Math.sin(angle);
+      return <rect key={i} x={x - 14} y={y - 9} width="28" height="18" fill={i === 3 ? "#3464c8" : "#d8e8ff"} stroke="#000" strokeWidth="1" />;
+    })}
+    <text x="320" y="105" fontSize="10" fill="#666" textAnchor="middle">4 °C</text>
+    <text x="320" y="20" fontSize="11" fontWeight="600" textAnchor="middle">ON-DECK HOTEL / CAROUSEL</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Plates queue at a controlled temperature until their scheduled step, rather than sitting exposed on an open deck.
+  </figcaption>
+</figure>
+
+### Long-term storage: beyond a single run
+
+Samples and reagents that outlive any single run go into dedicated long-term storage — refrigerators (4 °C), freezers (-20 °C or -80 °C), or in some cases liquid nitrogen, chosen based on how sensitive the material is and how long it needs to remain viable. Automated **storage systems** extend this into full robotic retrieval: racks or plates sit in a temperature-controlled vault, tracked by barcode, and a robotic picker retrieves a specific item on request without a person ever opening the door and disturbing the controlled environment for everything else stored alongside it.
+
+### Environmental control as a continuation, not a separate concern
+
+Storage and environmental control aren't a separate topic from everything else in this chapter — they're a continuation of it. The same barcode that identifies a plate during active processing is what a storage system uses to retrieve it later; the same sensitivity to temperature and light that shaped which vessel to choose is exactly what a storage system exists to manage while that vessel waits. Getting the active steps of a workflow right accomplishes nothing if the sample degrades in the gaps between them.
+
+With labware now covered — its standard footprint, its vessel types, its tips, its identity, and its storage — the next chapter turns to how labware actually moves: the robotics and motion systems that carry it between all of these instruments.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="storage-and-environmental-control-q1"
+    question="Why can a sample degrade even when no instrument is actively processing it?"
+    options={[
+      "Samples can only degrade while an instrument is running",
+      "Temperature, humidity, or light exposure can affect a sample continuously, even during idle waiting time between active steps",
+      "Degradation only occurs due to mechanical instrument failure",
+      "Storage conditions have no effect once a sample has been pipetted once",
+    ]}
+    answer={1}
+    explanation="Environmental factors act continuously, not just during active processing — a sample left at the wrong temperature or under the wrong light can degrade during idle time just as easily as during a mishandled active step."
+  />
+  <Quiz
+    id="storage-and-environmental-control-q2"
+    question="What problem does an on-deck hotel or carousel solve within a running method?"
+    options={[
+      "It replaces the need for barcoding entirely",
+      "It lets a plate wait under controlled conditions for a required incubation period without occupying a full external instrument or needing a person to intervene",
+      "It eliminates the need for any thermal cyclers in the workflow",
+      "It permanently stores samples for years at a time",
+    ]}
+    answer={1}
+    explanation="An on-deck storage unit provides controlled, short-term holding built into the system itself, solving the timing problem of a plate needing to wait between two scheduled steps."
+  />
+  <Quiz
+    id="storage-and-environmental-control-q3"
+    question="How does an automated long-term storage system retrieve a specific sample without disturbing everything else stored nearby?"
+    options={[
+      "By requiring a person to open the storage vault and search manually",
+      "By tracking items via barcode and using a robotic picker to retrieve a specific item on request, without opening the environment for everything else",
+      "By storing every sample at room temperature to simplify retrieval",
+      "By discarding older samples automatically to make space",
+    ]}
+    answer={1}
+    explanation="Robotic retrieval based on barcode tracking lets one specific item be pulled without a person opening the door and exposing every other stored item to a disturbed environment."
+  />
+  <Quiz
+    id="storage-and-environmental-control-q4"
+    question="Why are storage failures often harder to trace back to their source than mechanical instrument failures?"
+    options={[
+      "Because storage failures always occur at the exact same time as mechanical failures",
+      "Because a storage lapse looks like an assay that simply didn't work, rather than an obviously broken instrument",
+      "Because storage systems always log every temperature change automatically",
+      "Because storage failures never actually affect assay results",
+    ]}
+    answer={1}
+    explanation="A degraded sample from poor storage conditions produces a failed assay with no obvious mechanical symptom, making the true cause much less apparent than an instrument that visibly malfunctioned."
+  />
+  <Quiz
+    id="storage-and-environmental-control-q5"
+    question="Why does the chapter frame storage and environmental control as a continuation of earlier labware topics rather than a separate concern?"
+    options={[
+      "Because storage systems use a completely different barcode system than active processing",
+      "Because the same barcode identity and sensitivity considerations that shaped vessel choice and tracking during active work also apply while labware is waiting",
+      "Because storage has no relationship to vessel choice or barcoding at all",
+      "Because environmental control only matters for tips, not plates or tubes",
+    ]}
+    answer={1}
+    explanation="The identity tracking (barcoding) and sensitivity concerns (vessel choice) established earlier in the chapter carry directly into storage — it's the same considerations applied to the waiting periods rather than the active ones."
+  />
+</QuizSet>

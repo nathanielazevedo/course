@@ -1,0 +1,112 @@
+Resource conflicts are about *what* two steps compete over. Just as often, the constraint isn't a shared resource at all — it's the clock itself. Many lab protocols care not just that a step happens, but exactly how much time passes before or after it.
+
+### Sequence dependencies: order that must be preserved
+
+The simplest timing constraint is pure ordering: step B cannot start until step A finishes, because B's input is A's output — you can't read a plate that hasn't been washed yet, or wash a plate that hasn't finished incubating. This kind of dependency is absolute; there's no acceptable window, just a strict "not before."
+
+### Timing windows: a minimum and a maximum
+
+Many protocols add a stricter constraint on top of ordering: not just *that* B follows A, but *how long* after. An incubation step might specify "wait exactly 30 minutes" — too short and the reaction hasn't finished; too long and it's overdeveloped, sometimes producing a worse result than not running the step at all. Some steps specify only a **minimum** wait (at least this long, more is fine); others specify a true **window** (no earlier than X, no later than Y) — a much harder constraint for a scheduler to hit reliably, since it has to land a step within a narrow band of time rather than just avoid rushing it.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 160"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A timeline showing a wash step, followed by a required window between a minimum and maximum time before the read step must occur, with a green acceptable zone in between and red zones on either side marking too early and too late."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <line x1="40" y1="90" x2="600" y2="90" stroke="#000" strokeWidth="1.5" />
+    <rect x="60" y="70" width="80" height="40" fill="#d8e8ff" stroke="#000" strokeWidth="1.2" />
+    <text x="100" y="60" fontSize="10" textAnchor="middle">WASH</text>
+
+    <rect x="200" y="80" width="100" height="20" fill="#ffe0d8" />
+    <text x="250" y="130" fontSize="9" fill="#666" textAnchor="middle">too early</text>
+    <rect x="300" y="80" width="140" height="20" fill="#e8f2e0" />
+    <text x="370" y="130" fontSize="9" fill="#666" textAnchor="middle">acceptable window</text>
+    <rect x="440" y="80" width="100" height="20" fill="#ffe0d8" />
+    <text x="490" y="130" fontSize="9" fill="#666" textAnchor="middle">too late</text>
+
+    <rect x="360" y="60" width="80" height="40" fill="#3464c8" stroke="#000" strokeWidth="1.2" />
+    <text x="400" y="45" fontSize="10" fill="#3464c8" textAnchor="middle">READ (target)</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A true timing window is stricter than a simple sequence dependency — missing it in either direction, not just being early, invalidates the step.
+  </figcaption>
+</figure>
+
+### Why timing windows are the hardest constraint to guarantee
+
+A pure ordering constraint only requires the scheduler to avoid starting B before A finishes — trivially satisfiable by just waiting long enough. A timing window requires the scheduler to predict, in advance, exactly when a resource will be free to run B at the right moment — accounting for every other plate that might also want that same resource around the same time. This is where the scheduling problem, resource conflicts, and timing constraints all meet directly: satisfying a tight timing window for one plate can require deliberately reserving a resource in advance, even holding it idle, so it's guaranteed available at the exact moment the window demands.
+
+### Multiple plates with overlapping windows
+
+The real difficulty arrives when several plates each have their own timing windows, staggered across a run, all needing access to the same reader or washer at different, narrow moments. A scheduler juggling this has to plan several steps ahead rather than deciding purely reactively — which is exactly why pure dynamic scheduling struggles with tight timing constraints, and why most real systems lean more static specifically around these windows even if they stay dynamic elsewhere.
+
+Ordering and timing constraints describe what a schedule is *supposed* to do. The final section of this chapter covers what happens when, despite all of this planning, something in a running method still goes wrong.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="time-constraints-and-dependencies-q1"
+    question="What distinguishes a pure sequence dependency from a timing window constraint?"
+    options={[
+      "A sequence dependency only requires B not start before A finishes; a timing window requires B to happen within a specific band of time after A, not just eventually",
+      "They are the same constraint described in different terms",
+      "A sequence dependency is stricter than a timing window in every case",
+      "Timing windows only apply to resource conflicts, not to timing"
+    ]}
+    answer={0}
+    explanation="A sequence dependency is a simple 'not before' rule, while a timing window adds both a minimum and maximum bound, making it a much stricter and harder constraint to satisfy."
+  />
+  <Quiz
+    id="time-constraints-and-dependencies-q2"
+    question="Why can waiting too long after an incubation step sometimes produce a worse result than not waiting long enough?"
+    options={[
+      "Longer waits are always better regardless of the protocol",
+      "An overdeveloped reaction from waiting past the intended window can be as invalid as an underdeveloped one from waiting too little",
+      "Timing has no effect on incubation-based assays",
+      "Waiting longer only affects throughput, not the assay result",
+    ]}
+    answer={1}
+    explanation="Some reactions can overdevelop given too much time, producing a result just as invalid as an underdeveloped one — which is why some steps specify a true window rather than only a minimum wait."
+  />
+  <Quiz
+    id="time-constraints-and-dependencies-q3"
+    question="Why is a timing window harder for a scheduler to guarantee than a simple ordering constraint?"
+    options={[
+      "Because a timing window requires predicting in advance that a resource will be free at exactly the right moment, accounting for every other plate that might also want it then",
+      "Because ordering constraints require no scheduling logic at all",
+      "Because timing windows never involve any shared resources",
+      "Because ordering constraints are actually stricter than timing windows",
+    ]}
+    answer={0}
+    explanation="An ordering constraint just needs B delayed until A finishes; a timing window needs the scheduler to actively ensure resource availability at a specific future moment, which is a much harder prediction problem."
+  />
+  <Quiz
+    id="time-constraints-and-dependencies-q4"
+    question="Why might a scheduler deliberately hold a resource idle in advance of when it's actually needed?"
+    options={[
+      "To waste capacity intentionally for no reason",
+      "To guarantee that resource is available at the exact moment a tight timing window demands it, even if that means it sits unused in the meantime",
+      "Because idle resources are required by regulation",
+      "Because holding resources idle always improves throughput",
+    ]}
+    answer={1}
+    explanation="Satisfying a strict timing window sometimes requires reserving a resource ahead of time so it's guaranteed free exactly when the window needs it, even at the cost of some idle time."
+  />
+  <Quiz
+    id="time-constraints-and-dependencies-q5"
+    question="Why do most real scheduling systems lean more static around tight timing windows, even if they stay dynamic elsewhere?"
+    options={[
+      "Because purely reactive, moment-to-moment dynamic scheduling struggles to plan far enough ahead to guarantee a resource is free at a precise future moment",
+      "Because static scheduling is always faster to compute than dynamic scheduling",
+      "Because timing windows cannot exist in a dynamically scheduled system",
+      "Because static scheduling eliminates the need for resource tracking",
+    ]}
+    answer={0}
+    explanation="Tight timing windows require lookahead that pure dynamic, reactive scheduling doesn't naturally provide, which is why systems often plan more statically specifically around these constraints."
+  />
+</QuizSet>

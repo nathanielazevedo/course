@@ -1,0 +1,128 @@
+Before any of it is automated, a lab workflow is a person, a pipette, and a protocol sheet. Understanding exactly where that setup breaks down is what justifies — and shapes — everything a machine is later asked to do.
+
+### What a manual workflow looks like
+
+A technician reads a protocol, sets a pipette to a volume, and moves liquid from a reagent trough into a plate, well by well. For a 96-well plate that's 96 repetitions of the same motion, done by hand, for one step of one plate. A full assay is a chain of dozens of such steps — dispense, incubate, wash, spin, read — each done manually before the next begins.
+
+Nothing about this is wrong. It is exactly how the sciences behind these assays were developed, and a skilled technician can do it well. The problems only show up at scale, and they show up in the same handful of places every time.
+
+### Where manual work breaks down
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 220"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four limits of manual work: variability between repetitions, fatigue over time, throughput capped by human speed, and hands-on time that cannot be reclaimed."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {[
+      ["VARIABILITY", "each repetition differs slightly"],
+      ["FATIGUE", "quality drifts over the run"],
+      ["THROUGHPUT", "capped by human speed"],
+      ["HANDS-ON TIME", "a person must stay present"],
+    ].map(([title, sub], i) => (
+      <g key={title} transform={`translate(${20 + i * 155}, 20)`}>
+        <rect x="0" y="0" width="140" height="180" fill="#fff" stroke="#000" strokeWidth="1.5" />
+        <text x="70" y="90" fontSize="12" fontWeight="600" textAnchor="middle">
+          {title.split(" ").map((word, j) => (
+            <tspan key={j} x="70" dy={j === 0 ? 0 : 14}>{word}</tspan>
+          ))}
+        </text>
+        <text x="70" y="140" fontSize="10.5" fill="#666" textAnchor="middle">
+          {sub.split(" ").reduce((lines, word) => {
+            const last = lines[lines.length - 1];
+            if (last && (last + " " + word).length <= 16) {
+              lines[lines.length - 1] = last + " " + word;
+            } else {
+              lines.push(word);
+            }
+            return lines;
+          }, []).map((line, j) => (
+            <tspan key={j} x="70" dy={j === 0 ? 0 : 13}>{line}</tspan>
+          ))}
+        </text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    These four limits recur across almost every manual protocol, regardless of the science behind it.
+  </figcaption>
+</figure>
+
+- **Variability.** No two manual pipetting motions are identical. The angle of the tip, the speed of the plunger, the exact moment of release all shift slightly well to well, and shift again when a different technician does the same protocol. That variability shows up in the data as noise that has nothing to do with the biology being measured.
+- **Fatigue.** A technician pipetting the same motion for the two-hundredth time does not move quite like they did on the first. Accuracy and consistency degrade over the course of a long run, and the drift is rarely uniform — the last plate processed is not equivalent to the first.
+- **Throughput.** A person can only move so fast, and only for so many hours a day. Scaling a manual workflow to more samples means scaling the number of people and hours, not just running the same process longer.
+- **Hands-on time.** Every manual step requires a person physically present and attentive. That time cannot be reclaimed for other work, and it cannot happen unattended — no manual protocol runs itself overnight.
+
+### The limits compound
+
+These four problems are not independent. Variability and fatigue combine to make the *last* plate in a large manual run measurably less reliable than the first — and because a person is tied up the whole time, there's no way to simply add more throughput without adding more people making the same kinds of errors. A workflow that is merely slow when done manually becomes, at scale, a workflow that is also inconsistent.
+
+None of this means people are worse at bench work than machines — for judgment calls, troubleshooting, and small-scale exploratory work, the opposite is often true. It means that repetitive, high-volume, precisely-timed work is exactly the profile a machine is suited to and a person is not. That is the gap the automated system in the next section is built to close.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="manual-workflows-and-their-limits-q1"
+    question="Why does manual pipetting introduce noise into assay data that isn't related to the underlying biology?"
+    options={[
+      "Pipettes are inherently less accurate than automated liquid handlers",
+      "No two manual pipetting motions are identical, so volume and timing vary well to well",
+      "Manual protocols always use lower-quality reagents",
+      "Technicians are not trained to follow protocols precisely",
+    ]}
+    answer={1}
+    explanation="Small differences in angle, plunger speed, and release timing vary from one manual pipetting motion to the next, introducing variability that shows up as noise in the results."
+  />
+  <Quiz
+    id="manual-workflows-and-their-limits-q2"
+    question="What does fatigue specifically change about a long manual run?"
+    options={[
+      "It makes every plate in the run equally inconsistent from the start",
+      "It causes accuracy and consistency to drift, so the last plate isn't equivalent to the first",
+      "It only affects the speed of pipetting, not accuracy",
+      "It has no measurable effect if the protocol is simple enough",
+    ]}
+    answer={1}
+    explanation="Fatigue causes drift over the course of a run — the technician's two-hundredth repetition isn't the same as their first, so late samples in a run are less reliable than early ones."
+  />
+  <Quiz
+    id="manual-workflows-and-their-limits-q3"
+    question="Why can't manual throughput be scaled just by running a workflow for more hours?"
+    options={[
+      "Reagents degrade if a protocol runs longer than a few hours",
+      "A person can only move so fast for so long, so more throughput means more people and hours, not just more time",
+      "Manual protocols are limited by law to eight-hour shifts",
+      "Plates cannot be processed outside of business hours"
+    ]}
+    answer={1}
+    explanation="Because throughput is capped by human speed and stamina, scaling a manual workflow means adding people doing the same repetitive work, not simply extending a single run."
+  />
+  <Quiz
+    id="manual-workflows-and-their-limits-q4"
+    question="What does 'hands-on time' refer to as a limit of manual workflows?"
+    options={[
+      "The time it takes to train a new technician",
+      "The requirement that a person be physically present and attentive for every manual step, which can't happen unattended",
+      "The time spent cleaning equipment after a run",
+      "The time required to write up a protocol before starting",
+    ]}
+    answer={1}
+    explanation="Hands-on time is time a person must stay present for, step by step. It can't be reclaimed for other work and it rules out a manual protocol simply running overnight unattended."
+  />
+  <Quiz
+    id="manual-workflows-and-their-limits-q5"
+    question="Why do variability and fatigue compound rather than act as separate, unrelated problems?"
+    options={[
+      "They don't compound — each affects a completely different part of the workflow",
+      "Because a person is tied up the entire time, adding throughput means adding more people making similar errors, so scale doesn't fix drift — it multiplies it",
+      "Fatigue only matters in workflows that already have low variability",
+      "Compounding only occurs in regulated GxP environments",
+    ]}
+    answer={1}
+    explanation="Since a single person's time can't be parallelized without adding more people subject to the same kinds of drift, scaling a manual workflow tends to scale its inconsistency along with its throughput."
+  />
+</QuizSet>

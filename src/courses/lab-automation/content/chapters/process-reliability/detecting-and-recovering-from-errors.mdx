@@ -1,0 +1,110 @@
+Knowing the categories of failure, from the previous section, is only useful if the system can actually notice one happening and respond to it. This section is about the mechanics of that detection and response — one level broader than the scheduler-level recovery covered earlier in this course, since not every failure happens neatly inside a single running method.
+
+### Detection has to be built in, not assumed
+
+An automated system does not automatically know when something has gone wrong — it only knows what it was explicitly told to check. A pipette that fails to aspirate any liquid doesn't announce that fact unless something (a pressure sensor, a weight check, a downstream read confirming a signal) is specifically watching for it. This is the same principle from the very first chapter of this course, restated at the level of an entire running process: automation handles exactly the conditions it was built to detect, and nothing else.
+
+### Layers of detection
+
+Detection happens at several levels, from the most immediate to the most delayed:
+
+- **Instrument-level sensing** — a device's own sensors report a problem directly (a pressure sensor detecting a clog, a limit switch detecting an arm didn't reach its target position). Fastest, but limited to whatever the instrument itself can sense.
+- **Driver-level checks** — the driver verifies a command's acknowledgment and status code, catching failures the instrument reported but that would otherwise be ignored (the same status-checking discipline from the command-and-response section).
+- **Method-level verification** — a control well, a barcode re-scan, or an expected value range check built into the protocol itself catches problems the instrument's own sensors have no way to know about, like a chemically failed reaction.
+- **Post-run review** — a person or an automated analysis examines completed results afterward and flags anomalies no earlier layer caught, the last line of defense before bad data reaches a real conclusion.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 190"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Four layers of failure detection arranged from fastest to slowest: instrument sensing, driver status checks, method level verification such as controls, and post run review, each catching problems the layer before it may have missed."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    {["INSTRUMENT SENSING", "DRIVER CHECKS", "METHOD VERIFICATION", "POST-RUN REVIEW"].map((label, i) => (
+      <g key={label} transform={`translate(20, ${20 + i * 40})`}>
+        <rect x="0" y="0" width="600" height="30" fill={i % 2 ? "#f0f0f0" : "#fff"} stroke="#000" strokeWidth="1.2" />
+        <text x="300" y="20" fontSize="11" fontWeight="600" textAnchor="middle">{label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each layer catches what the one above it missed — faster layers catch less, slower layers catch more but later.
+  </figcaption>
+</figure>
+
+### Recovery strategies, generalized
+
+The retry, skip, and escalate responses covered in the scheduling chapter apply here too, but process reliability adds a broader consideration: a **graceful degradation** strategy, where a system continues operating at reduced capacity rather than stopping entirely — finishing a run using a backup reagent lot, or continuing without one non-critical sensor that failed, rather than halting a whole overnight run over a problem that doesn't actually threaten the result. Deciding what qualifies as safe to degrade around, versus what genuinely requires a full stop, is a judgment call made in advance, during method design, rather than improvised in the moment.
+
+### Why detection speed and recovery cost trade off
+
+Faster detection layers are cheaper to build and react to a problem almost instantly, but catch a narrower slice of what can actually go wrong; slower layers catch far more but let a problem run longer before anyone notices, sometimes across an entire overnight batch. A well-designed system uses several layers together specifically because no single layer is both fast and comprehensive — the fastest layers catch the cheapest-to-fix problems immediately, while slower layers serve as a backstop for whatever slips through.
+
+Detection and recovery keep a single failure from becoming a disaster. The next section zooms out further, to what it actually takes to keep a system running unattended for the long walk-away stretches introduced back in the automated-laboratory chapter.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="detecting-and-recovering-from-errors-q1"
+    question="Why doesn't an automated system automatically know when something has gone wrong?"
+    options={[
+      "Because it only knows what it was explicitly told to check for, the same way automation only handles conditions it was built to detect",
+      "Because automated systems have no sensors of any kind",
+      "Because detection is only possible during post-run review",
+      "Because all failures are immediately obvious without any specific monitoring",
+    ]}
+    answer={0}
+    explanation="Detection has to be deliberately built in — a failure like a pipette not aspirating liquid goes unnoticed unless something is specifically watching for that exact condition."
+  />
+  <Quiz
+    id="detecting-and-recovering-from-errors-q2"
+    question="What does 'method-level verification' catch that instrument-level sensing typically cannot?"
+    options={[
+      "Problems the instrument's own sensors have no way to know about, like a chemically failed reaction, using tools like control wells or expected value ranges",
+      "Only mechanical clogs and jams",
+      "Only barcode mismatches, nothing else",
+      "Nothing beyond what instrument sensors already catch",
+    ]}
+    answer={0}
+    explanation="Instrument sensors can only report what they're physically built to sense; method-level checks like controls or range checks catch failures rooted in the chemistry itself, invisible to hardware sensors."
+  />
+  <Quiz
+    id="detecting-and-recovering-from-errors-q3"
+    question="What is 'graceful degradation' as a recovery strategy?"
+    options={[
+      "Stopping the entire run immediately at the first sign of any problem",
+      "Continuing operation at reduced capacity — like finishing with a backup reagent lot or without one failed non-critical sensor — rather than halting entirely",
+      "Automatically retrying every failed step indefinitely",
+      "Skipping post-run review entirely to save time",
+    ]}
+    answer={1}
+    explanation="Graceful degradation lets a system keep running through a problem that doesn't threaten the actual result, rather than treating every failure as grounds for a full stop."
+  />
+  <Quiz
+    id="detecting-and-recovering-from-errors-q4"
+    question="Why do faster detection layers, like instrument-level sensing, catch a narrower slice of possible failures than slower layers like post-run review?"
+    options={[
+      "Because faster layers are limited to whatever the instrument itself can directly sense, while slower layers can catch problems that require broader context or analysis to notice",
+      "Because faster layers are always more accurate than slower ones",
+      "Because slower layers only check barcode identity",
+      "Because instrument sensors can detect every possible failure type",
+    ]}
+    answer={0}
+    explanation="Instrument sensing is constrained to what the hardware can directly measure; method-level checks and post-run review can catch broader classes of problems that no single sensor was built to detect."
+  />
+  <Quiz
+    id="detecting-and-recovering-from-errors-q5"
+    question="Why does a well-designed system use multiple detection layers together rather than relying on just one?"
+    options={[
+      "Because no single layer is both fast and comprehensive — fast layers catch a narrow set of problems immediately, while slower layers catch more but later, so combining them covers the gaps",
+      "Because regulations require exactly four detection layers",
+      "Because using only one layer is always cheaper and equally effective",
+      "Because instrument sensing alone can replace all other detection methods",
+    ]}
+    answer={0}
+    explanation="Combining fast, narrow detection with slower, broader detection ensures that what one layer misses has a chance of being caught by another, since no single layer offers both speed and comprehensive coverage."
+  />
+</QuizSet>

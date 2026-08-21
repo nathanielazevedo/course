@@ -1,0 +1,123 @@
+The SBS footprint fixes a plate's outer shape, but that leaves an enormous amount still to choose: what container to use at all, and which of its many variants fits a given step of a protocol. This section covers the three basic vessel families a lab actually reaches for.
+
+### Plates: the default for many samples at once
+
+A **plate** is the workhorse of automated work — a fixed grid of wells (96, 384, or 1536 being the common counts) sharing one SBS footprint. Choosing among plates of the same well count still means choosing:
+
+- **Well shape** — round wells mix and pipette more predictably; square wells pack more usable volume into the same footprint, which matters at high density.
+- **Well volume and depth** — a "standard" 96-well plate holds up to roughly 300 µL; a "deep-well" 96-well plate, taller but the same footprint, holds several milliliters — used for sample prep steps that need more liquid than the assay itself.
+- **Material and optical properties** — clear polystyrene for visible colorimetric assays; black plates to block stray light between wells in fluorescence; white plates to reflect and maximize signal in luminescence.
+- **Surface treatment** — tissue-culture treated for cells to adhere to; untreated for simple liquid storage; specially coated for assays needing a target to bind directly to the well.
+
+### Tubes: for individual samples
+
+A **tube** holds a single sample independently rather than as part of a shared grid — a format for anything precious, irreplaceable, or handled one at a time before it ever meets a plate. Individual tubes (1.5 mL microcentrifuge tubes being the classic example) don't share the SBS footprint at all; but **tube racks** built to the SBS footprint hold many individual tubes in SBS-compatible positions, letting a liquid handler treat a rack of 96 tubes almost like a 96-well plate for the purposes of automated pipetting.
+
+### Reservoirs: bulk liquid, no sample identity
+
+A **reservoir** is a single large trough, sometimes divided into a few channels, that holds one shared liquid — a wash buffer, a common reagent — for a multichannel pipette or bulk dispenser to draw from repeatedly. Because a reservoir holds no distinct samples, there's no cross-contamination risk in reusing the same trough across an entire run; its only job is supplying one liquid, in bulk, to wherever it's needed.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="Three vessel types side by side: a ninety six well plate grid holding many distinct samples, a rack of individual tubes each independent, and a single reservoir trough holding one shared liquid for many wells to draw from."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <g transform="translate(20,20)">
+      <rect x="0" y="0" width="170" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      {Array.from({ length: 8 }).map((_, r) => Array.from({ length: 12 }).map((_, c) => (
+        <circle key={`${r}-${c}`} cx={12 + c * 13} cy={12 + r * 12} r="4.5" fill="#d8e8ff" stroke="#000" strokeWidth="0.6" />
+      )))}
+      <text x="85" y="135" fontSize="11" fontWeight="600" textAnchor="middle">PLATE</text>
+    </g>
+    <g transform="translate(240,20)">
+      <rect x="0" y="0" width="170" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      {Array.from({ length: 3 }).map((_, r) => Array.from({ length: 4 }).map((_, c) => (
+        <path key={`${r}-${c}`} d={`M${18 + c * 40} ${15 + r * 35} h20 v20 a10 10 0 0 1 -20 0 z`} fill="#ffe0d8" stroke="#000" strokeWidth="1" />
+      )))}
+      <text x="85" y="135" fontSize="11" fontWeight="600" textAnchor="middle">TUBE RACK</text>
+    </g>
+    <g transform="translate(460,20)">
+      <rect x="0" y="0" width="170" height="110" fill="#fff" stroke="#000" strokeWidth="1.5" />
+      <path d="M15 20 h140 v20 l-15 55 h-110 l-15 -55 z" fill="#e8f2e0" stroke="#000" strokeWidth="1.2" />
+      <text x="85" y="135" fontSize="11" fontWeight="600" textAnchor="middle">RESERVOIR</text>
+    </g>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Plates hold many distinct samples in a shared grid; tubes hold samples individually; reservoirs hold one shared liquid for many.
+  </figcaption>
+</figure>
+
+### Choosing the right vessel is choosing what identity means
+
+The real decision behind plates, tubes, and reservoirs is about **identity**: does this liquid need to be tracked and kept separate (a sample — plate wells or individual tubes), or is it interchangeable with itself everywhere it appears (a shared reagent — a reservoir)? Getting this choice wrong in either direction causes real problems: pooling distinct samples into a shared reservoir destroys their individual identity permanently; treating an identical bulk reagent as if it needed per-well tracking wastes time and tips for no benefit.
+
+With the vessel families established, the next section turns to the one piece of "labware" that touches every single one of them: the pipette tip itself, and the logistics of keeping a system supplied with the right ones.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="plates-tubes-and-reservoirs-q1"
+    question="Why might a lab choose a black plate instead of a clear one for a given assay?"
+    options={[
+      "Black plates block stray light between wells, which matters for fluorescence detection",
+      "Black plates always hold more volume than clear plates",
+      "Black plates are required by the SBS standard for all fluorescence assays",
+      "Black plates are cheaper to manufacture",
+    ]}
+    answer={0}
+    explanation="Black plates reduce light bleeding between adjacent wells, which is important specifically for fluorescence assays where stray light would add noise."
+  />
+  <Quiz
+    id="plates-tubes-and-reservoirs-q2"
+    question="What lets a liquid handler treat a rack of individual tubes almost like a 96-well plate for pipetting purposes?"
+    options={[
+      "Individual tubes always share the SBS footprint on their own",
+      "The tube rack itself is built to the SBS footprint, holding tubes in SBS-compatible positions",
+      "Tubes are physically identical to plate wells",
+      "Reservoirs are used to convert tubes into plate format",
+    ]}
+    answer={1}
+    explanation="While an individual tube doesn't follow the SBS standard, a rack built to that footprint positions many tubes so a liquid handler can address them the same way it would plate wells."
+  />
+  <Quiz
+    id="plates-tubes-and-reservoirs-q3"
+    question="Why is there no cross-contamination risk in reusing the same reservoir trough across an entire run?"
+    options={[
+      "Because reservoirs are always sterilized between wells",
+      "Because a reservoir holds a single shared liquid with no distinct sample identities to keep separate",
+      "Because reservoirs are disposable after a single use",
+      "Because reservoirs never touch a pipette tip directly",
+    ]}
+    answer={1}
+    explanation="Since a reservoir holds one interchangeable liquid rather than distinct samples, there's no individual identity at risk of being mixed up by reusing the same trough."
+  />
+  <Quiz
+    id="plates-tubes-and-reservoirs-q4"
+    question="What is the underlying question that determines whether a liquid belongs in a plate/tube versus a reservoir?"
+    options={[
+      "Whether the liquid is colored or clear",
+      "Whether the liquid needs to be tracked and kept separate as a distinct sample, or is interchangeable with itself everywhere",
+      "Whether the liquid is viscous or not",
+      "Whether the liquid will be read by absorbance or fluorescence",
+    ]}
+    answer={1}
+    explanation="The real distinction is about identity — a plate or tube preserves each sample's individual identity, while a reservoir treats its liquid as identical wherever it's drawn from."
+  />
+  <Quiz
+    id="plates-tubes-and-reservoirs-q5"
+    question="What happens if distinct samples are mistakenly pooled into a shared reservoir?"
+    options={[
+      "Nothing changes since reservoirs preserve sample identity automatically",
+      "Their individual identities are permanently destroyed, since a reservoir has no way to track distinct samples",
+      "The samples are automatically re-separated by the liquid handler",
+      "Only the reservoir's volume is affected, not the samples' identities",
+    ]}
+    answer={1}
+    explanation="A reservoir is built to hold one interchangeable liquid — pooling distinct samples into it irreversibly loses the individual sample identity that a plate or tube would have preserved."
+  />
+</QuizSet>

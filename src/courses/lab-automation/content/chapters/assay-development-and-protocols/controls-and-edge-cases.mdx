@@ -1,0 +1,116 @@
+An optimized, decomposed, automated method still needs one more thing before it can be trusted: proof that it's actually working correctly on any given run, and a plan for what happens when something about that run isn't quite normal. That's the job of controls and edge cases.
+
+### Controls, revisited for automation
+
+Positive and negative controls were introduced back in the laboratory-fundamentals chapter as a way to confirm an experiment worked. In an automated method, controls take on an extra role: they're the mechanism that catches a *systemic* problem — a bad reagent lot, a miscalibrated instrument, a scheduling error that silently corrupted timing — before it invalidates real sample data. A method that runs perfectly on its intended steps but produces a failing negative control has still failed, and a well-built automated method checks its own controls automatically rather than relying on someone to notice after the fact.
+
+### What an edge case actually is
+
+An **edge case** is any input or condition a protocol's main path wasn't designed around: an empty well where a sample should have been, a sample so viscous the standard liquid class mishandles it, a plate barcode that doesn't match any record the LIMS expects. A protocol validated only against typical, well-behaved samples looks robust right up until it meets the first sample that isn't typical — and in a large enough run, an atypical sample is not a remote possibility, it's a near-certainty somewhere in the plate.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A ninety six well plate where most wells are shown as typical samples, but a handful are marked as edge cases: an empty well, a sample flagged with excess viscosity, and a well whose barcode failed to match the expected record, illustrating that even a well-designed protocol must plan for these atypical cases occurring somewhere in a large run."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <rect x="140" y="15" width="360" height="130" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    {Array.from({ length: 8 }).map((_, r) => Array.from({ length: 12 }).map((_, c) => {
+      const idx = r * 12 + c;
+      const special = idx === 14 ? "empty" : idx === 39 ? "viscous" : idx === 67 ? "barcode" : null;
+      return (
+        <circle
+          key={`${r}-${c}`}
+          cx={155 + c * 28}
+          cy={30 + r * 15}
+          r="6"
+          fill={special === "empty" ? "#fff" : special ? "#c0392b" : "#d8e8ff"}
+          stroke="#000"
+          strokeWidth={special ? 1.4 : 0.5}
+        />
+      );
+    }))}
+    <text x="320" y="160" fontSize="9" fill="#666" textAnchor="middle">red = edge case; white = unexpectedly empty</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Somewhere in a large enough run, at least one well rarely matches the "typical sample" the protocol was primarily designed around.
+  </figcaption>
+</figure>
+
+### Designing for edge cases instead of hoping they don't happen
+
+The reliable approach isn't trying to imagine every possible edge case in advance — that's impossible — it's building a method that fails *safely and visibly* when it meets one it wasn't specifically designed for, rather than either crashing unpredictably or silently producing a plausible-looking wrong result. This connects directly back to error recovery from the scheduling chapter: an edge case detected early (a missing sample flagged before it's processed as if it were present) can be isolated and handled, while one that goes undetected propagates through every downstream step as if it were normal data.
+
+### Anticipating the most common edge cases by category
+
+Certain categories of edge case recur across almost every assay: missing or insufficient sample volume, a sample outside the expected concentration range, a reagent or plate that fails an identity check, and an instrument reporting an error mid-step. Building explicit handling for these recurring categories — rather than treating each new run's surprises as one-off problems — is what separates a method that degrades gracefully from one that requires a person on standby for every single execution.
+
+Controls and edge-case handling establish that a method behaves correctly on any *given* run. The final section of this chapter asks the broader question: does it behave correctly the *same way*, every time, reliably enough to trust across the life of the assay?
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="controls-and-edge-cases-q1"
+    question="What additional role do controls take on in an automated method compared to their basic function in a manual assay?"
+    options={[
+      "They catch systemic problems — a bad reagent lot, a miscalibrated instrument, a scheduling error — before those problems invalidate real sample data",
+      "They replace the need for any barcode verification",
+      "They eliminate the need for edge-case handling entirely",
+      "They only matter for regulated GxP environments",
+    ]}
+    answer={0}
+    explanation="Beyond confirming the experiment worked, automated controls specifically catch broader systemic issues that could otherwise silently corrupt an entire run's worth of real sample data."
+  />
+  <Quiz
+    id="controls-and-edge-cases-q2"
+    question="Why is an atypical sample considered a near-certainty rather than a remote possibility in a large run?"
+    options={[
+      "Because large runs never actually contain atypical samples",
+      "Because across a large enough number of samples, some will inevitably fall outside the typical conditions the main protocol path was designed around",
+      "Because edge cases only occur in miniaturized assays",
+      "Because barcodes always fail after the first hundred scans",
+    ]}
+    answer={1}
+    explanation="With enough samples processed, the probability that at least one deviates from the typical case the protocol was designed around becomes very high, even if any single sample is unlikely to be atypical."
+  />
+  <Quiz
+    id="controls-and-edge-cases-q3"
+    question="What is the recommended approach to edge cases, rather than trying to anticipate every possible one in advance?"
+    options={[
+      "Building a method that fails safely and visibly when it meets an edge case it wasn't specifically designed for, rather than crashing unpredictably or silently producing a wrong result",
+      "Ignoring edge cases entirely since they cannot be predicted",
+      "Running every protocol manually to avoid edge cases altogether",
+      "Automatically discarding any plate containing an edge case without investigation",
+    ]}
+    answer={0}
+    explanation="Since anticipating every possible edge case is impossible, the practical goal is graceful, visible failure — catching the unexpected rather than either crashing or silently producing plausible-looking bad data."
+  />
+  <Quiz
+    id="controls-and-edge-cases-q4"
+    question="Why does an edge case detected early behave differently from one that goes undetected?"
+    options={[
+      "An early-detected edge case can be isolated and handled, while an undetected one propagates through every downstream step as if it were normal data",
+      "Early detection always stops the entire run automatically",
+      "Undetected edge cases never actually cause any problems",
+      "There is no meaningful difference between early and late detection",
+    ]}
+    answer={0}
+    explanation="Catching an edge case before it's processed lets the system isolate and handle it (connecting to the error-recovery concepts from the scheduling chapter); missing it lets the anomaly silently flow through the rest of the pipeline."
+  />
+  <Quiz
+    id="controls-and-edge-cases-q5"
+    question="What is the benefit of building explicit handling for recurring categories of edge cases, rather than treating each new surprise as a one-off problem?"
+    options={[
+      "It separates a method that degrades gracefully from one that requires a person on standby for every execution",
+      "It eliminates the need for any controls in the method",
+      "It guarantees that no edge case will ever occur again",
+      "It only matters for methods run in regulated environments",
+    ]}
+    answer={0}
+    explanation="Recognizing recurring categories — missing sample, out-of-range concentration, failed identity check, instrument error — and handling them systematically is what lets a method run reliably without constant manual supervision."
+  />
+</QuizSet>

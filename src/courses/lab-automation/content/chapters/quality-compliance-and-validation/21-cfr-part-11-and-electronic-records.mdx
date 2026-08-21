@@ -1,0 +1,116 @@
+GxP establishes the general expectation that work must be documented and traceable. **21 CFR Part 11** is the specific U.S. FDA regulation that says what that means when the documentation itself is electronic rather than paper — which, in an automated lab, is almost always the case.
+
+### The core question Part 11 answers
+
+Before electronic records were common, "documentation" meant a signed, dated, physical page that was hard to alter without leaving evidence. Part 11 exists to answer a direct question: how does an electronic record — a database entry, a log file, a captured instrument result — earn that same level of trust, given that electronic data can be edited, in principle, without leaving any visible trace at all? The regulation's requirements are all downstream of that one concern.
+
+### The core requirements
+
+- **Audit trails.** Every creation, modification, or deletion of a record must be automatically logged — who did it, what changed, and when — in a way the user cannot turn off or edit. This is covered in depth in the next section, but it's worth noting here as the mechanism Part 11 leans on most directly.
+- **Electronic signatures.** An electronic signature has to be uniquely tied to one individual, require that individual's own authentication (not shared credentials), and carry the same legal weight as a handwritten signature — meaning it can't be replicated or reused by someone else.
+- **System validation.** The software generating and storing these records must itself be validated to reliably do what it claims — the same validation concept from the assay-development chapter, applied here to the record-keeping software rather than the assay.
+- **Access controls.** Only authorized individuals can create, modify, or view records, enforced by the system itself rather than by policy alone.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg
+    viewBox="0 0 640 170"
+    width="100%"
+    height="auto"
+    role="img"
+    aria-label="A single electronic record surrounded by four requirements that establish its trustworthiness: an audit trail logging every change, an electronic signature tied to one individual, system validation confirming the software works correctly, and access controls restricting who can create or modify it."
+    style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}
+  >
+    <circle cx="320" cy="90" r="45" fill="#3464c8" />
+    <text x="320" y="95" fontSize="11" fontWeight="600" fill="#fff" textAnchor="middle">RECORD</text>
+    {[
+      { x: 100, y: 30, label: "AUDIT TRAIL" },
+      { x: 540, y: 30, label: "E-SIGNATURE" },
+      { x: 100, y: 150, label: "VALIDATION" },
+      { x: 540, y: 150, label: "ACCESS CONTROL" },
+    ].map((n) => (
+      <g key={n.label}>
+        <line x1="320" y1="90" x2={n.x} y2={n.y} stroke="#999" strokeWidth="1" strokeDasharray="3 3" />
+        <rect x={n.x - 60} y={n.y - 15} width="120" height="30" fill="#fff" stroke="#000" strokeWidth="1.2" />
+        <text x={n.x} y={n.y + 5} fontSize="9.5" fontWeight="600" textAnchor="middle">{n.label}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A single electronic record's trustworthiness rests on all four requirements holding at once, not any one in isolation.
+  </figcaption>
+</figure>
+
+### Why automated systems have an obligation here, not just an advantage
+
+An automated system generates electronic records constantly — every barcode scan, every instrument reading, every scheduling decision from earlier chapters in this course. That volume of automatic record generation is an advantage for compliance in principle, but it also means Part 11's requirements apply directly and continuously to the system's own infrastructure: the driver logging an instrument's response, the scheduler recording a step's completion, and the LIMS storing a final result all need to meet these requirements, not just the final report a person eventually reads.
+
+### Why "electronic" doesn't mean "automatically compliant"
+
+It's a common misconception that any digital record is inherently more trustworthy than paper. A database entry with no audit trail, editable by anyone with access, offers *less* assurance than a signed paper form, precisely because a digital edit can be invisible where a paper correction leaves a visible mark. Part 11 exists specifically because electronic records needed their own, stricter standard to actually earn the trust paper records had by default — which is why simply digitizing a process doesn't satisfy the regulation on its own.
+
+Electronic records establish what must be captured and how. The next section goes deeper on the single mechanism that makes those records trustworthy after the fact: the audit trail.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="21-cfr-part-11-electronic-records-q1"
+    question="What underlying concern does 21 CFR Part 11 exist to address?"
+    options={[
+      "How electronic records can earn the same level of trust as a signed paper document, given that digital data can be edited without leaving a visible trace",
+      "How to make electronic records faster to generate than paper ones",
+      "How to eliminate the need for any record-keeping in a regulated lab",
+      "How to standardize barcode formats across instruments",
+    ]}
+    answer={0}
+    explanation="Part 11 responds directly to the fact that electronic data can, in principle, be edited invisibly — its requirements are all aimed at establishing the same trustworthiness paper records had by default."
+  />
+  <Quiz
+    id="21-cfr-part-11-electronic-records-q2"
+    question="What must an electronic signature under Part 11 be tied to, in order to carry the same weight as a handwritten signature?"
+    options={[
+      "A shared team credential that anyone on the team can use",
+      "A uniquely identified individual, requiring that individual's own authentication rather than shared credentials",
+      "A single instrument's serial number",
+      "A specific plate barcode",
+    ]}
+    answer={1}
+    explanation="An electronic signature has to be tied to a specific person's own authentication, ensuring it can't be replicated or reused by someone else — the same non-repudiation a handwritten signature provides."
+  />
+  <Quiz
+    id="21-cfr-part-11-electronic-records-q3"
+    question="Why do Part 11's requirements apply to a system's own infrastructure — like a driver's logs or a scheduler's records — and not just the final report a person reads?"
+    options={[
+      "Because an automated system generates electronic records constantly at every level, and Part 11 applies continuously to all of them, not only the end-stage summary",
+      "Because Part 11 only applies to the final report, never intermediate records",
+      "Because drivers and schedulers are exempt from all regulatory requirements",
+      "Because only barcode scans are subject to Part 11",
+    ]}
+    answer={0}
+    explanation="Since every layer of an automated system — driver logs, scheduling decisions, instrument readings — constitutes an electronic record, Part 11's requirements extend to all of them, not just the final human-facing output."
+  />
+  <Quiz
+    id="21-cfr-part-11-electronic-records-q4"
+    question="Why can a database entry with no audit trail offer less assurance than a signed paper form?"
+    options={[
+      "Because a digital edit to that entry can be invisible, whereas a paper correction typically leaves a visible mark",
+      "Because databases are always slower to search than paper records",
+      "Because paper forms cannot be forged under any circumstances",
+      "Because digital records are always encrypted by default",
+    ]}
+    answer={0}
+    explanation="Without an audit trail, an electronic record can be silently altered with no trace, unlike a physical paper correction which typically leaves visible evidence of the change."
+  />
+  <Quiz
+    id="21-cfr-part-11-electronic-records-q5"
+    question="Why doesn't simply digitizing a paper-based process automatically satisfy Part 11?"
+    options={[
+      "Because Part 11 requires specific safeguards — audit trails, tied electronic signatures, system validation, access controls — that a digital record doesn't automatically have just by existing electronically",
+      "Because Part 11 only applies to paper records, not digital ones",
+      "Because digitization always removes the need for any regulatory compliance",
+      "Because electronic records are inherently exempt from FDA regulation",
+    ]}
+    answer={0}
+    explanation="Digitizing a process alone doesn't provide the specific safeguards Part 11 requires — those have to be deliberately built into the system, not assumed from the format being electronic."
+  />
+</QuizSet>
