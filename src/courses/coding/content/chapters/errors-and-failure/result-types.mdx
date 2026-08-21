@@ -1,0 +1,100 @@
+Rust takes the "errors as values" philosophy from the previous section and gives it a stronger guarantee, enforced directly by the type system: a function that can fail doesn't just *conventionally* return an error value alongside a result — it returns a single value whose *type* makes success and failure mutually exclusive, impossible to accidentally treat as the wrong one.
+
+### `Result`
+
+Rust's `Result<T, E>` is an enum (Chapter 3's pattern matching applies directly here) with exactly two variants: `Ok(value)`, holding a successful result of type `T`, or `Err(error)`, holding a failure of type `E`. Unlike Go's two-separate-values convention, there's only ever *one* value, and its type forces you to acknowledge which case you're in before you can get at the data inside:
+
+```rust
+fn read_config(path: &str) -> Result<Config, io::Error> {
+    let data = fs::read_to_string(path)?;
+    parse_config(&data)
+}
+
+match read_config("app.yaml") {
+    Ok(config) => use_config(config),
+    Err(e) => eprintln!("failed to load config: {e}"),
+}
+```
+
+The compiler enforces the match's exhaustiveness (Chapter 3) — you cannot compile code that tries to use the `Ok` value without having handled the possibility of `Err` at all, which is a stronger guarantee than Go's convention-based checking, where forgetting to check `err` compiles fine and simply fails silently at runtime.
+
+### `Option`
+
+`Option<T>` is `Result`'s sibling for a different problem: not "did this operation fail," but "might this value simply not exist." It has two variants, `Some(value)` and `None`, and it's Rust's complete replacement for null — there is no null pointer in safe Rust at all (Chapter 5's section on pointers covered why that matters), because "might be absent" is baked into the type itself, and the compiler refuses to let you use the inner value without first checking which variant you actually have.
+
+```rust
+fn find_user(id: u32) -> Option<User> {
+    users.iter().find(|u| u.id == id).cloned()
+}
+
+match find_user(42) {
+    Some(user) => println!("found: {}", user.name),
+    None => println!("no such user"),
+}
+```
+
+### `Maybe`
+
+Haskell's `Maybe` type is the direct conceptual ancestor of Rust's `Option` — `Just value` or `Nothing`, the same idea under a different name, from the language most responsible for popularizing this approach to representing absence in the first place. The pattern has since spread well beyond either language: Swift's `Optional`, Kotlin's nullable types with compiler-enforced checking, and TypeScript's `strictNullChecks` are all convergent solutions to the exact same underlying problem.
+
+### Rust's approach in full context
+
+What makes `Result` and `Option` more than syntactic sugar over Go's convention or a plain nullable type is the compiler's enforcement: there is no way to accidentally forget to handle the `Err` or `None` case and have the code compile anyway. Combined with the `?` operator seen in the `read_config` example above — shorthand for "if this is `Err`, return it immediately from the current function; otherwise, unwrap the `Ok` value and keep going" — Rust gets much of exception-based error handling's convenience (short-circuiting propagation without manual checks at every single layer) while keeping errors and absence fully visible in every function's type signature, closing the exact gap the previous section identified in Go's convention-only approach.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="result-types-q1"
+    question="What guarantee does Rust's Result<T, E> type provide that Go's two-separate-return-values convention does not?"
+    options={[
+      "Result eliminates the need to ever handle errors",
+      "The compiler enforces that you cannot use the Ok value without having handled the Err case, whereas forgetting to check Go's error return value compiles successfully and simply fails silently"
+      ,
+      "Result can only be used for numeric error codes",
+      "Result and Go's convention provide identical guarantees with no real difference"
+      ,
+      ]}
+    answer={1}
+    explanation="Because Result is a single value whose type distinguishes success from failure, the compiler can enforce that both cases are handled — a stronger, type-level guarantee than a convention that relies on the programmer remembering to check."
+  />
+  <Quiz
+    id="result-types-q2"
+    question="What problem does Option<T> solve, as distinct from Result<T, E>?"
+    options={[
+      "Option handles whether an operation succeeded or failed, identical to Result",
+      "Option represents whether a value might simply be absent (Some or None), serving as Rust's compiler-enforced replacement for null pointers"
+      ,
+      "Option is only used for numeric types",
+      "Option and Result are the exact same type under different names",
+    ]}
+    answer={1}
+    explanation="Option addresses absence (a value that may or may not exist) rather than operation failure, and unlike a null pointer, the compiler forces you to check which variant you have before accessing the inner value."
+  />
+  <Quiz
+    id="result-types-q3"
+    question="What is Haskell's Maybe type's relationship to Rust's Option?"
+    options={[
+      "They are unrelated concepts that happen to share a similar name",
+      "Maybe is the direct conceptual ancestor of Option — both represent a value that might or might not exist, using two variants (Just/Nothing and Some/None respectively)"
+      ,
+      "Maybe can only represent error values, unlike Option",
+      "Maybe was created after Option and copied its design",
+    ]}
+    answer={1}
+    explanation="Haskell's Maybe popularized this approach to representing optional values, and Rust's Option follows the same underlying idea, just with different variant names."
+  />
+  <Quiz
+    id="result-types-q4"
+    question="What does the ? operator do in a Rust function that returns a Result?"
+    options={[
+      "It ignores any error and continues execution regardless",
+      "It's shorthand for: if the expression is Err, return that error immediately from the current function; otherwise, unwrap the Ok value and continue"
+      ,
+      "It converts a Result into an Option automatically",
+      "It disables error checking entirely for that line",
+    ]}
+    answer={1}
+    explanation="The ? operator provides exception-like short-circuiting propagation for Result values — automatically returning an error upward — while keeping the possibility of failure fully visible in the function's type signature."
+  />
+</QuizSet>

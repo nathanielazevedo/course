@@ -1,0 +1,78 @@
+A compiled or interpreted program rarely runs in a vacuum. Almost every language surrounds its running code with a **runtime** — supporting infrastructure that exists at execution time to provide services the language itself depends on: memory management, a standard library, type information, sometimes a whole virtual machine. Understanding what a language's runtime actually does explains a lot of behavior that otherwise looks mysterious, from why a Go binary is enormous compared to its source, to why installing "Python" and installing "a Python program" are two different problems.
+
+### What a runtime is
+
+A **runtime** is the code and infrastructure present *while your program executes*, as opposed to the compiler or interpreter that's only involved in getting the program ready to run (or running it, in the interpreted case). It typically includes: a garbage collector or other memory manager, the implementation of built-in operations (string handling, collection types), and often a way to load and execute code dynamically. Every non-trivial language has one — the question is really how visible and how heavy it is.
+
+### Native binaries: a minimal runtime
+
+Languages like C, C++, Go, and Rust compile to **native binaries** with a comparatively thin runtime — often just enough to manage the stack, handle startup, and (for Go) run a garbage collector and its own lightweight concurrency scheduler. This is why a "hello world" compiled in C is a tiny file with almost no dependency on anything being installed on the target machine, while the same program in a heavier-runtime language pulls in much more.
+
+### Virtual machines: running on a machine that isn't real
+
+Java and C# don't run directly on the CPU. They compile to bytecode (Chapter 10) that runs inside a **virtual machine** — the JVM for Java, the CLR for C# — a program that itself emulates a CPU-like environment: it interprets or JIT-compiles the bytecode, manages memory with garbage collection, and enforces the type and security guarantees the language promises. This is why a compiled `.class` file won't run without a JVM installed, but *will* run identically on any operating system that has one — the virtual machine is the actual thing executing, and it's the same virtual machine everywhere.
+
+### Managed runtimes and dynamic languages
+
+Python's and JavaScript's runtimes go further still. Python's runtime interprets bytecode, manages memory through reference counting plus a cycle-collecting garbage collector, and provides the machinery behind dynamic typing — checking an object's type at the moment an operation happens, not before. JavaScript engines like V8 bundle a parser, an interpreter, a multi-tier JIT compiler, and a garbage collector into one piece of software that ships inside every browser and inside Node.js. In both cases, "the runtime" is doing enormous amounts of work invisibly on every line of code you write — which is exactly the tradeoff for the productivity these languages offer.
+
+### Why this matters for shipping software
+
+Runtime differences explain deployment reality directly. Shipping a Go program means shipping one self-contained binary. Shipping a Python program means either ensuring a compatible Python interpreter is present on the target machine, or bundling one — which is why tools like PyInstaller and Docker containers for Python exist. Shipping a Java program means ensuring a JVM of a compatible version is available, which is exactly the problem containerization and tools like `jlink` solve. None of this is arbitrary tooling complexity; it's a direct consequence of how heavy and how visible each language's runtime is.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="runtime-environments-q1"
+    question="What is a programming language's 'runtime'?"
+    options={[
+      "The compiler used to build the program",
+      "The code and infrastructure present while a program executes, providing services like memory management and built-in operations"
+      ,
+      "The text editor used to write the source code",
+      "A file format for storing source code",
+    ]}
+    answer={1}
+    explanation="The runtime is what's actually active during execution — handling things like memory management and the implementation of built-in operations — distinct from the compiler or interpreter's own tooling."
+  />
+  <Quiz
+    id="runtime-environments-q2"
+    question="Why does a compiled Java .class file require a JVM to be installed on the target machine, while a compiled C binary generally doesn't need an equivalent?"
+    options={[
+      "Java code is always slower than C code",
+      "Java compiles to bytecode that a virtual machine (the JVM) executes, rather than to native machine code the CPU can run directly, unlike C's native binary output"
+      ,
+      "C programs never use any runtime at all",
+      "Java doesn't actually have a compiler",
+    ]}
+    answer={1}
+    explanation="The JVM is itself the thing executing Java bytecode — interpreting or JIT-compiling it — so it must be present, whereas a native C binary is already in a form the CPU can run directly."
+  />
+  <Quiz
+    id="runtime-environments-q3"
+    question="What kinds of work does Python's runtime do on essentially every line of code?"
+    options={[
+      "Nothing — Python code runs directly on the CPU with no runtime involvement",
+      "Interpreting bytecode, managing memory through reference counting and garbage collection, and checking object types dynamically at the moment operations happen"
+      ,
+      "Only compiling the code to a native binary once, at first run",
+      "Converting Python source into Java bytecode",
+    ]}
+    answer={1}
+    explanation="Python's runtime handles bytecode execution, memory management, and dynamic type checks continuously as the program runs, which is part of why dynamically typed languages carry more per-operation overhead."
+  />
+  <Quiz
+    id="runtime-environments-q4"
+    question="Why does shipping a Python application typically involve more deployment complexity than shipping a compiled Go binary?"
+    options={[
+      "Because Python code is illegal to distribute",
+      "Because Go produces a self-contained native binary with a thin runtime, while Python needs a compatible interpreter present or bundled on the target machine"
+      ,
+      "Because Go programs cannot be run on servers",
+      "Because Python has no runtime at all",
+    ]}
+    answer={1}
+    explanation="Go's ahead-of-time compilation bundles what it needs into one binary; Python's interpreted execution model means a matching interpreter has to be available wherever the program runs."
+  />
+</QuizSet>

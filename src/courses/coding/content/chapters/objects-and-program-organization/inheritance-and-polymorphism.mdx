@@ -1,0 +1,96 @@
+Classes rarely exist in total isolation — a `SavingsAccount` and a `CheckingAccount` are both clearly kinds of `BankAccount`, sharing most of its behavior while adding or changing a little. **Inheritance** is the mechanism most object-oriented languages provide for expressing exactly that relationship, and **polymorphism** is what makes it actually useful in practice.
+
+### Base classes and subclasses
+
+A **base class** (or **superclass**, **parent class**) defines shared state and behavior; a **subclass** (or **derived class**, **child class**) extends it, inheriting everything the base class defines while adding its own fields and methods, or overriding inherited ones with its own version.
+
+```python
+class BankAccount:
+    def __init__(self, balance=0):
+        self.balance = balance
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            raise ValueError("insufficient funds")
+        self.balance -= amount
+
+class SavingsAccount(BankAccount):
+    def __init__(self, balance=0, interest_rate=0.02):
+        super().__init__(balance)
+        self.interest_rate = interest_rate
+
+    def apply_interest(self):
+        self.balance += self.balance * self.interest_rate
+```
+
+`SavingsAccount` gets `withdraw` for free, without redefining it, and adds `apply_interest`, a method specific to itself. `super().__init__(balance)` calls the parent class's constructor to set up the inherited part of the object's state before adding the subclass's own.
+
+### Polymorphism
+
+**Polymorphism** — literally "many forms" — is the ability to treat objects of different subclasses uniformly through their shared base type, while each one still behaves according to its own specific implementation. A function that accepts any `BankAccount` and calls `.withdraw()` on it doesn't need to know or care whether it received a plain `BankAccount`, a `SavingsAccount`, or a `CheckingAccount` — it calls the same method name, and each object's own version (if it has overridden it) runs. This is what lets code written against a general type automatically work correctly with any more specific type, without modification, as long as that specific type honors the base type's contract.
+
+```python
+def process_withdrawal(account: BankAccount, amount: float):
+    account.withdraw(amount)   # works identically for any BankAccount subclass
+```
+
+### The problems with deep inheritance
+
+Inheritance is powerful, and it's also the single most over-recommended tool in early object-oriented education, because it's easy to reach for and hard to walk back once a hierarchy grows too deep or too tangled. A five-level-deep inheritance chain (`Employee` → `Manager` → `SeniorManager` → `RegionalDirector` → `VicePresident`) tightly couples every level to every level above it — changing behavior in `Employee` risks unexpectedly changing behavior four levels down, and understanding what any single class actually does requires reading its entire ancestry. This is exactly what motivates the next section's alternative — composition — and it's why "favor composition over inheritance" is one of the most widely repeated pieces of object-oriented design advice across very different language communities, not a fringe opinion.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="inheritance-and-polymorphism-q1"
+    question="What does a subclass inherit from its base class?"
+    options={[
+      "Nothing — subclasses must redefine everything from scratch",
+      "The base class's state and behavior, which the subclass can use as-is, extend with new members, or override with its own implementation"
+      ,
+      "Only the base class's constructor, nothing else",
+      "The base class's private fields become inaccessible in every subclass automatically",
+    ]}
+    answer={1}
+    explanation="Inheritance lets a subclass reuse a base class's fields and methods directly, while still being able to add new ones or override existing behavior."
+  />
+  <Quiz
+    id="inheritance-and-polymorphism-q2"
+    question="What does polymorphism let a function do?"
+    options={[
+      "Accept only exact instances of one specific class, with no exceptions",
+      "Treat objects of different subclasses uniformly through their shared base type, calling the same method name while each object's own specific implementation actually runs"
+      ,
+      "Convert any object into a primitive type automatically",
+      "Skip calling a constructor when creating an object",
+    ]}
+    answer={1}
+    explanation="Polymorphism lets code written against a general base type work correctly with any subclass, since each subclass's overridden methods run according to its own specific behavior when called through the shared interface."
+  />
+  <Quiz
+    id="inheritance-and-polymorphism-q3"
+    question="What does super().__init__(balance) do in the SavingsAccount example?"
+    options={[
+      "It deletes the parent class entirely",
+      "It calls the base class's constructor to properly set up the inherited portion of the object's state before the subclass adds its own"
+      ,
+      "It creates a completely separate, unrelated BankAccount object",
+      "It overrides the withdraw method",
+    ]}
+    answer={1}
+    explanation="Calling the parent constructor ensures the inherited state (like balance) is initialized correctly, before the subclass's own constructor logic adds its additional fields."
+  />
+  <Quiz
+    id="inheritance-and-polymorphism-q4"
+    question="Why is 'favor composition over inheritance' such a widely repeated piece of design advice?"
+    options={[
+      "Because inheritance is never useful in any situation",
+      "Because deep inheritance hierarchies tightly couple every level to the ones above it, making changes risky and a class's actual behavior hard to understand without reading its entire ancestry"
+      ,
+      "Because most languages don't actually support inheritance",
+      "Because composition always produces faster programs",
+    ]}
+    answer={1}
+    explanation="Deep, tangled inheritance chains create tight coupling between levels, making the codebase fragile to change and harder to reason about — a problem composition, covered next, is designed to avoid."
+  />
+</QuizSet>

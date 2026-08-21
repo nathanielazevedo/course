@@ -1,0 +1,82 @@
+A value on its own is inert — a `42` floating in memory with nothing referring to it is useless. A **variable** is a name bound to a value, giving your code a way to refer to that value again later, pass it around, and change what it refers to over time. This section is about what that binding actually is, and why "variable" means slightly different things in different languages.
+
+### Names and bindings
+
+`let total = 0` creates a **binding**: from this point in the code, the name `total` refers to the value `0`. This is fundamentally a lookup mechanism — when later code reads `total`, the language resolves that name to whatever value it's currently bound to. The name itself has no meaning to the machine; it exists purely for the human reading and writing the code, and could just as well be `x` or `t` as far as execution is concerned (though never should be, for the sake of the next person reading it).
+
+### Variables vs. values
+
+It's worth being precise about a distinction that's easy to blur: the variable is the *name*, the value is the *data*. `total = 5` then `total = 10` doesn't change the value `5` — `5` is immutable and always will be `5` — it changes what `total` refers to, pointing it at a different value entirely. This distinction matters enormously once objects and collections enter the picture (next section covers this directly), because it separates "reassigning what a name points to" from "mutating the data a name currently points to," which are very different operations with very different consequences.
+
+### References
+
+In most modern languages, a variable holding an object or collection doesn't hold the data itself — it holds a **reference** (conceptually, an address) pointing at where the data actually lives. `let a = [1, 2, 3]; let b = a;` makes `b` a second name pointing at the *same* list, not a copy of it — modifying the list through `b` is visible through `a` too, because there's only ever been one list. This is one of the most common sources of confusion for people newer to programming, and Chapter 4's section on passing data covers exactly how it plays out when references cross into function calls.
+
+### Reassignment
+
+**Reassignment** is pointing a variable at a different value: `total = 10` after `total = 5` doesn't touch the `5` anywhere — it just moves the `total` binding onto a new value. Some languages (Rust, and JavaScript's `const`) forbid this by default, requiring you to explicitly opt in to a name being reassignable, precisely because unrestricted reassignment is a common source of bugs where code assumes a name still refers to what it referred to earlier.
+
+### Mutation
+
+**Mutation** is different: it's changing the data a value itself contains, in place, without changing which value a variable refers to. `list.append(4)` doesn't reassign `list` to a new list — it changes the existing list's contents, and every other variable referencing that same list sees the change immediately. Reassignment and mutation are independent axes — a variable can be non-reassignable but still refer to mutable data (a `const` array in JavaScript can still have elements pushed onto it), which trips people up until the distinction is made explicit like this.
+
+### Constants
+
+A **constant** is a binding that's disallowed from being reassigned after its initial value is set — `const` in JavaScript, `final` in Java, `let` (by default) in Rust. It's a tool for communicating and enforcing intent: "this name will always refer to this same value for the rest of its scope," which makes code easier to reason about and lets a compiler catch accidental reassignment as an error rather than a silent bug.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-a-variable-q1"
+    question="What is the precise relationship between a variable and a value?"
+    options={[
+      "They are the same thing with two different names",
+      "A variable is a name bound to a value; the value is the actual data, and the variable is a way to refer to it"
+      ,
+      "A variable is a type of value",
+      "A value cannot exist without a variable pointing to it",
+    ]}
+    answer={1}
+    explanation="The variable is the name/binding; the value is the underlying data it currently points to — reassignment changes the binding, not the value itself."
+  />
+  <Quiz
+    id="what-is-a-variable-q2"
+    question="When you write `let b = a;` where `a` refers to a list, what actually happens in most modern languages?"
+    options={[
+      "b becomes an independent copy of the list",
+      "b becomes a second name pointing at the same underlying list as a, so changes through either name are visible through both"
+      ,
+      "A syntax error occurs because lists can't be assigned this way",
+      "The list is converted into a different data type",
+    ]}
+    answer={1}
+    explanation="Object and collection variables typically hold references, not the data itself, so assigning one variable to another copies the reference, not the underlying data."
+  />
+  <Quiz
+    id="what-is-a-variable-q3"
+    question="What is the difference between reassignment and mutation?"
+    options={[
+      "They are two names for the exact same operation",
+      "Reassignment points a variable at a different value entirely; mutation changes the contents of the existing value a variable still points to"
+      ,
+      "Mutation only applies to numbers, never to collections",
+      "Reassignment is only possible in statically typed languages",
+    ]}
+    answer={1}
+    explanation="Reassignment moves a binding to a new value; mutation changes data in place without changing which value the variable refers to — they're independent operations."
+  />
+  <Quiz
+    id="what-is-a-variable-q4"
+    question="Why can a JavaScript array declared with const still have elements pushed onto it, even though const forbids reassignment?"
+    options={[
+      "Because const doesn't actually work in JavaScript",
+      "Because const only prevents reassigning the variable to a different value; it says nothing about whether the data that value refers to can be mutated"
+      ,
+      "Because arrays are not real values in JavaScript",
+      "Because push() secretly creates a new variable",
+    ]}
+    answer={1}
+    explanation="const restricts reassignment of the binding itself, not mutation of the referenced object's contents — those are independent, which is why a const array can still change in place."
+  />
+</QuizSet>

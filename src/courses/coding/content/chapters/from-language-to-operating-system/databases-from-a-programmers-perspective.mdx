@@ -1,0 +1,89 @@
+This chapter's final section covers the last major thing most real programs talk to across the boundary from language to operating environment: a database. This isn't a database design course — it's about how a database looks from the specific vantage point everything else in this course has built: values and types, network connections, and the concurrency concerns covered in Chapter 11.
+
+### Persistence
+
+**Persistence** is data that survives beyond the lifetime of the process that created it — the direct opposite of the stack- and heap-allocated memory covered in Chapter 5, all of which vanishes the instant a process ends. A database is, at its core, a system specifically built to persist data reliably to disk (or, more precisely, to durable storage of some kind), and to make that persisted data efficiently queryable later, from the same process or an entirely different one, possibly much later and on a different machine.
+
+### Queries
+
+A **query** is a request for data, expressed in whatever language the database understands — SQL for relational databases, covered as this course's clearest example of declarative programming back in Chapter 7, or a query API/DSL for non-relational (NoSQL) databases. Chapter 7's SQL example bears repeating here in this new context: `SELECT * FROM users WHERE age >= 18` describes the desired result, and the database's own query planner decides the actual execution strategy — which indexes to use, in what order to apply filters — entirely hidden from the code that issued the query.
+
+### Connections
+
+Talking to a database means opening a **connection** — a network socket (the previous section's material applies directly, since most databases are accessed over TCP, even when the database happens to be running on the same physical machine) that stays open across multiple queries, rather than being established fresh for every single one, because establishing a new connection has real, measurable latency (the TCP handshake from the previous section, plus authentication) that would be wasteful to pay repeatedly.
+
+### Connection pooling
+
+Because opening connections is comparatively expensive and a typical application needs to run many queries concurrently (Chapter 11), most database client libraries maintain a **connection pool** — a set of already-open connections, reused across many requests rather than opened and closed for each one. This connects directly back to Chapter 11's synchronization section: a connection pool with a fixed maximum size is a textbook use case for a **semaphore** — allowing up to N concurrent connections to be borrowed from the pool, with additional requests waiting until one becomes available again, rather than opening an unbounded number of expensive new connections under load.
+
+### Transactions
+
+A **transaction** groups multiple database operations into a single, indivisible unit: either all of the operations succeed and their effects become permanent, or, if anything fails partway through, none of them do — the database rolls back any partial changes automatically, leaving the data exactly as it was before the transaction started. Transferring money between two bank accounts is the textbook example: debit account A, credit account B — wrapped in a transaction, a failure between those two steps (a crash, a network interruption) can never leave the system in a state where money vanished or was created out of nowhere, because the entire operation is guaranteed to either fully complete or fully not happen at all.
+
+```python
+with connection.begin():
+    connection.execute("UPDATE accounts SET balance = balance - 100 WHERE id = 1")
+    connection.execute("UPDATE accounts SET balance = balance + 100 WHERE id = 2")
+    # if either line fails, both are rolled back automatically
+```
+
+### Why this belongs in a programming-concepts course
+
+None of this is database-administration trivia — it's the exact same set of ideas this course has built from the ground up, now applied at the boundary where a program's in-memory values (Chapter 2) need to survive past the process itself (persistence), where a network connection (the previous section) becomes a long-lived, pooled resource managed with the same synchronization primitives covered in Chapter 11, and where the atomicity guarantee a transaction provides is conceptually the same "all or nothing" idea as the atomic operations from that same chapter, just applied to a sequence of database operations instead of a single memory write.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="databases-from-a-programmers-perspective-q1"
+    question="What does 'persistence' mean in the context of a database?"
+    options={[
+      "Data that only exists while a specific function is running",
+      "Data that survives beyond the lifetime of the process that created it, stored reliably so it can be queried later, possibly from a different process entirely"
+      ,
+      "A synonym for a network socket",
+      "Data stored exclusively in a program's call stack",
+    ]}
+    answer={1}
+    explanation="Persistence is the defining trait that separates database storage from ordinary in-memory data (Chapter 5), which vanishes the instant the creating process ends."
+  />
+  <Quiz
+    id="databases-from-a-programmers-perspective-q2"
+    question="Why do most database client libraries maintain a connection pool rather than opening a new connection for every query?"
+    options={[
+      "Because databases can only ever support one connection at a time",
+      "Because establishing a new connection has real, measurable latency (a TCP handshake plus authentication), so reusing already-open connections across many requests avoids repeatedly paying that cost"
+      ,
+      "Because connection pools eliminate the need for any queries",
+      "Because opening connections is always instantaneous with no cost",
+    ]}
+    answer={1}
+    explanation="Connection pooling amortizes the real cost of establishing a connection by reusing a set of already-open connections across many requests, rather than paying that setup cost for every single query."
+  />
+  <Quiz
+    id="databases-from-a-programmers-perspective-q3"
+    question="How does a connection pool with a fixed maximum size connect back to Chapter 11's synchronization concepts?"
+    options={[
+      "It has no relationship to any concurrency concept",
+      "It's a textbook use case for a semaphore, allowing up to N concurrent connections to be borrowed from the pool, with additional requests waiting until one becomes available"
+      ,
+      "It requires a full lock for every single query, blocking all other queries entirely",
+      "Connection pools eliminate any need for synchronization",
+    ]}
+    answer={1}
+    explanation="A bounded pool of reusable resources is exactly the scenario a semaphore is designed for — allowing a fixed number of concurrent users while making additional requesters wait, rather than a strict single-user lock."
+  />
+  <Quiz
+    id="databases-from-a-programmers-perspective-q4"
+    question="What guarantee does wrapping the bank-transfer example (debit one account, credit another) in a transaction provide?"
+    options={[
+      "That the transfer will always complete successfully no matter what happens",
+      "That either all of the operations in the transaction succeed and become permanent, or none of them do — a crash or failure partway through can never leave the system in a partially completed, inconsistent state"
+      ,
+      "That the transfer will happen twice as fast as without a transaction",
+      "That only one of the two accounts can ever be updated",
+    ]}
+    answer={1}
+    explanation="A transaction's core guarantee is atomicity — all-or-nothing execution — which prevents a partial failure from leaving data in an inconsistent state, such as money disappearing between a debit and a credit."
+  />
+</QuizSet>

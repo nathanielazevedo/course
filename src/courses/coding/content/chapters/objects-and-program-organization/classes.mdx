@@ -1,0 +1,92 @@
+If an object is one specific bundle of state and behavior, a **class** is the blueprint that describes what any object of that kind will look like — what fields it has, what methods it supports, how a new one gets created. Nearly every mainstream language provides some form of class, even languages (like Go and Rust) that deliberately avoid calling their equivalent construct a "class."
+
+### Constructors
+
+A **constructor** is the special method responsible for setting up a new object's initial state when it's created — `__init__` in Python, a method named after the class in Java and C#, `new` combined with a struct literal in Rust. It typically takes whatever initial values the object needs and assigns them to fields, ensuring every object starts in a valid, fully initialized state rather than a partially set-up one.
+
+```java
+public class BankAccount {
+    private double balance;
+
+    public BankAccount(double initialBalance) {
+        this.balance = initialBalance;
+    }
+
+    public void deposit(double amount) {
+        this.balance += amount;
+    }
+}
+```
+
+### Methods
+
+**Methods** are functions defined as part of a class, implicitly operating on a specific object's state — calling `account.deposit(50)` runs the `deposit` method with `account`'s own `balance` in scope, distinct from calling the same method on a different `account` object, which operates on *that* object's own separate balance. Most languages give methods implicit access to the current object through a special name — `self` in Python, `this` in Java, JavaScript, and C# — which refers to whichever specific instance the method was called on.
+
+### Properties
+
+**Properties** (or fields, attributes) are the named pieces of data a class declares its instances will hold. Some languages distinguish plain fields (directly accessed, `object.field`) from true properties (accessed the same way syntactically, but backed by getter/setter methods that run custom logic on read or write) — C# and Python (via `@property`) both support this distinction explicitly, letting a class start with a simple public field and later add validation logic without changing how external code accesses it.
+
+### Instances
+
+An **instance** is one concrete object created from a class — the class is the blueprint, the instance is a specific, individual thing built from it. `new BankAccount(100)` and `new BankAccount(0)` are two separate instances of the same class, each with its own independent state (their own `balance`), sharing the exact same method implementations (`deposit`, `withdraw`) because those are defined once on the class, not duplicated per instance.
+
+### Why classes exist at all
+
+The value classes add over loose, ad hoc bundles of data is guaranteed structure and behavior: every `BankAccount` instance is guaranteed to have a `balance` and a `deposit` method, because the class enforces it, rather than relying on convention or hoping every part of the code that creates account-like data happens to include the same fields. This becomes especially valuable once a program has many instances of the same kind of thing flowing through it — a list of a thousand `User` objects, all guaranteed to support the same operations, is a very different (and far more reliable) thing to work with than a thousand loosely structured dictionaries that happen to usually have similar keys.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="classes-q1"
+    question="What is the relationship between a class and an instance?"
+    options={[
+      "They are the same thing; the terms are interchangeable",
+      "A class is the blueprint describing what fields and methods objects of that kind will have; an instance is one specific object created from that blueprint"
+      ,
+      "An instance defines the class, not the other way around",
+      "A class can only ever produce one instance",
+    ]}
+    answer={1}
+    explanation="The class defines the shape and behavior shared by all objects of that kind; each instance is a concrete object built according to that shape, with its own independent state."
+  />
+  <Quiz
+    id="classes-q2"
+    question="What is a constructor's role?"
+    options={[
+      "To delete an object once it's no longer needed",
+      "To set up a new object's initial state when it's created, ensuring the object starts fully and validly initialized"
+      ,
+      "To compare two objects for equality",
+      "To convert an object into a different class",
+    ]}
+    answer={1}
+    explanation="A constructor runs at creation time to establish the object's starting fields, so it never exists in a half-initialized state."
+  />
+  <Quiz
+    id="classes-q3"
+    question="What does `self` (Python) or `this` (Java, JavaScript, C#) refer to inside a method?"
+    options={[
+      "The class itself, shared across all instances",
+      "The specific object instance the method was called on, giving the method implicit access to that instance's own state"
+      ,
+      "A global variable available to every function in the program",
+      "The constructor function only",
+    ]}
+    answer={1}
+    explanation="self/this lets a method operate on the particular instance it was invoked through, so the same method definition correctly acts on different instances' independent state."
+  />
+  <Quiz
+    id="classes-q4"
+    question="What guarantee does defining a class give you that loosely structured, ad hoc data (like plain dictionaries) does not?"
+    options={[
+      "That every instance will have identical data values",
+      "That every instance is guaranteed to have the same fields and methods, enforced by the class definition, rather than relying on convention or hoping every piece of data happens to match"
+      ,
+      "That the program will run faster",
+      "That the object can never be modified after creation",
+    ]}
+    answer={1}
+    explanation="A class enforces structural consistency across all its instances — every instance is guaranteed the fields and methods the class declares, unlike informally structured data that only usually follows a shared shape."
+  />
+</QuizSet>

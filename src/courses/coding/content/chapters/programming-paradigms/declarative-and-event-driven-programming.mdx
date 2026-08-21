@@ -1,0 +1,96 @@
+Every paradigm covered so far — procedural, object-oriented, functional — is still fundamentally **imperative**: the programmer specifies a sequence of steps, and the computer executes them in that order. Declarative and event-driven programming both step back from that assumption in different ways, and both are far more common in everyday code than their unfamiliar names might suggest.
+
+### Describing outcomes
+
+**Declarative programming** describes *what* result you want, and leaves the *how* — the actual sequence of steps needed to get there — to whatever is interpreting the description. This is a genuinely different relationship to the machine than every paradigm covered so far, which all require the programmer to spell out the steps explicitly.
+
+### SQL
+
+SQL is the clearest, most widely used declarative language most programmers touch regularly:
+
+```sql
+SELECT name, email FROM users WHERE age >= 18 ORDER BY name;
+```
+
+Nothing here describes *how* to retrieve this data — no loop over rows, no explicit filtering logic, no sort algorithm. It describes the desired *result*, and the database engine's query planner decides the actual execution strategy (which index to use, in what order to apply operations), often picking a completely different physical execution plan depending on the data's size and shape, invisibly to the person who wrote the query.
+
+### HTML
+
+HTML is declarative in exactly the same spirit: `<div class="card"><h2>Title</h2><p>Body</p></div>` describes the structure and content you want rendered — it says nothing about the actual pixel-by-pixel work of laying out boxes, computing text wrapping, or painting to the screen. That's the browser's job, executed however it decides is most efficient, completely hidden from the person writing the markup.
+
+### Configuration languages
+
+YAML, JSON, and Terraform's HCL used for infrastructure and application configuration follow the same idea: a Kubernetes deployment file or a Terraform resource block describes the *desired end state* ("three replicas of this container should be running"), and separate tooling figures out the sequence of actual API calls needed to make reality match that description — including, notably, figuring out what's already true and only changing what needs to change.
+
+### Event-driven programming
+
+**Event-driven programming** inverts control in a different direction: instead of your code driving execution top to bottom, your code registers handlers for events, and a separate runtime (a UI framework, a browser, an operating system) drives execution by calling those handlers whenever the corresponding event actually happens.
+
+```javascript
+button.addEventListener("click", () => {
+  submitForm();
+});
+```
+
+`submitForm` doesn't run when this line executes — it runs later, whenever (and if) a user actually clicks the button, at a time and in an order the program's own top-to-bottom code has no direct control over. This should look familiar: it's the callback pattern from Chapter 4, viewed as an entire paradigm for structuring a program rather than as one function-passing technique.
+
+### Events, event handlers, and UI applications
+
+Nearly every graphical user interface — desktop, web, or mobile — is fundamentally event-driven: an underlying **event loop** (covered in full in Chapter 11) continuously waits for input events (clicks, keystrokes, network responses) and dispatches each one to whatever handler registered interest in it. This is a genuinely different mental model from "my program runs from top to bottom once" — an event-driven program's actual behavior is really the sum of all its registered handlers, executed in whatever order events happen to arrive, which is exactly why UI code is often organized very differently from a script that just runs start-to-finish.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="declarative-and-event-driven-programming-q1"
+    question="What is the fundamental difference between declarative programming and every paradigm covered earlier in this chapter?"
+    options={[
+      "Declarative programming cannot describe any real computation",
+      "Declarative programming describes what result is wanted, leaving the how — the actual sequence of steps — to whatever interprets the description, unlike imperative paradigms that specify steps explicitly"
+      ,
+      "Declarative programs always run slower than imperative ones",
+      "There is no meaningful difference between them",
+    ]}
+    answer={1}
+    explanation="Declarative code specifies a desired outcome and delegates the execution strategy to an interpreter (a query planner, a rendering engine), rather than the programmer spelling out each step."
+  />
+  <Quiz
+    id="declarative-and-event-driven-programming-q2"
+    question="In the SQL example, what decides the actual sequence of operations (which index to use, what order to filter and sort in) used to retrieve the result?"
+    options={[
+      "The programmer must specify this explicitly in the query",
+      "The database engine's query planner, which chooses an execution strategy based on the data, invisibly to the person who wrote the declarative query"
+      ,
+      "SQL has no concept of query execution at all",
+      "The operating system's scheduler",
+    ]}
+    answer={1}
+    explanation="SQL only states the desired result; the actual retrieval strategy is determined by the database's own query planner, which is the essence of declarative programming's what-not-how approach."
+  />
+  <Quiz
+    id="declarative-and-event-driven-programming-q3"
+    question="In the event-driven JavaScript example, when does the submitForm function actually run?"
+    options={[
+      "Immediately, at the moment addEventListener is called",
+      "Later, whenever (and if) a user actually clicks the button, at a time the program's own top-to-bottom code doesn't directly control"
+      ,
+      "Only once, when the program first starts",
+      "It never runs unless explicitly called elsewhere in the code",
+    ]}
+    answer={1}
+    explanation="Registering an event handler doesn't invoke it immediately — the handler runs later, whenever the corresponding event occurs, under the control of the runtime's event loop rather than the linear flow of the registering code."
+  />
+  <Quiz
+    id="declarative-and-event-driven-programming-q4"
+    question="Why is a GUI application's overall behavior described as 'the sum of all its registered handlers, executed in whatever order events happen to arrive'?"
+    options={[
+      "Because GUI applications never actually respond to user input",
+      "Because event-driven programs don't run as one continuous top-to-bottom sequence — instead, an event loop dispatches each incoming event to whichever handler registered interest in it, whenever it occurs"
+      ,
+      "Because every GUI framework runs entirely without any code execution",
+      "Because event handlers can only be registered once per program",
+    ]}
+    answer={1}
+    explanation="Rather than a single linear execution path, an event-driven program's behavior emerges from independently triggered handlers responding to events as they arrive, in whatever order that turns out to be."
+  />
+</QuizSet>

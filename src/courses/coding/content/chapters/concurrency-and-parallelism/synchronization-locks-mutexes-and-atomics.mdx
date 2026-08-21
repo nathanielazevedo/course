@@ -1,0 +1,90 @@
+The previous chapter's section on processes and threads ended with race conditions — the direct, predictable consequence of multiple threads touching shared memory without coordination. **Synchronization** is the general term for the tools that prevent that: mechanisms that let threads coordinate access to shared data so their operations don't interleave in ways that produce incorrect results.
+
+### Locks
+
+A **lock** is the most fundamental synchronization primitive: a thread must acquire a lock before touching some shared piece of data, and release it when done; if another thread tries to acquire the same lock while it's already held, that second thread blocks — waits — until the first thread releases it. This turns a section of code that touches shared data (a **critical section**) into something only one thread can execute at a time, eliminating the interleaving that causes race conditions.
+
+```python
+import threading
+
+lock = threading.Lock()
+balance = 0
+
+def deposit(amount):
+    with lock:              # acquire, guaranteed to release even on error
+        global balance
+        balance += amount
+```
+
+### Mutexes
+
+A **mutex** (short for "mutual exclusion") is, in most practical usage, essentially a synonym for a lock — the term more commonly used in lower-level languages like C, C++, and Rust, where it usually refers specifically to the same acquire-block-release primitive. Rust's `Mutex<T>` is a particularly instructive example: it doesn't just provide locking, it wraps the *data itself*, making it structurally impossible to access the protected value at all without first acquiring the lock — a compile-time-enforced guarantee, not just a convention the programmer has to remember to follow.
+
+### Semaphores
+
+A **semaphore** generalizes a lock's binary "one thread at a time" rule into "up to N threads at a time" — it maintains an internal counter, and a thread trying to acquire it blocks only once the counter reaches zero, meaning N permits are already in use. This is the right tool when a resource genuinely supports limited, but not exclusive, concurrent access — a connection pool that allows up to 10 simultaneous database connections, for instance, uses a semaphore initialized to 10 rather than a lock (which would only ever allow one connection to be in use at a time, far more restrictive than the resource actually requires).
+
+### Atomic operations
+
+An **atomic operation** is one guaranteed by the hardware (or the runtime) to complete as a single, indivisible step — no other thread can ever observe it half-finished, and it needs no explicit lock at all. Incrementing an ordinary integer variable (`count += 1`) is *not* atomic on most hardware — it's actually three separate steps (read the current value, add one, write the new value back), and two threads doing this simultaneously can genuinely lose an increment, because both might read the same starting value before either writes its result back. An **atomic increment** (`AtomicInteger` in Java, `atomic::AtomicUsize` in Rust) is implemented directly using special CPU instructions that guarantee the entire read-modify-write sequence happens as one uninterruptible unit, avoiding the race condition without needing a full lock's blocking overhead at all — a meaningfully cheaper synchronization tool for the specific, narrow case of simple counters and flags.
+
+### Choosing the right tool
+
+These tools form a rough hierarchy of cost and precision: atomics are cheapest but only handle simple operations on single values; locks and mutexes protect arbitrary critical sections at the cost of blocking other threads entirely while held; semaphores generalize locking to bounded concurrent access for resources that genuinely tolerate it. Picking the wrong one is a common source of both bugs (using an atomic where a full lock was actually needed, missing a race condition on a multi-step operation the atomic doesn't actually cover) and unnecessary performance cost (using a full lock where a much cheaper atomic increment would have sufficed).
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="synchronization-locks-mutexes-and-atomics-q1"
+    question="What does acquiring a lock before touching shared data accomplish?"
+    options={[
+      "It permanently deletes the shared data",
+      "It ensures only one thread can execute the protected critical section at a time, blocking other threads that try to acquire the same lock until it's released, eliminating the interleaving that causes race conditions"
+      ,
+      "It makes the shared data accessible to every thread simultaneously with no restriction",
+      "It converts the shared data into a local variable",
+    ]}
+    answer={1}
+    explanation="A lock enforces mutual exclusion over a critical section, so operations on shared data by different threads can't interleave in ways that produce incorrect results."
+  />
+  <Quiz
+    id="synchronization-locks-mutexes-and-atomics-q2"
+    question="How does a semaphore generalize a lock's behavior?"
+    options={[
+      "A semaphore only allows zero threads to ever access a resource",
+      "A semaphore allows up to N threads concurrent access (via an internal counter), rather than a lock's strict one-thread-at-a-time restriction, useful for resources that tolerate limited but not exclusive concurrent access"
+      ,
+      "A semaphore is identical to a lock in every way",
+      "A semaphore can only be used with a single thread program",
+    ]}
+    answer={1}
+    explanation="Semaphores extend locking's binary exclusivity to a configurable number of simultaneous permits, fitting resources like connection pools that support bounded, but not unlimited, concurrent access."
+  />
+  <Quiz
+    id="synchronization-locks-mutexes-and-atomics-q3"
+    question="Why is a plain `count += 1` operation on an ordinary integer not safe across multiple threads without synchronization?"
+    options={[
+      "Because integers cannot be modified after creation",
+      "Because it's actually three separate steps (read, add, write), and two threads performing it simultaneously can both read the same starting value before either writes back, silently losing an increment"
+      ,
+      "Because increment operations always crash the program",
+      "Because this only happens with floating-point numbers, never integers",
+    ]}
+    answer={1}
+    explanation="The read-modify-write sequence behind a simple increment isn't a single indivisible step on most hardware, so concurrent execution of it by multiple threads can interleave and produce an incorrect final result."
+  />
+  <Quiz
+    id="synchronization-locks-mutexes-and-atomics-q4"
+    question="What advantage does an atomic operation have over a full lock for something like a simple counter?"
+    options={[
+      "Atomics are always slower than locks in every situation",
+      "Atomics are implemented with special hardware instructions that make the whole read-modify-write sequence uninterruptible, avoiding the race condition without the blocking overhead a full lock imposes"
+      ,
+      "Atomics can protect any arbitrarily complex critical section, unlike locks",
+      "Atomics require more code to use correctly than locks",
+    ]}
+    answer={1}
+    explanation="Atomic operations provide race-free updates for simple cases like counters at a lower cost than acquiring and releasing a full lock, though they're limited to specific single-value operations rather than arbitrary critical sections."
+  />
+</QuizSet>

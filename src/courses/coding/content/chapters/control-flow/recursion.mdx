@@ -1,0 +1,94 @@
+Every loop covered so far repeats by going back to the top. **Recursion** repeats a different way: a function calls itself, with a smaller version of the same problem, until it reaches a case simple enough to answer directly. It's a different mental model for the same underlying goal — repetition — and some problems (anything shaped like a tree, or "this problem contains a smaller version of itself") are dramatically more natural to express recursively than with a loop.
+
+### Recursive thinking
+
+The trick to recursive thinking is trusting the function to solve the smaller problem correctly, and focusing only on how to combine that smaller answer into the current one. Computing a factorial: `factorial(n)` is `n * factorial(n - 1)` — you don't need to trace through every level by hand; you need to believe that `factorial(n - 1)` already works, and figure out what to do with its result.
+
+```python
+def factorial(n):
+    if n <= 1:
+        return 1          # base case
+    return n * factorial(n - 1)   # recursive case
+```
+
+### Base cases
+
+A **base case** is the condition simple enough to answer directly, without recursing further — `n <= 1` above. Every recursive function needs at least one; without it, the function calls itself forever (or, in practice, until it exhausts available memory — the next point). The base case is what turns "repeat" into "repeat a bounded number of times."
+
+### Stack frames
+
+Each recursive call adds a new **stack frame** (Chapter 5 covers this fully) to the call stack — its own local variables, its own copy of the parameters, its own place to resume once the call it made returns. `factorial(5)` isn't one function invocation; it's five nested ones, each waiting on the one below it to finish before it can compute its own `n * factorial(n - 1)`. This is why deep, unbounded recursion causes a **stack overflow** — each waiting frame consumes memory, and there's a limit to how many can exist at once.
+
+### Recursion vs. iteration
+
+Anything expressible recursively can also be expressed with a loop and an explicit data structure standing in for the call stack, and vice versa — the two are formally equivalent in what they can compute. The choice between them is almost always about clarity and the shape of the problem, not raw computational power. Traversing a tree (a folder structure, an HTML DOM, a parsed AST from Chapter 1) is usually far more natural recursively — "process this node, then recursively process each of its children" — than as an explicit loop with a manually managed stack of nodes to visit.
+
+### Tail recursion
+
+**Tail recursion** is a recursive call that is the very last operation in a function, with nothing left to do after it returns. Some languages (Scheme, and to varying degrees Rust and JavaScript engines) can perform **tail-call optimization**, reusing the current stack frame for the next call instead of pushing a new one — eliminating the stack-overflow risk for that specific recursive shape. Rewriting `factorial` to be tail-recursive means threading the accumulated result through as a parameter rather than computing it after the recursive call returns:
+
+```python
+def factorial(n, acc=1):
+    if n <= 1:
+        return acc
+    return factorial(n - 1, n * acc)   # nothing left to do after this call
+```
+
+Not every language guarantees this optimization happens, though — it's worth checking before relying on it for deep recursion.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="recursion-q1"
+    question="What is a base case in a recursive function, and why is it required?"
+    options={[
+      "A performance optimization that's technically optional",
+      "The simplest condition a recursive function can answer directly without recursing further; without one, the function would call itself indefinitely"
+      ,
+      "The first line of any function definition",
+      "A special kind of loop used only in functional languages",
+    ]}
+    answer={1}
+    explanation="The base case is what stops recursion — a condition simple enough to return an answer without another recursive call, bounding what would otherwise be infinite self-calling."
+  />
+  <Quiz
+    id="recursion-q2"
+    question="Why can deep, unbounded recursion cause a stack overflow?"
+    options={[
+      "Because recursive functions cannot return values",
+      "Because each recursive call adds a new stack frame holding its own local state, and there's a limit to how many frames can exist at once before memory runs out"
+      ,
+      "Because recursion always runs slower than any loop",
+      "Because only some programming languages support functions calling themselves",
+    ]}
+    answer={1}
+    explanation="Each nested call consumes stack memory for its own frame, and stacking too many unfinished calls exhausts that memory — the definition of a stack overflow."
+  />
+  <Quiz
+    id="recursion-q3"
+    question="Is recursion computationally more powerful than iteration — able to solve problems a loop fundamentally cannot?"
+    options={[
+      "Yes, recursion can solve problems no loop-based approach ever could",
+      "No — recursion and iteration are formally equivalent in what they can compute; the choice between them is mostly about clarity for a given problem's shape"
+      ,
+      "Yes, but only in statically typed languages",
+      "No, iteration is always strictly more powerful than recursion",
+    ]}
+    answer={1}
+    explanation="Anything recursive can be rewritten iteratively with an explicit stack-like structure, and vice versa — they're equivalent in power, differing mainly in which is a more natural fit for a given problem."
+  />
+  <Quiz
+    id="recursion-q4"
+    question="What does tail-call optimization do, and what does it require of the recursive call?"
+    options={[
+      "It converts any recursive function into a loop automatically, regardless of its structure",
+      "It reuses the current stack frame for a recursive call that is the very last operation in the function, avoiding growth of the call stack for that pattern"
+      ,
+      "It removes the need for a base case entirely",
+      "It only works on non-recursive functions",
+    ]}
+    answer={1}
+    explanation="Tail-call optimization specifically applies when the recursive call is the final action in a function — with nothing left to compute afterward — allowing the frame to be reused instead of stacked."
+  />
+</QuizSet>

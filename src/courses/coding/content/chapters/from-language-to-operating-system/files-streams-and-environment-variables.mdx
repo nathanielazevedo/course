@@ -1,0 +1,94 @@
+System calls, from the previous section, are the mechanism; this section covers three of the most common things programs actually use them for — working with files, moving data as streams, and reading the environment a process runs inside of.
+
+### Bytes
+
+Underneath any file, any network connection, any piece of data crossing a system-call boundary, everything is ultimately just **bytes** — raw, untyped 8-bit values with no inherent meaning of their own. A file doesn't inherently "know" it contains text versus an image versus arbitrary binary data; that meaning comes entirely from how the bytes are interpreted once read, which is exactly where text encoding becomes relevant.
+
+### Text encoding
+
+**Text encoding** is the agreed-upon mapping between bytes and characters — UTF-8 (the dominant modern standard, and the default in most current languages) uses a variable number of bytes per character, backward-compatible with older 7-bit ASCII for common English characters while supporting essentially any character from any writing system in existence. Reading a file's raw bytes and interpreting them under the wrong encoding produces **mojibake** — garbled, nonsensical text — which is precisely why nearly every modern language's file-reading APIs require (or strongly default to) specifying an encoding, rather than silently guessing one.
+
+### Reading and writing files
+
+Once system calls have opened a file (previous section), most languages provide two related but distinct patterns for actually consuming its contents: reading the entire file into memory at once (simple, and fine for reasonably small files) or reading it incrementally, a chunk or a line at a time, without ever holding the whole thing in memory simultaneously — essential for files too large to comfortably fit in memory (a multi-gigabyte log file), and the direct motivation behind the stream abstraction covered next.
+
+### Streams
+
+A **stream** represents a sequence of data made available incrementally over time, rather than all at once — you read (or write) it a piece at a time, without needing to know or hold its entire length up front. A file being read incrementally is a stream; so is data arriving over a network connection (later in this chapter), or, at the smallest, most universal scale, a program's own standard input and output.
+
+```python
+with open("large_log.txt") as f:
+    for line in f:          # streamed — one line in memory at a time
+        process(line)
+```
+
+This connects directly back to Chapter 11's reactive programming preview — a file stream and a reactive event stream are conceptually related ideas (data arriving incrementally, processed as it comes) applied to different sources.
+
+### Standard input/output
+
+Every process, by convention across essentially every operating system, starts with three pre-opened streams: **standard input** (`stdin`, typically keyboard input or piped data from another program), **standard output** (`stdout`, where normal program output goes), and **standard error** (`stderr`, a separate stream specifically for error messages, kept distinct from `stdout` so error output can be filtered, redirected, or logged independently of a program's normal results). `print()` in Python, `console.log()` in JavaScript, `System.out.println()` in Java are all, underneath, writing to this same universal `stdout` stream — and piping one program's `stdout` into another program's `stdin` (`cat file.txt | grep "error"`) is exactly this convention being used to chain independent programs together at the shell level.
+
+### Environment variables
+
+**Environment variables** are a simple, universal key-value store attached to a running process, inherited from whatever process started it (typically your shell), commonly used for configuration that shouldn't be hardcoded directly into source code — database connection strings, API keys, feature flags. Reading `os.environ["DATABASE_URL"]` in Python or `process.env.DATABASE_URL` in Node.js reaches into this process-level store, set either by the operating system itself, the shell that launched the program, or explicitly by whatever process (a script, a container orchestrator, a CI pipeline) started it.
+
+### Configuration and secrets
+
+Environment variables are a particularly common home for **secrets** — API keys, passwords, tokens — specifically because they keep sensitive values out of source code (and, by extension, out of version control, where a committed secret can linger in history indefinitely even after being "removed" from the current file). This is exactly why `.env` files (holding environment variable definitions, loaded into the process environment at startup, but deliberately excluded from version control via `.gitignore`) have become such a standard convention across nearly every language and framework's tooling.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="files-streams-and-environment-variables-q1"
+    question="Why does reading a file's raw bytes under the wrong text encoding produce mojibake (garbled text)?"
+    options={[
+      "Because files never actually contain any bytes",
+      "Because text encoding is the agreed-upon mapping between bytes and characters, and interpreting the same bytes under a different, mismatched encoding produces the wrong characters"
+      ,
+      "Because mojibake is caused by a hardware malfunction, unrelated to encoding",
+      "Because UTF-8 cannot represent any non-English characters",
+    ]}
+    answer={1}
+    explanation="Bytes have no inherent meaning on their own — text encoding defines how they map to characters, so reading them under an incorrect encoding assumption produces garbled output."
+  />
+  <Quiz
+    id="files-streams-and-environment-variables-q2"
+    question="Why is reading a large file as a stream (incrementally) often preferable to reading it entirely into memory at once?"
+    options={[
+      "Streaming is always slower and offers no benefit",
+      "Streaming processes the data a piece at a time without ever holding the entire file in memory simultaneously, which is essential for files too large to comfortably fit in memory"
+      ,
+      "Streams can only be used for network data, never for files",
+      "Reading a file entirely into memory is impossible in any language",
+    ]}
+    answer={1}
+    explanation="Streaming avoids the memory cost of loading an entire large file at once, processing it incrementally instead — critical for files that wouldn't reasonably fit in available memory."
+  />
+  <Quiz
+    id="files-streams-and-environment-variables-q3"
+    question="Why are stdout and stderr kept as separate streams rather than combined into one?"
+    options={[
+      "Because operating systems cannot support more than one output stream",
+      "So that a program's normal output and its error messages can be filtered, redirected, or logged independently of each other"
+      ,
+      "Because stderr is only used by operating system kernels, never by applications",
+      "Because stdout can only be used once per program",
+    ]}
+    answer={1}
+    explanation="Keeping normal output and error output on separate streams lets each be handled independently — for example, redirecting errors to a log file while normal output still displays on screen."
+  />
+  <Quiz
+    id="files-streams-and-environment-variables-q4"
+    question="Why are environment variables a common home for secrets like API keys, rather than hardcoding them in source code?"
+    options={[
+      "Because environment variables are encrypted automatically by every operating system",
+      "Because keeping secrets out of source code also keeps them out of version control, where a committed secret could linger in history indefinitely even after later removal"
+      ,
+      "Because source code cannot technically contain any string values",
+      "Because environment variables are the only way a program can read any configuration at all",
+    ]}
+    answer={1}
+    explanation="Storing secrets outside source code avoids the risk of them being permanently recorded in a version control system's history, which is a key reason environment variables (and .env files excluded from version control) are the standard convention."
+  />
+</QuizSet>

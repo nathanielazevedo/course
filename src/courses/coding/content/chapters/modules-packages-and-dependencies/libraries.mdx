@@ -1,0 +1,74 @@
+Almost no real program is written entirely from scratch. Nearly every codebase depends on **libraries** — pre-written code someone else wrote, published, and maintains — for everything from parsing dates to talking to a database. Understanding what kind of library you're actually pulling in changes how you should think about depending on it.
+
+### Standard libraries
+
+A **standard library** ships with the language itself — Python's `os`, `json`, and `datetime` modules; Java's `java.util` and `java.io`; Rust's `std`. Standard libraries are typically well-tested, guaranteed to be available anywhere the language runs (no separate install step needed), and maintained alongside the language's own release cycle — which makes them the default, safest choice whenever they cover what you need. Languages differ sharply in how much they include: Python's "batteries included" philosophy bundles an enormous amount (an HTTP client, a testing framework, a database interface); Rust's standard library is deliberately minimal, pushing even common needs like JSON parsing or async runtimes out to the third-party ecosystem instead.
+
+### Third-party libraries
+
+A **third-party library** is published by someone other than the language's maintainers, distributed through a package manager (the next section covers these directly), and installed as an explicit project dependency — `requests` for HTTP in Python, `lodash` for utility functions in JavaScript, `serde` for serialization in Rust. Third-party libraries expand what's available enormously beyond a standard library's scope, at the cost of a real tradeoff: you're now depending on code you don't control, maintained on someone else's schedule, that could introduce bugs, security vulnerabilities, or breaking changes in future versions — all covered by dependency management, later in this chapter.
+
+### Frameworks vs. libraries
+
+A **library** is something *your code calls* — you're in control, calling into the library's functions when you need what it provides, and your program's overall structure and flow remain yours to decide. A **framework** inverts that relationship: it calls *your* code, according to a structure and lifecycle it defines — a web framework like Django or Rails decides when to call your request handler, a UI framework like React decides when to call your component's render function. This is often summarized as "you call a library; a framework calls you," and it's a genuinely useful distinction for understanding how much control you're handing over: adopting a library adds a tool to your toolbox, while adopting a framework means restructuring how your entire application is organized around the framework's expectations.
+
+### Choosing what to depend on
+
+None of this is purely academic — it directly informs a practical decision made constantly in real projects: does the standard library already solve this well enough? If not, is there a well-maintained third-party library, or does this specific need justify writing custom code instead? And does adopting a given tool mean gaining a library (additive, low-commitment) or adopting a framework (a much larger structural commitment to the way that framework wants your whole application organized)? These aren't abstract questions — they're exactly what the next two sections, on package managers and dependency resolution, exist to help manage once you've decided to depend on something external.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="libraries-q1"
+    question="What is the main advantage a standard library typically has over a third-party library?"
+    options={[
+      "Standard libraries are always faster than third-party alternatives",
+      "Standard libraries ship with the language itself, are guaranteed to be available with no separate install step, and are maintained alongside the language's own release cycle"
+      ,
+      "Third-party libraries cannot be used in production software",
+      "Standard libraries never contain any bugs",
+    ]}
+    answer={1}
+    explanation="Because standard libraries are bundled with the language and maintained on its own release schedule, they're available everywhere the language runs without requiring a separate dependency to be installed."
+  />
+  <Quiz
+    id="libraries-q2"
+    question="What real tradeoff comes with depending on a third-party library?"
+    options={[
+      "Third-party libraries can never be updated once installed",
+      "You gain functionality beyond the standard library's scope, but you're now depending on code you don't control, maintained on someone else's schedule, which could introduce bugs or breaking changes"
+      ,
+      "Third-party libraries always run slower than standard library equivalents",
+      "There is no meaningful tradeoff at all",
+    ]}
+    answer={1}
+    explanation="Third-party libraries expand capability significantly, but they introduce a dependency on external code and its maintainers, which carries real risks around bugs, security, and future compatibility."
+  />
+  <Quiz
+    id="libraries-q3"
+    question="What is the core distinction between a library and a framework, as summarized by 'you call a library; a framework calls you'?"
+    options={[
+      "Libraries and frameworks are functionally identical",
+      "A library is code your program calls into when needed, keeping you in control of overall flow; a framework calls your code according to its own defined structure and lifecycle"
+      ,
+      "Frameworks can only be used for web development",
+      "Libraries always require more setup than frameworks",
+    ]}
+    answer={1}
+    explanation="Using a library means your code stays in control and calls into it as needed; adopting a framework means handing control of your application's structure and flow to the framework, which calls your code at the points it decides."
+  />
+  <Quiz
+    id="libraries-q4"
+    question="Why does adopting a framework represent a larger commitment than adopting a library?"
+    options={[
+      "Frameworks are always more expensive to license than libraries",
+      "Adopting a framework means restructuring how your entire application is organized around the framework's expectations, rather than simply adding a tool your code calls as needed"
+      ,
+      "Frameworks cannot be removed from a project once adopted",
+      "Libraries require writing more code than frameworks in every case",
+    ]}
+    answer={1}
+    explanation="Because a framework dictates the overall structure and control flow of an application, switching away from one later is far more disruptive than swapping out a library, which is a much more additive, self-contained dependency."
+  />
+</QuizSet>

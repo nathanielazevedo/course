@@ -1,0 +1,82 @@
+This chapter takes every concept covered so far — typing, memory management, execution model, paradigms — and runs it back through eight specific, widely used languages, two at a time, showing exactly how each one lands on the spectrum of choices this course has spent eleven chapters mapping out. Python and JavaScript are the natural starting pair: both dynamically typed, both interpreted-with-JIT-adjacent implementations, and both enormously popular for very different original reasons.
+
+### Readability as a design goal
+
+Python was explicitly designed around readability — its creator's stated philosophy, later codified as "The Zen of Python," treats code clarity as close to a top-level design constraint, not an afterthought. Indentation-based blocks (Chapter 1), a deliberately small set of ways to do most things ("there should be one obvious way to do it"), and a syntax that reads close to structured English are all direct consequences of that priority. This has made Python a common first teaching language and the dominant language of data science and machine learning, where readability of exploratory code matters enormously.
+
+### Dynamic typing
+
+Both languages are dynamically typed (Chapter 2) — a variable's type is checked at the moment an operation runs, not before — but they differ sharply on strength (Chapter 2's other axis): Python is strongly typed, refusing most implicit conversions (`"5" + 5` raises a `TypeError`), while JavaScript is weakly typed, aggressively coercing types to make an operation succeed (`"5" + 5` produces `"55"`). This single difference explains a huge share of the "JavaScript does weird things" folklore covered directly in Chapter 2's section on strong and weak typing.
+
+### Everything is an object (Python)
+
+In Python, genuinely everything — integers, functions, classes themselves — is an object, uniformly, with the same underlying object model (Chapter 6) applying no matter what kind of value you're looking at. This uniformity is part of what makes Python's introspection and metaprogramming capabilities (inspecting and modifying a program's own structure at runtime) unusually deep and consistent compared to languages with a harder split between "primitive" and "object" values.
+
+### Prototypes (JavaScript)
+
+JavaScript's object model takes a genuinely different approach from the class-based inheritance covered in Chapter 6: objects inherit directly from other objects through a **prototype chain**, rather than through a fixed class hierarchy — even JavaScript's `class` syntax (added later, in ES6) is ultimately just a more familiar-looking layer on top of this same underlying prototypal mechanism. Looking up a property that doesn't exist directly on an object causes JavaScript to check that object's prototype, then its prototype's prototype, and so on, which is a subtly different (and, for people coming from class-based languages, initially confusing) model from classical inheritance.
+
+### Event-driven execution and browser origins
+
+JavaScript's entire design was shaped by its origin as the only language browsers execute — which is exactly why it's fundamentally event-driven (Chapter 7) at its core, built around the single-threaded event loop (Chapter 11) needed to respond to user interactions without ever blocking the page's rendering. Python, by contrast, was designed as a general-purpose scripting language with no browser-specific assumptions baked into its core, which is a large part of why it spread so broadly into scientific computing, automation, and backend services instead — domains where an event loop isn't the natural default the way it is for anything running in a browser tab.
+
+### Batteries included (Python) vs. a thin core plus npm (JavaScript)
+
+Python's standard library (Chapter 9) famously ships with an enormous amount built in — an HTTP client, a testing framework, database interfaces, JSON handling — the "batteries included" philosophy. JavaScript's own standard library is comparatively minimal, with the ecosystem instead leaning heavily on `npm` (Chapter 9) for functionality many other languages would consider core — this difference reflects each language's very different origin story more than any inherent technical necessity.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="python-and-javascript-q1"
+    question="How do Python and JavaScript differ on the strong/weak typing axis, despite both being dynamically typed?"
+    options={[
+      "They are identical on this axis — both are equally weakly typed",
+      "Python is strongly typed, refusing most implicit conversions and raising an error instead; JavaScript is weakly typed, aggressively coercing types to make operations like + succeed"
+      ,
+      "JavaScript is strongly typed and Python is weakly typed, the reverse of the actual case",
+      "Neither language performs any type checking at all",
+    ]}
+    answer={1}
+    explanation="Both languages check types at runtime (dynamic), but Python refuses to silently coerce mismatched types (strong) while JavaScript actively coerces them (weak) — the source of much of JavaScript's surprising operator behavior."
+  />
+  <Quiz
+    id="python-and-javascript-q2"
+    question="How does JavaScript's prototype-based object model differ from the class-based inheritance covered in Chapter 6?"
+    options={[
+      "JavaScript has no object model at all",
+      "Objects inherit directly from other objects through a prototype chain, rather than through a fixed class hierarchy — even JavaScript's class syntax is a layer on top of this same underlying prototypal mechanism"
+      ,
+      "JavaScript's class syntax is completely unrelated to its prototype system",
+      "Prototypal inheritance is identical to classical inheritance in every respect",
+    ]}
+    answer={1}
+    explanation="JavaScript's inheritance fundamentally works through objects delegating to other objects via prototypes, a distinct mechanism from the fixed class hierarchies of classical inheritance, even though class syntax provides a more familiar-looking surface over it."
+  />
+  <Quiz
+    id="python-and-javascript-q3"
+    question="Why is JavaScript fundamentally event-driven at its core?"
+    options={[
+      "Because JavaScript cannot execute any synchronous code",
+      "Because its design was shaped by its origin as the language browsers execute, requiring a single-threaded event loop to respond to user interactions without ever blocking page rendering"
+      ,
+      "Because JavaScript has no concept of functions",
+      "Because Python is also fundamentally event-driven, so this is not actually a distinguishing trait",
+    ]}
+    answer={1}
+    explanation="JavaScript's browser origins directly shaped its concurrency model — an event loop was necessary to keep pages responsive while handling asynchronous user interactions, unlike Python's general-purpose scripting origins."
+  />
+  <Quiz
+    id="python-and-javascript-q4"
+    question="What does 'batteries included' describe about Python, in contrast to JavaScript's ecosystem?"
+    options={[
+      "That Python cannot use any third-party libraries",
+      "That Python's standard library ships with an enormous amount of built-in functionality (HTTP, testing, databases, JSON), while JavaScript's standard library is comparatively minimal and relies heavily on npm for similar needs"
+      ,
+      "That Python requires physical batteries to run",
+      "That JavaScript has a larger standard library than Python",
+    ]}
+    answer={1}
+    explanation="Python's design philosophy bundles much more functionality directly into its standard library, while JavaScript's leaner core pushes more of that responsibility onto its third-party package ecosystem."
+  />
+</QuizSet>

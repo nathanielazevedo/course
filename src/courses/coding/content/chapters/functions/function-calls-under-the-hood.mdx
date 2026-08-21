@@ -1,0 +1,90 @@
+Calling a function looks like a single operation from the outside — `result = add(2, 3)` — but underneath, the runtime is doing real, mechanical work: setting aside memory, recording where to resume afterward, and tearing all of that back down once the function finishes. This section opens the hood on that machinery, which Chapter 5 covers in much more depth once memory itself is the topic.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 220" width="100%" height="auto" role="img" aria-label="A call stack with three frames stacked vertically: main at the bottom, calling compute in the middle, which calls add at the top — the most recently called function sits on top." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="220" y="140" width="200" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="170" fontSize="13" fontWeight="600" textAnchor="middle">main()</text>
+    <rect x="220" y="85" width="200" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="115" fontSize="13" fontWeight="600" textAnchor="middle">compute()</text>
+    <rect x="220" y="30" width="200" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="320" y="60" fontSize="13" fontWeight="600" textAnchor="middle">add()</text>
+    <text x="450" y="60" fontSize="11" fill="#666">← most recent call</text>
+    <text x="450" y="170" fontSize="11" fill="#666">← program entry</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Each call pushes a new frame on top; returning pops it back off.
+  </figcaption>
+</figure>
+
+### Call stacks
+
+The **call stack** is the runtime's record of which functions are currently in progress, ordered by who called whom. When `main` calls `compute`, and `compute` calls `add`, all three are "in progress" simultaneously — `add` hasn't finished, so neither has `compute`, so neither has `main` — and the stack reflects exactly that nesting, with the most recently called function on top.
+
+### Stack frames
+
+Each entry on the call stack is a **stack frame** — a chunk of memory holding everything that specific function call needs: its parameters, its local variables, and the **return address**, the exact point in the calling function's code to resume at once this call finishes. When `add` returns, its frame is discarded entirely (popped off the stack), and execution resumes in `compute` exactly where it left off, as if the interruption never happened from `compute`'s perspective.
+
+### Arguments and return values
+
+When a function is called, its arguments are copied into its new stack frame as that function's parameters (the previous section's distinction between the two matters here — the parameter is the local copy inside the new frame). When the function returns, its return value is handed back to the calling frame, typically through a dedicated CPU register for simple values, before the callee's frame is torn down — the return value has to escape the frame before the frame is deleted, or it would be lost.
+
+### Local variables
+
+**Local variables** — anything declared inside a function body — live inside that function's stack frame and exist only as long as the frame does. This is precisely why a local variable "disappears" once its function returns: there's no more frame for it to live in. It also explains why recursion (Chapter 3) works correctly even though every recursive call uses the same variable *names* — each call gets its own frame, and therefore its own independent copy of those names, with no risk of one call's `n` colliding with another's.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="function-calls-under-the-hood-q1"
+    question="What is the call stack?"
+    options={[
+      "A list of all functions defined anywhere in the program",
+      "The runtime's record of which functions are currently in progress, ordered by which called which, with the most recently called function on top"
+      ,
+      "A data structure only used by recursive functions",
+      "The compiled machine code for the entire program",
+    ]}
+    answer={1}
+    explanation="The call stack tracks in-progress function calls in nested order — every function still waiting on a call it made appears below the one it called."
+  />
+  <Quiz
+    id="function-calls-under-the-hood-q2"
+    question="What does a stack frame contain, and what happens to it when its function returns?"
+    options={[
+      "It contains only the function's name, and it persists forever",
+      "It contains the function's parameters, local variables, and the return address to resume at; it's discarded (popped) once the function returns"
+      ,
+      "It contains the entire program's global state",
+      "It contains only the return value, nothing else",
+    ]}
+    answer={1}
+    explanation="A stack frame holds everything specific to one function call and is torn down as soon as that call finishes, with execution resuming at the recorded return address in the caller."
+  />
+  <Quiz
+    id="function-calls-under-the-hood-q3"
+    question="Why does a local variable stop existing once its function returns?"
+    options={[
+      "Because local variables are deleted by the garbage collector immediately after creation",
+      "Because local variables live inside their function's stack frame, and that frame is discarded once the function returns, taking its variables with it"
+      ,
+      "Because local variables are converted into global variables automatically",
+      "Local variables never actually stop existing in any language",
+    ]}
+    answer={1}
+    explanation="A local variable's storage is part of its function's stack frame; once the frame is popped off the stack at return, that storage — and the variable with it — is gone."
+  />
+  <Quiz
+    id="function-calls-under-the-hood-q4"
+    question="Why does recursion work correctly even though every recursive call reuses the same parameter and variable names?"
+    options={[
+      "Because recursive languages rename variables automatically behind the scenes",
+      "Because each recursive call gets its own independent stack frame, so each call has its own separate copy of those names with no risk of collision"
+      ,
+      "Because recursion doesn't actually use the call stack",
+      "Because recursive functions are not allowed to have local variables",
+    ]}
+    answer={1}
+    explanation="Every call — recursive or not — gets a fresh stack frame, so identically named parameters or locals in different calls never actually share storage."
+  />
+</QuizSet>

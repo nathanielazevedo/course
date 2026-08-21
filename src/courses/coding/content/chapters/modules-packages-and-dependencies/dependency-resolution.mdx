@@ -1,0 +1,78 @@
+Declaring "I depend on library X" sounds simple until you consider that library X depends on library Y, which depends on a specific version of library Z, which your project also happens to depend on directly — at a different version. **Dependency resolution** is the process of figuring out a single, consistent set of exact versions that satisfies every one of these requirements simultaneously, and it's a genuinely hard problem hiding behind a deceptively simple `npm install`.
+
+### Versioning
+
+Every published package has a **version** — a number identifying a specific snapshot of its code. Versions matter because software changes over time, and a version installed today should ideally still mean the same thing if you (or a teammate, or a deployment pipeline) install it again next month — which is exactly the guarantee an unmanaged "just grab the latest" approach can't provide.
+
+### Semantic versioning
+
+**Semantic versioning (semver)** is the dominant convention for what a version number actually communicates: `MAJOR.MINOR.PATCH`, where a **patch** bump (`1.2.3` → `1.2.4`) means a bug fix with no intended behavior change, a **minor** bump (`1.2.3` → `1.3.0`) means new functionality that doesn't break existing usage, and a **major** bump (`1.2.3` → `2.0.0`) means a breaking change that might require updating your own code to keep working. Package manifests use this convention to express acceptable ranges — `^1.2.3` in `npm` means "any version compatible with `1.2.3` under semver rules, but not `2.0.0`" — trusting that package authors follow the convention honestly, which is a real (if generally reliable) social contract underlying the entire ecosystem, not something a package manager can technically enforce.
+
+### Lock files
+
+A **lock file** (`package-lock.json`, `Cargo.lock`, `poetry.lock`) records the *exact* version of every single dependency — direct and transitive — that was actually installed at one specific point in time, down to the precise version number, not just the acceptable range from the manifest. This solves the reproducibility problem directly: your manifest might say "any compatible `1.x` version" of a library, but the lock file pins down exactly which `1.x` version was resolved and tested, so installing the project again later (on a different machine, a CI server, a teammate's laptop) reproduces the *exact* same dependency tree, rather than potentially picking up a newer, slightly different `1.x` release that happens to have been published in the meantime.
+
+### Dependency conflicts
+
+A **dependency conflict** happens when two things your project depends on require incompatible versions of the same shared dependency — your project needs library A version `2.x`, and library B (which you also depend on) needs library A version `1.x` specifically, and no single installed version of A can simultaneously satisfy both. Different ecosystems resolve this differently: some (Node.js, via nested `node_modules`) allow multiple versions of the same package to coexist in the same project, isolated from each other; others (many statically compiled languages, where a single global set of types must agree) require true resolution to one shared version, and simply fail to build if no such version satisfies every constraint — a **dependency conflict** in the strictest sense, requiring a human to intervene, often by updating one of the conflicting dependencies to a newer version that has resolved the incompatibility itself.
+
+### Why this matters beyond the tooling
+
+Dependency resolution is where "which library should I use" (the previous section) meets real, ongoing maintenance cost: every dependency you add is a small commitment to keeping up with its own release cycle, and a project with hundreds of transitive dependencies (common in JavaScript especially) has correspondingly more surface area for version conflicts, security advisories, and breaking upstream changes to show up unexpectedly — which is exactly why minimizing genuinely unnecessary dependencies remains a live, ongoing engineering discipline, not a solved problem any tool fully automates away.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="dependency-resolution-q1"
+    question="What does semantic versioning's MAJOR.MINOR.PATCH convention communicate?"
+    options={[
+      "The exact date a package was published",
+      "Whether a version bump is a bug fix with no behavior change (patch), new backward-compatible functionality (minor), or a breaking change (major)"
+      ,
+      "The number of contributors to the package",
+      "How many lines of code the package contains",
+    ]}
+    answer={1}
+    explanation="Semver's three components signal the nature of the change — patch for fixes, minor for compatible additions, major for breaking changes — letting package manifests express safe upgrade ranges."
+  />
+  <Quiz
+    id="dependency-resolution-q2"
+    question="What specific problem does a lock file solve that the manifest file (with version ranges like ^1.2.3) does not?"
+    options={[
+      "Lock files eliminate the need to install any dependencies at all",
+      "Lock files record the exact version of every dependency actually installed at one point in time, ensuring the same dependency tree is reproduced exactly on later installs, rather than potentially resolving to a newer compatible version"
+      ,
+      "Lock files are only used to store passwords",
+      "Lock files and manifest files serve identical purposes with no distinction",
+    ]}
+    answer={1}
+    explanation="The manifest expresses an acceptable range; the lock file pins the exact resolved versions, guaranteeing reproducible installs across machines and time, rather than allowing drift within the acceptable range."
+  />
+  <Quiz
+    id="dependency-resolution-q3"
+    question="What causes a dependency conflict?"
+    options={[
+      "A package having too many contributors",
+      "Two things a project depends on requiring incompatible versions of the same shared dependency, with no single version able to satisfy both simultaneously"
+      ,
+      "A project having zero dependencies",
+      "A package manager being installed incorrectly",
+    ]}
+    answer={1}
+    explanation="A conflict arises specifically when multiple requirements on the same shared dependency can't all be satisfied by one version, forcing resolution or manual intervention."
+  />
+  <Quiz
+    id="dependency-resolution-q4"
+    question="Why does this section describe minimizing unnecessary dependencies as an 'ongoing engineering discipline' rather than a solved problem?"
+    options={[
+      "Because package managers make dependency management entirely automatic with zero ongoing effort required",
+      "Because every dependency added is a commitment to keeping up with its release cycle, and more transitive dependencies mean more surface area for version conflicts and security issues to appear over time"
+      ,
+      "Because dependencies never actually change after being installed once",
+      "Because only unpopular libraries ever have security issues",
+    ]}
+    answer={1}
+    explanation="Adding a dependency is an ongoing commitment, not a one-time decision — more dependencies mean more exposure to future conflicts, breaking changes, and security advisories that require continued attention."
+  />
+</QuizSet>

@@ -1,0 +1,78 @@
+Compiling a single source file to machine code is rarely the last step for a real program — most programs are built from multiple compiled pieces (your own code, plus libraries) that need to be assembled into one runnable whole. **Linking** is that final assembly step, and the choice between its two major strategies shapes how a compiled program actually gets deployed and run.
+
+### Object files
+
+Compiling a single source file (in a compiled language like C, C++, Rust, or Go) doesn't usually produce a finished, runnable program directly — it produces an **object file**, containing machine code for just that one file, along with a table of symbols it defines (functions, global variables) and symbols it references but doesn't itself define (functions from other files or libraries it calls). A multi-file program compiles into multiple object files, each still incomplete on its own.
+
+### Static linking
+
+A **linker** combines these object files into one finished executable, resolving every reference to an external symbol by finding where it's actually defined and connecting the two. **Static linking** does this by copying the actual machine code of every library a program depends on directly into the final executable, at build time — the result is one self-contained binary with everything it needs already inside it, at the cost of a larger file size (since every dependency's code is duplicated into every program that uses it) and requiring a full rebuild any time a statically linked library needs to be updated, since the old copy is baked permanently into the already-built executable.
+
+### Dynamic linking
+
+**Dynamic linking** takes a different approach: instead of copying a library's code into the executable, the executable just records *that* it needs a particular library, and the actual connecting — loading the library's code and resolving those references — happens later, when the program is actually launched (or, in some setups, on the linker's very first reference to a not-yet-loaded piece of it). This produces a smaller executable (no duplicated library code inside it) and allows a shared library to be updated once, independently, with every program that depends on it automatically picking up the update the next time it runs — at the cost of the target machine needing a compatible copy of every dynamically linked library actually present and correctly versioned, which is exactly the class of deployment problem often described as "DLL hell" on Windows or missing shared-library errors on Linux.
+
+### Shared libraries
+
+A **shared library** — a `.so` file on Linux, a `.dylib` on macOS, a `.dll` on Windows — is a single compiled library that multiple programs can dynamically link against simultaneously, with the operating system loading only one copy of it into memory even if a dozen running programs all depend on it. This is where dynamic linking's real payoff shows up at the system level: instead of every installed program on a machine carrying its own private copy of, say, a common cryptography library, one shared copy serves every program that needs it, saving both disk space and memory, and letting a security patch to that one shared library protect every program depending on it as soon as it's updated.
+
+### Choosing between them
+
+Modern practice often blends both deliberately: statically linking a program's less commonly shared, more tightly coupled dependencies (for a simpler, more portable, single-file deployment — exactly what Go's toolchain defaults to, and what Rust commonly does for its own dependencies) while dynamically linking widely shared system libraries (the C standard library itself, on most platforms, is dynamically linked even by programs that statically link everything else) — balancing the deployment simplicity static linking offers against the storage and update efficiency dynamic linking provides at the operating-system level.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="linking-static-and-dynamic-q1"
+    question="What does a linker do with the object files produced by compiling individual source files?"
+    options={[
+      "It deletes them and starts compilation over from scratch",
+      "It combines them into one finished executable, resolving references between them so every symbol a file uses but doesn't define is connected to where it's actually defined"
+      ,
+      "It converts object files back into source code",
+      "It only works with a single object file at a time and cannot combine multiple",
+    ]}
+    answer={1}
+    explanation="Linking is the step that assembles separately compiled object files (and libraries) into one complete, runnable program by resolving all cross-file references."
+  />
+  <Quiz
+    id="linking-static-and-dynamic-q2"
+    question="What is the main tradeoff of static linking compared to dynamic linking?"
+    options={[
+      "Static linking always produces a smaller file than dynamic linking",
+      "Static linking copies library code directly into the executable, producing a larger but self-contained binary that requires a full rebuild to pick up a library update, unlike dynamic linking"
+      ,
+      "Static linking cannot be used with any compiled language",
+      "There is no meaningful difference between static and dynamic linking",
+    ]}
+    answer={1}
+    explanation="Static linking bakes dependency code directly into the executable for self-containment at the cost of size and rebuild requirements, while dynamic linking keeps dependencies external and updatable independently."
+  />
+  <Quiz
+    id="linking-static-and-dynamic-q3"
+    question="What real-world payoff do shared libraries provide at the operating system level?"
+    options={[
+      "They make every program that uses them run without any dependencies at all",
+      "The operating system can load a single shared copy into memory even when many different programs depend on it, saving disk space and memory, and letting one update to the shared library benefit every dependent program"
+      ,
+      "Shared libraries eliminate the need for any linking step",
+      "Shared libraries can only be used by one program at a time",
+    ]}
+    answer={1}
+    explanation="A dynamically linked shared library is loaded once and reused across multiple running programs, which is both more resource-efficient and easier to patch than every program carrying its own private copy."
+  />
+  <Quiz
+    id="linking-static-and-dynamic-q4"
+    question="What deployment problem is commonly associated with dynamic linking, often called 'DLL hell' on Windows or missing shared-library errors on Linux?"
+    options={[
+      "Executables becoming too large to run on most machines",
+      "The target machine needing a compatible copy of every dynamically linked library actually present and correctly versioned, which can fail if a required library is missing or the wrong version"
+      ,
+      "The compiler being unable to produce object files",
+      "Static linking accidentally overwriting system files",
+    ]}
+    answer={1}
+    explanation="Because dynamic linking defers resolving dependencies until run time, the program depends on the correct compatible libraries actually being present on the target system, which can fail in ways static linking's self-contained binaries avoid."
+  />
+</QuizSet>

@@ -1,0 +1,98 @@
+Chapter 8 covered how languages catch and represent failure. This section covers two of the most important human practices for actually finding it: testing, which tries to catch problems before anyone else does, and debugging, which figures out what actually happened once something's already gone wrong.
+
+### Unit tests
+
+A **unit test** verifies one small piece of code — typically a single function or method — in isolation, checking that it produces the expected output for a given input, exactly the kind of pure-function-friendly verification Chapter 7's functional programming section described as one of purity's biggest practical benefits: a pure function is trivially testable, because there's no hidden state or side effect to set up or account for.
+
+```python
+def test_discount_price():
+    assert discount_price(100, 20) == 80
+    assert discount_price(50, 0) == 50
+```
+
+Chapter 8 established that logic errors — code that runs without crashing but produces the wrong answer — are the one category of failure no compiler or runtime error system can catch on its own. Unit tests are the direct, practical answer to exactly that gap: they encode "here is what correct behavior actually looks like" as executable, automatically checkable assertions, rather than leaving correctness as something only checked by a human reading the code and hoping.
+
+### Integration tests
+
+An **integration test** verifies that multiple pieces work correctly *together* — a function on its own might pass every unit test, while the system built from several such functions and a real database connection (Chapter 13) still fails, because the individual pieces' assumptions about each other don't actually match reality once combined. Integration tests trade some of unit tests' speed and isolation (Chapter 8's pure-function testability) for confidence that the actual boundaries between components (the previous section) genuinely work as intended, not just in theory.
+
+### End-to-end tests
+
+An **end-to-end (E2E) test** verifies an entire user-facing flow, from the outside, the same way a real user actually would — logging in, adding an item to a cart, checking out — exercising every layer of the system (the previous section's architecture) together, including the actual UI. E2E tests are the slowest and most expensive of the three (often taking seconds or minutes each, versus milliseconds for a unit test) and the most realistic — they're the closest thing to directly verifying "does this actually work for a real user," at the cost of being the hardest to write, the most brittle to small UI changes, and the slowest to run at scale, which is exactly why most real test suites use relatively many unit tests, fewer integration tests, and comparatively few, carefully chosen end-to-end tests — a shape often called the "testing pyramid."
+
+### What testing actually proves
+
+It's worth being precise about testing's real limits, echoing Chapter 8's taxonomy of errors: a passing test suite proves the specific cases it checks behave as expected — nothing more. It cannot prove the *absence* of bugs in general, only the absence of the specific bugs its specific test cases happen to exercise; an edge case nobody thought to write a test for can still slip through a fully passing suite entirely undetected. This is exactly why testing and defensive programming (Chapter 8) are complementary, not redundant — tests catch what you thought to check for; assertions and validation catch invalid states as they actually happen, even in scenarios nobody anticipated writing a specific test for.
+
+### Reading stack traces
+
+Chapter 8 introduced stack traces as the record of exactly which functions were active, in what order, when an exception was thrown. In practice, reading one effectively means starting from the top (the deepest, most recently called function — where the error actually occurred) and working down through each calling frame, looking specifically for the first line of *your own* code (as opposed to a library's or the language runtime's internals) in that chain — that's almost always the most useful place to start investigating, even when the exception itself was technically thrown several layers deeper inside a library your code called into.
+
+### Breakpoints
+
+A **breakpoint** pauses a running program at a specific line, letting you inspect the actual live state — every variable's current value, the full call stack (Chapter 4) at that exact moment — before deciding whether to continue running, step into the next function call, or step over it entirely. This is a fundamentally different debugging strategy from reasoning about code purely by reading it: instead of predicting what a program *should* do based on the source alone, you observe directly what it's *actually* doing, which is often the fastest way to find a logic error (Chapter 8) that reading the code in isolation, without running it, failed to reveal.
+
+### Logging
+
+**Logging** — deliberately writing out messages describing what a program is doing, and with what values, as it runs — is breakpoints' complement rather than its competitor: where a breakpoint gives a detailed snapshot at one specific moment, logs give a lower-resolution but continuous record across an entire run, which is exactly why production debugging (where you generally can't attach an interactive debugger and pause a live system serving real user traffic) relies overwhelmingly on logs instead, while local development debugging often leans more heavily on breakpoints.
+
+### Inspecting state
+
+Whether through a debugger's live inspection or a log statement's recorded snapshot, the underlying goal of all debugging is the same: comparing what the program's actual state is, at a specific point, against what you expected it to be at that point — and the gap between those two, once you actually find it, is almost always where the root cause of the bug is hiding, whether that's a logic error (Chapter 8), a race condition (Chapter 11), or a misunderstanding about how some library or system actually behaves under the specific conditions that triggered the failure.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="testing-and-debugging-q1"
+    question="Why does this section connect unit testing directly to Chapter 8's category of logic errors?"
+    options={[
+      "Because unit tests can only catch syntax errors, not logic errors",
+      "Because logic errors — code that runs successfully but produces the wrong result — are the one failure category no compiler or runtime system catches automatically, and unit tests encode expected correct behavior as executable, automatically checkable assertions"
+      ,
+      "Because unit tests replace the need for a compiler entirely",
+      "Because logic errors can only occur in untested code by definition",
+    ]}
+    answer={1}
+    explanation="Unit tests directly address the gap Chapter 8 identified — since no language mechanism catches a logic error automatically, tests provide an explicit, automated way to check that code actually does what it's supposed to."
+  />
+  <Quiz
+    id="testing-and-debugging-q2"
+    question="Why do most real test suites follow a 'testing pyramid' shape — relatively many unit tests, fewer integration tests, and comparatively few end-to-end tests?"
+    options={[
+      "Because unit tests are considered less important than end-to-end tests",
+      "Because end-to-end tests, while the most realistic, are the slowest, most expensive to write, and most brittle, while unit tests are fast, cheap, and isolated — favoring a larger base of unit tests with fewer, carefully chosen higher-level tests"
+      ,
+      "Because integration tests cannot be automated",
+      "Because end-to-end tests always run faster than unit tests",
+    ]}
+    answer={1}
+    explanation="The tradeoffs in speed, cost, and realism between the three test types naturally lead to relying more heavily on the cheaper, faster unit tests, with fewer of the slower, more expensive end-to-end tests."
+  />
+  <Quiz
+    id="testing-and-debugging-q3"
+    question="What is the fundamental limit of what a passing test suite actually proves?"
+    options={[
+      "That the program contains absolutely no bugs of any kind",
+      "That the specific cases the tests check behave as expected — nothing more; an edge case nobody wrote a test for can still slip through undetected"
+      ,
+      "That the program will never need to be tested again",
+      "That every possible input has been verified correct",
+    ]}
+    answer={1}
+    explanation="Tests only verify the specific scenarios they cover — a fully passing suite says nothing about untested edge cases, which is why testing and defensive programming (Chapter 8) are described as complementary rather than redundant."
+  />
+  <Quiz
+    id="testing-and-debugging-q4"
+    question="Why does production debugging typically rely more on logging than on interactive breakpoints, while local development often relies more heavily on breakpoints?"
+    options={[
+      "Because logging is a newer technique that has fully replaced breakpoints everywhere",
+      "Because a breakpoint pauses a live running program, which generally isn't feasible for a production system serving real user traffic, while logs provide a continuous record across an entire run without pausing execution"
+      ,
+      "Because breakpoints can only be used in production environments",
+      "Because logging cannot capture any variable values",
+    ]}
+    answer={1}
+    explanation="Pausing execution with a breakpoint is impractical for a live production system handling real traffic, which is why logs — a continuous, non-blocking record — become the primary debugging tool there instead."
+  />
+</QuizSet>

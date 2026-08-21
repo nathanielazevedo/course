@@ -1,0 +1,78 @@
+Every concept covered so far in this course — functions, objects, modules, paradigms — is about structuring code within roughly one file or one small group of related files. **Architecture** is the same fundamental concern — organizing complexity into manageable, understandable pieces — applied at the scale of an entire application or system.
+
+### Layers
+
+A **layered architecture** organizes a system into horizontal tiers, each responsible for a distinct kind of concern, with dependencies typically flowing in one direction: a presentation layer (UI, or an API's request/response handling) depends on a business-logic layer (the actual rules and behavior of the application), which depends on a data-access layer (talking to a database, Chapter 13). The value of this separation is exactly the same value modules provided at a smaller scale (Chapter 9): a change to how data is stored shouldn't require touching business logic, and a change to how the UI presents data shouldn't require touching how that data is fetched or validated, as long as each layer's boundary — its contract with the layers around it — stays stable.
+
+### Components
+
+A **component** is a self-contained, independently understandable unit of a larger system — in a frontend application, a UI component (a button, a form, a page section, Chapter 7's declarative and reactive material both apply directly here); in a backend, a component might be a whole subsystem (authentication, billing, notifications) with its own internal structure, exposed to the rest of the system through a defined interface (Chapter 6's interfaces, applied at a larger scale). Components are, structurally, the same idea as functions (Chapter 4) and modules (Chapter 9) — encapsulate a piece of complexity, expose a controlled surface, hide the rest — repeated at successively larger scales throughout this entire course.
+
+### Boundaries
+
+A **boundary** is the deliberate line drawn between two parts of a system, defining exactly what's allowed to cross it and what isn't — a function's parameters and return value are a boundary at the smallest scale (Chapter 4); a module's exports are a boundary at a slightly larger scale (Chapter 9); an API's contract (the previous section) is a boundary between two entirely separate processes, possibly on different machines. Good architecture is, in large part, the deliberate, thoughtful placement of these boundaries — putting them where a system's natural seams actually are, so that changes on one side of a boundary rarely force changes on the other.
+
+### Services
+
+A **service** takes the boundary idea to its most extreme, common form in modern software: an entire independently deployable, independently runnable process, communicating with other services purely through APIs (the previous section) rather than through any shared memory or shared code at all. A **microservices** architecture splits what could be one large application into many small, independently deployable services, each owning its own specific piece of functionality and, often, its own dedicated database — trading the simplicity of one deployable unit for the ability to develop, deploy, and scale each piece independently, at the real cost of needing to manage all the network communication, serialization (previous section), and distributed-state complexity (this chapter's first section) that talking across process boundaries always introduces.
+
+### Why architecture is really the same idea at every scale
+
+The genuine payoff of framing architecture this way — rather than treating it as an entirely separate topic — is recognizing it as the exact same encapsulation instinct this whole course has built up gradually: a function hides its implementation behind a signature (Chapter 4); a class hides its state behind methods (Chapter 6); a module hides its internals behind exports (Chapter 9); a service hides everything behind an API (the previous section). Every one of these is the identical underlying tradeoff — some cost (indirection, a defined interface to maintain, in the largest cases real network latency) in exchange for the ability to change what's *inside* the boundary without breaking whatever depends on what's *outside* it — just applied at successively larger and larger scales, from a single function all the way up to an entire distributed system.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="architecture-layers-components-and-boundaries-q1"
+    question="What is the core value a layered architecture provides, similar to what modules provided at a smaller scale?"
+    options={[
+      "It makes a program run without needing any database",
+      "It separates distinct concerns (presentation, business logic, data access) into layers, so a change to one layer shouldn't require changing others, as long as each layer's boundary/contract stays stable"
+      ,
+      "It requires every layer to know the internal details of every other layer",
+      "It eliminates the need for any functions or classes",
+    ]}
+    answer={1}
+    explanation="Layering isolates different kinds of concerns behind stable boundaries, mirroring the same separation-of-concerns benefit modules and encapsulation provide at smaller scales."
+  />
+  <Quiz
+    id="architecture-layers-components-and-boundaries-q2"
+    question="How does the concept of a 'component' relate to functions and modules covered earlier in this course?"
+    options={[
+      "Components have nothing in common with functions or modules",
+      "Components are structurally the same idea as functions and modules — encapsulating a piece of complexity and exposing a controlled surface — just repeated at a larger scale"
+      ,
+      "A component can only exist inside a single function",
+      "Components eliminate the need for any interface or contract",
+    ]}
+    answer={1}
+    explanation="Components apply the same encapsulate-and-expose-a-controlled-interface pattern as functions (Chapter 4) and modules (Chapter 9), just at the scale of a larger, self-contained unit of a system."
+  />
+  <Quiz
+    id="architecture-layers-components-and-boundaries-q3"
+    question="What real cost does a microservices architecture accept in exchange for independently deployable, independently scalable services?"
+    options={[
+      "There is no real cost — microservices are strictly better than a single application in every way",
+      "The need to manage network communication, serialization, and distributed-state complexity that talking across separate process boundaries always introduces"
+      ,
+      "Microservices cannot use APIs to communicate with each other",
+      "Microservices require abandoning the use of databases entirely",
+    ]}
+    answer={1}
+    explanation="Splitting an application into independently deployed services trades the simplicity of one deployable unit for the overhead of cross-process communication and the distributed-systems challenges that come with it."
+  />
+  <Quiz
+    id="architecture-layers-components-and-boundaries-q4"
+    question="What is the unifying idea this section identifies across functions, classes, modules, and services?"
+    options={[
+      "That they are all completely unrelated concepts with nothing in common",
+      "That each hides implementation details behind a defined boundary/interface, trading some cost (indirection, a contract to maintain) for the ability to change what's inside without breaking what depends on the outside — just at increasingly larger scales"
+      ,
+      "That only services actually provide any encapsulation benefit",
+      "That functions and classes cannot have boundaries, only modules and services can",
+    ]}
+    answer={1}
+    explanation="The section frames encapsulation and boundary-drawing as the same fundamental tradeoff repeated at every scale of software organization, from a single function up to an entire distributed system of services."
+  />
+</QuizSet>

@@ -1,0 +1,83 @@
+Not all failures are the same kind of problem, and confusing them wastes time — searching for a runtime bug that's actually a straightforward typo, or trying to "catch" something that should have been caught by the compiler before the program ever ran. This section sorts failures into the categories every later section in this chapter builds on.
+
+### Syntax errors
+
+A **syntax error** happens when code doesn't conform to the language's grammar at all — Chapter 1's parsing stage (turning tokens into an AST) fails because the token stream doesn't form a valid structure. A missing closing parenthesis, a misplaced keyword, an unterminated string. Syntax errors are caught before any code executes, in every language, because there's no valid program to run in the first place — the AST was never successfully built.
+
+```python
+if x > 5
+    print("big")   # SyntaxError: missing colon
+```
+
+### Compile-time errors
+
+A **compile-time error** is broader than a syntax error — it includes any problem a compiler detects before running the program, which in a statically typed language (Chapter 2) includes type mismatches, calling a function with the wrong number of arguments, or referencing a name that was never declared. `let x: number = "hello";` in TypeScript is grammatically valid syntax — the parser has no complaint — but it's still rejected at compile time, because the type checker (a separate phase from parsing) catches the mismatch before the code ever runs.
+
+### Runtime errors
+
+A **runtime error** occurs while a program is executing, and by definition couldn't be caught earlier — dividing by zero, accessing an array index past its bounds, calling a method on `null`. Statically typed languages catch a large category of what would otherwise be runtime errors at compile time instead (Chapter 2), which is a large part of static typing's practical appeal — but no static type system catches every possible runtime failure, because some failures genuinely depend on values only known while the program is actually running (what a user typed, what a network response contains).
+
+### Logic errors
+
+A **logic error** is the hardest category by far: the program runs without crashing, produces no error message at all, and simply computes the wrong answer. `if age > 18:` when the requirement was "18 or older" is a logic error — perfectly valid syntax, perfectly valid types, a program that runs to completion successfully, and still wrong. No compiler or runtime error system can catch a logic error, because from the language's perspective, nothing went wrong — the code did exactly what it says, just not what the programmer meant. This is exactly what testing (Chapter 14) exists to catch, since it's the one category of failure that structurally can't be caught by the language itself.
+
+### Why this taxonomy matters
+
+Knowing which category a failure belongs to tells you where to look: a syntax or compile error means read the error message and fix the code before running it again — the language is telling you exactly where the problem is. A runtime error means something about the actual data or environment at execution time violated an assumption the code made — the rest of this chapter is about designing for that possibility deliberately. A logic error means the code needs to be re-examined against what it was actually supposed to do, often with tests or careful manual tracing, because no tool is going to flag it for you automatically.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-an-error-q1"
+    question="What distinguishes a syntax error from other kinds of errors?"
+    options={[
+      "It only happens after a program has been running for a while",
+      "It occurs when code doesn't conform to the language's grammar at all, so the AST can never be successfully built, and it's caught before any execution begins"
+      ,
+      "It can only be caused by incorrect variable values",
+      "It is identical to a logic error",
+    ]}
+    answer={1}
+    explanation="A syntax error is a parsing failure — the code doesn't form a valid structure under the language's grammar — which means it's detected before any code runs, since there's no valid program to execute yet."
+  />
+  <Quiz
+    id="what-is-an-error-q2"
+    question="Why is `let x: number = 'hello';` in TypeScript a compile-time error but not a syntax error?"
+    options={[
+      "Because TypeScript has no concept of compile-time errors",
+      "Because the code is grammatically valid (the parser accepts it), but a separate type-checking phase rejects it before execution due to the type mismatch"
+      ,
+      "Because this code actually runs successfully in TypeScript",
+      "Because number and string are the same type in TypeScript",
+    ]}
+    answer={1}
+    explanation="Parsing and type checking are separate compile-time phases; this code passes parsing (valid syntax) but fails the later type-checking phase, making it a compile-time error rather than a syntax error."
+  />
+  <Quiz
+    id="what-is-an-error-q3"
+    question="Why can no static type system catch every possible runtime error?"
+    options={[
+      "Because static type systems are entirely useless",
+      "Because some failures genuinely depend on values only known while the program is actually running, such as user input or a network response's contents"
+      ,
+      "Because runtime errors are actually the same thing as syntax errors",
+      "Because dynamically typed languages never have runtime errors",
+    ]}
+    answer={1}
+    explanation="Static analysis happens before execution and can't know values that only exist at runtime, so certain classes of failure — dependent on actual runtime data — remain undetectable until the program actually runs."
+  />
+  <Quiz
+    id="what-is-an-error-q4"
+    question="Why is a logic error considered the hardest category of failure to catch?"
+    options={[
+      "Because logic errors always crash the program immediately",
+      "Because the program runs successfully and produces no error message at all, simply computing the wrong result, which no compiler or runtime error system is designed to detect"
+      ,
+      "Because logic errors are identical to compile-time errors",
+      "Because logic errors only occur in untyped languages",
+    ]}
+    answer={1}
+    explanation="A logic error involves code that executes exactly as written but doesn't do what the programmer intended — since nothing technically 'goes wrong' from the language's perspective, no automated error-detection mechanism flags it."
+  />
+</QuizSet>

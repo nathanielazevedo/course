@@ -1,0 +1,104 @@
+Where inheritance says "this new thing *is* a specialized version of that thing," **composition** says something different: "this new thing *has* one of those, and uses it." Both are legitimate tools for reuse, but they produce very different structures — and modern object-oriented design leans heavily toward composition specifically because of the deep-hierarchy problems the previous section covered.
+
+### Building systems from smaller pieces
+
+Composition builds a class by including instances of other classes as fields, delegating to them rather than inheriting their behavior directly:
+
+```python
+class Engine:
+    def start(self):
+        print("engine starting")
+
+class Car:
+    def __init__(self):
+        self.engine = Engine()   # Car *has an* Engine
+
+    def start(self):
+        self.engine.start()
+```
+
+`Car` doesn't inherit from `Engine` — it holds one, and delegates to it. This is a looser coupling than inheritance: `Car` only depends on `Engine` exposing a `start()` method, not on anything about `Engine`'s internal implementation, and swapping in a different engine implementation (as long as it also has `start()`) requires no change to `Car` at all.
+
+### Composition over inheritance
+
+The "composition over inheritance" principle isn't an absolute rule against inheritance — it's a bias toward starting with composition and reaching for inheritance only when the "is-a" relationship is genuinely strong and stable. Composition tends to age better in a large codebase: adding a new capability to `Car` means adding a new composed part, not restructuring an inheritance tree that other code already depends on, and a bug in `Engine` is isolated to `Engine`'s own tests rather than rippling implicitly through every subclass that happens to inherit from something that happens to use it.
+
+### Interfaces and protocols
+
+An **interface** (called a **protocol** in some languages, notably Python and Swift) describes a contract — a set of methods a type promises to support — without specifying any implementation at all. Composition and interfaces work together naturally: `Car` doesn't need `Engine` specifically, it needs *anything that implements a `Startable` interface*, which is exactly what lets you swap in an `ElectricEngine` or a `MockEngine` for testing, as long as each one honors the same contract.
+
+```typescript
+interface Startable {
+  start(): void;
+}
+
+class Car {
+  constructor(private engine: Startable) {}
+  start() { this.engine.start(); }
+}
+```
+
+### Structural vs. nominal typing
+
+Languages differ on how strictly they check whether a type satisfies an interface. **Nominal typing** (Java, C#, TypeScript's `implements`) requires a class to explicitly declare which interfaces it implements by name — the relationship is stated, not inferred. **Structural typing** (Go, and TypeScript's own type-checking when no `implements` is written) checks only whether a type happens to have the right methods with the right signatures, regardless of any declared relationship — if it has a `start()` method with a compatible signature, it satisfies `Startable`, full stop, no explicit declaration required.
+
+### Go interfaces and TypeScript interfaces
+
+Go's interfaces are a clean, deliberate example of structural typing taken seriously as a core design choice: any type that happens to implement the methods an interface requires satisfies that interface automatically, with zero explicit declaration anywhere — which is a large part of why Go code tends to define small, narrowly scoped interfaces (`Reader`, `Writer`) that many unrelated types can satisfy incidentally. TypeScript blends both: `interface`s can be explicitly implemented (nominal-flavored) but are also checked structurally wherever a matching shape appears, giving flexibility that pure nominal or pure structural systems don't offer on their own.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="composition-and-interfaces-q1"
+    question="What is the core difference between composition and inheritance as reuse strategies?"
+    options={[
+      "They are exactly the same mechanism with different syntax",
+      "Composition builds a class by holding instances of other classes as fields ('has-a'), while inheritance extends a base class directly ('is-a')"
+      ,
+      "Composition can only be used with primitive types",
+      "Inheritance is always faster than composition at runtime",
+    ]}
+    answer={1}
+    explanation="Composition expresses 'has-a' relationships by delegating to held instances; inheritance expresses 'is-a' relationships by directly extending a base class's implementation."
+  />
+  <Quiz
+    id="composition-and-interfaces-q2"
+    question="What is an interface, in the object-oriented sense?"
+    options={[
+      "A specific implementation of a class",
+      "A contract describing a set of methods a type promises to support, without specifying any implementation"
+      ,
+      "A synonym for a constructor",
+      "A type that can only hold numbers",
+    ]}
+    answer={1}
+    explanation="An interface defines what methods a type must provide, leaving the actual implementation entirely up to whichever type claims to satisfy it."
+  />
+  <Quiz
+    id="composition-and-interfaces-q3"
+    question="What is the difference between nominal typing and structural typing when checking whether a type satisfies an interface?"
+    options={[
+      "There is no difference; both check the exact same thing",
+      "Nominal typing requires a type to explicitly declare which interface it implements by name; structural typing checks only whether the type happens to have the right methods, regardless of any declared relationship"
+      ,
+      "Structural typing only works with primitive types",
+      "Nominal typing is only used in dynamically typed languages",
+    ]}
+    answer={1}
+    explanation="Nominal typing requires an explicit stated relationship (like implements SomeInterface); structural typing infers compatibility purely from whether the required methods exist with matching signatures."
+  />
+  <Quiz
+    id="composition-and-interfaces-q4"
+    question="Why does composition tend to age better than deep inheritance in a large, evolving codebase?"
+    options={[
+      "Because composed classes can never have bugs",
+      "Because adding new capability means adding a new composed part rather than restructuring a shared inheritance tree, and a bug in a composed part stays isolated rather than rippling through dependent subclasses"
+      ,
+      "Because composition removes the need for any classes at all",
+      "Because inheritance is disallowed in most modern languages",
+    ]}
+    answer={1}
+    explanation="Composition's looser coupling — depending only on a component's interface, not its full implementation details — means changes are more contained than in a tightly coupled inheritance hierarchy."
+  />
+</QuizSet>

@@ -1,0 +1,82 @@
+This chapter's final section closes the loop on a topic threaded quietly through nearly every earlier chapter — memory management's costs (Chapter 5), interpretation versus compilation (Chapter 10), cache-friendly data layout (Chapter 7) — by making performance itself the direct subject, and by covering how to measure it rather than just guess at it.
+
+### Time complexity
+
+**Time complexity** describes how an algorithm's running time grows as its input size grows, expressed using **Big O notation** — O(1) constant time (a hash-map lookup, roughly independent of how many entries it holds), O(n) linear time (a loop touching every element of an n-item collection once), O(n²) quadratic time (a nested loop comparing every element against every other element), O(log n) logarithmic time (repeatedly halving the problem, as binary search does). This matters far more than raw language speed for large inputs: an O(n²) algorithm in a "fast" compiled language will eventually lose badly to an O(n log n) algorithm in a "slow" interpreted one, once the input is large enough — the algorithmic shape dominates the constant-factor language difference at sufficient scale, every time.
+
+### Memory complexity
+
+**Memory complexity** applies the same growth-rate thinking to how much memory an algorithm needs as its input grows, not just how long it takes — an algorithm that builds an entirely new copy of an n-item collection uses O(n) additional memory, while one that works in place (Chapter 5's mutation, as opposed to always creating new immutable values) uses O(1) additional memory regardless of input size. This is exactly the tension Chapter 7's functional-programming section touched on but didn't resolve: immutability's safety benefits (no shared-state bugs) come with a real memory-complexity cost compared to in-place mutation, and which one actually matters more depends entirely on the specific workload.
+
+### Profiling
+
+**Profiling** is measuring where a running program actually spends its time and memory, rather than guessing based on intuition about the code — and the distinction matters enormously, because intuition about performance is notoriously, consistently unreliable. A **profiler** attaches to a running program and records exactly which functions consumed how much CPU time, how many times they were called, and how much memory was allocated where, producing real, specific data instead of a guess about which part of the code is actually slow.
+
+### Bottlenecks
+
+A **bottleneck** is the specific part of a system actually limiting its overall performance — and the entire, non-negotiable point of profiling before optimizing is that bottlenecks are very often not where intuition would guess. A program spending 95% of its total runtime in one small function buried three layers deep, with the rest of the codebase contributing a rounding error's worth of total time, is an extremely common, well-documented pattern — which is exactly why "measure first, then optimize the actual bottleneck the data revealed" consistently produces better results than "optimize the parts of the code that feel slow while reading them."
+
+### Optimization
+
+**Optimization** — the actual work of making identified bottlenecks faster — commonly means one of a few specific things, drawing directly on concepts from throughout this course: choosing a better-suited algorithm or data structure (reducing time complexity, this section's opening point), reducing unnecessary allocations (Chapter 5's heap allocation cost, avoided where a value could instead live on the stack or be reused), improving data layout for cache-friendliness (Chapter 7's data-oriented programming), or introducing caching to avoid redundant, repeated work entirely. The universally repeated engineering wisdom "premature optimization is the root of all evil" isn't an argument against optimization itself — it's specifically an argument against optimizing *before profiling has actually identified where the real bottleneck is*, which routinely produces code that's both harder to read and, ironically, no measurably faster at all, because the part that got optimized was never actually the part costing meaningful time in the first place.
+
+### Bringing the whole course together
+
+Performance, viewed this way, isn't a separate specialized topic bolted onto everything else this course has covered — it's the direct, practical payoff of understanding what's actually happening underneath the code you write: knowing whether a language compiles or interprets (Chapter 10) tells you what kind of overhead to expect; knowing how memory management actually works (Chapter 5) tells you what an allocation-heavy pattern really costs; knowing how concurrency and I/O actually behave (Chapter 11, Chapter 13) tells you whether a slow operation is actually CPU-bound or simply waiting. Every chapter in this course has been building toward exactly this kind of grounded, mechanism-level understanding — which is precisely what lets you reason about performance (and correctness, and design) from first principles, in any language, rather than from memorized rules of thumb about any one specific one.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="performance-and-profiling-q1"
+    question="Why can an O(n²) algorithm in a fast compiled language eventually lose to an O(n log n) algorithm in a slower interpreted language?"
+    options={[
+      "This never actually happens — a faster language always wins regardless of algorithm",
+      "Because algorithmic time complexity describes how running time grows with input size, and at sufficiently large inputs, the algorithm's growth rate dominates the constant-factor speed difference between languages"
+      ,
+      "Because interpreted languages always run faster than compiled languages",
+      "Because Big O notation only applies to compiled languages",
+    ]}
+    answer={1}
+    explanation="Time complexity captures how an algorithm's cost scales with input size — at large enough inputs, a better algorithmic growth rate outweighs a language's raw constant-factor speed advantage."
+  />
+  <Quiz
+    id="performance-and-profiling-q2"
+    question="Why is profiling emphasized as necessary before optimizing, rather than relying on intuition about which code is slow?"
+    options={[
+      "Because profiling tools always slow down a program permanently",
+      "Because intuition about performance is notoriously unreliable, and bottlenecks are very often not where intuition would guess — profiling provides real, specific data about where time and memory are actually spent"
+      ,
+      "Because optimization is never actually necessary in real software",
+      "Because profiling eliminates the need to write any tests",
+    ]}
+    answer={1}
+    explanation="The section stresses that measured data, not guesswork, reliably identifies actual bottlenecks, since a small, deeply nested function can easily be responsible for the vast majority of a program's total runtime."
+  />
+  <Quiz
+    id="performance-and-profiling-q3"
+    question="What is the real argument behind the phrase 'premature optimization is the root of all evil,' according to this section?"
+    options={[
+      "That optimization should never be performed under any circumstances",
+      "That optimizing before profiling has actually identified the real bottleneck routinely produces code that's harder to read without being measurably faster, since the optimized part often wasn't costing meaningful time to begin with"
+      ,
+      "That only compiled languages can be optimized effectively",
+      "That optimization is only useful for memory complexity, never time complexity",
+    ]}
+    answer={1}
+    explanation="The phrase specifically warns against optimizing based on assumption rather than measured data — the risk is wasted effort and reduced readability on code that wasn't actually the real performance bottleneck."
+  />
+  <Quiz
+    id="performance-and-profiling-q4"
+    question="How does this section frame performance relative to the rest of the course's material?"
+    options={[
+      "As a completely separate, unrelated specialty with no connection to earlier chapters",
+      "As the direct, practical payoff of understanding what's actually happening underneath the code — how memory, compilation, concurrency, and I/O actually work — rather than a topic requiring memorized rules of thumb"
+      ,
+      "As something that only matters for compiled languages, never interpreted ones",
+      "As a topic that has nothing to do with algorithms or data structures",
+    ]}
+    answer={1}
+    explanation="The section ties performance directly back to the mechanism-level understanding built throughout the course — memory management, execution models, concurrency — framing it as an application of that knowledge rather than a separate subject."
+  />
+</QuizSet>

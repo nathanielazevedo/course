@@ -1,0 +1,87 @@
+A program that runs the same sequence of statements every single time, regardless of input, is barely useful. What makes a program actually respond to the world is **control flow** — the mechanisms that let it take different paths through its code depending on conditions. This section covers the most fundamental one: branching on a boolean.
+
+### Boolean logic
+
+Every decision a program makes reduces to a boolean expression evaluating to `true` or `false`. `age >= 18`, `user.isActive && !user.isBanned`, `count == 0` — each of these is an expression the language evaluates to one of exactly two values, and control-flow constructs use that value to decide what happens next. The logical operators — AND, OR, NOT (`&&`/`and`, `||`/`or`, `!`/`not`, spelled differently across languages) — combine simpler boolean expressions into more complex conditions, following the same rules of boolean algebra regardless of which language you're in.
+
+### `if`
+
+The `if` statement is the most basic form of branching: evaluate a condition, and if it's true, execute a block of code; otherwise, skip it. Adding `else` gives you a second block that runs specifically when the condition is false, and chaining `else if` (or `elif` in Python) lets you test a sequence of conditions in order, running the first block whose condition is true and skipping the rest.
+
+```python
+if status == "active":
+    process_order()
+elif status == "pending":
+    queue_order()
+else:
+    reject_order()
+```
+
+### `switch`
+
+A `switch` statement (or `switch`/`case` in C-family languages) is a specialized form of branching for comparing one value against several possible exact matches, more concise than a long `if`/`else if` chain when you're checking one variable against many discrete options. Many `switch` implementations default to "fall-through" behavior — execution continues into the next case unless you explicitly `break` — a historical design choice from C that's caused enough real bugs that newer languages (Rust's `match`, Kotlin's `when`) default to *not* falling through.
+
+### `match`
+
+**Pattern matching**, most fully realized in `match` expressions (Rust, Python 3.10+) is `switch` taken much further: instead of only comparing exact values, a `match` arm can destructure a composite value, bind parts of it to new names, and require the language to check that every possible case is handled (in languages with exhaustiveness checking). It reads as branching but is really doing two things at once — testing a shape and extracting data from it — which is why it's covered separately below and again in the paradigms chapter.
+
+### Pattern matching
+
+The core idea behind pattern matching is describing *what a value looks like* rather than writing a series of manual checks to test it: matching `Some(x)` versus `None` in Rust, or destructuring `{ status: "error", message }` in a JavaScript conditional, expresses in one line what would otherwise take several lines of manual field access and null checks. It's control flow and data extraction fused into a single construct, and it's one of the clearest examples of how a language feature can make an entire category of bugs (forgetting to handle a case) structurally harder to write.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="how-programs-make-decisions-q1"
+    question="What do all control-flow branching constructs ultimately rely on?"
+    options={[
+      "A random number generator",
+      "A boolean expression that evaluates to true or false, which the construct uses to decide which code path to take"
+      ,
+      "The order in which functions were defined",
+      "The amount of memory available",
+    ]}
+    answer={1}
+    explanation="Whether it's an if statement, a switch, or a match expression, the underlying mechanism is always evaluating some condition down to true or false and branching on the result."
+  />
+  <Quiz
+    id="how-programs-make-decisions-q2"
+    question="Why has fall-through behavior in C-style switch statements been considered risky enough that newer languages often avoid it by default?"
+    options={[
+      "Because switch statements are never used in modern code",
+      "Because forgetting a break causes execution to continue unintentionally into the next case, which has historically caused real bugs"
+      ,
+      "Because fall-through makes programs run slower",
+      "Because switch statements cannot have more than two cases",
+    ]}
+    answer={1}
+    explanation="C's default fall-through requires an explicit break to stop execution at each case, and omitting it by accident is a well-known, common source of bugs — leading newer languages to flip the default."
+  />
+  <Quiz
+    id="how-programs-make-decisions-q3"
+    question="What does pattern matching (like Rust's match on Some(x) vs. None) do that a simple switch on exact values doesn't?"
+    options={[
+      "It can only compare numbers",
+      "It can test the shape of a composite value and simultaneously bind parts of it to new names, combining a check and data extraction in one construct"
+      ,
+      "It removes the need for any conditional logic at all",
+      "It only works with strings",
+    ]}
+    answer={1}
+    explanation="Pattern matching goes beyond exact-value comparison — it can destructure data and extract named parts as part of testing which case applies."
+  />
+  <Quiz
+    id="how-programs-make-decisions-q4"
+    question="What benefit does exhaustiveness checking in pattern matching provide?"
+    options={[
+      "It makes the compiled program run faster",
+      "It requires the programmer to handle every possible case a value could take, catching an unhandled case as a compile-time error instead of a runtime surprise"
+      ,
+      "It removes the need for an else branch in every conditional",
+      "It only applies to boolean values",
+    ]}
+    answer={1}
+    explanation="Languages with exhaustiveness checking verify at compile time that every possible variant of a matched value is handled, turning a whole category of 'forgot to handle this case' bugs into compile errors."
+  />
+</QuizSet>

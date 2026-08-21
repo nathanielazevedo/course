@@ -1,0 +1,91 @@
+Java and C# sit at a distinct point between the previous two sections: they compile ahead of time, like C or Rust, but not to native machine code — to bytecode that runs inside a virtual machine, a program that itself stands in for the CPU. Chapter 1 introduced this idea; this section covers the two virtual machines that dominate real-world use.
+
+### Java
+
+Java source compiles to `.class` files containing JVM bytecode — a compact, portable instruction set that isn't tied to any specific CPU architecture. The **JVM (Java Virtual Machine)** loads that bytecode and executes it, either by interpreting it directly or by JIT-compiling hot portions to real native code (the next section covers JIT specifically). The entire value proposition, expressed in Java's own famous slogan, is "write once, run anywhere" — the same compiled `.class` file runs identically on Windows, Linux, macOS, or any other platform with a compatible JVM installed, because the JVM — not the underlying operating system or CPU — is what's actually executing the bytecode.
+
+### C#
+
+C# compiles to CIL (Common Intermediate Language, sometimes still called MSIL from its Microsoft origins), executed by the **CLR (Common Language Runtime)** — .NET's direct equivalent of the JVM, handling bytecode execution, JIT compilation, and garbage collection in essentially the same architectural role Java's JVM plays. Originally tied tightly to Windows, .NET's CLR now runs cross-platform as well (via .NET Core and its successors), converging toward the same "compile once, run anywhere the runtime is installed" model Java pioneered.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 180" width="100%" height="auto" role="img" aria-label="Java or C# source code compiles to bytecode, a portable intermediate format, which the JVM or CLR then executes on any platform that has that virtual machine installed." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="10" y="65" width="150" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="85" y="95" fontSize="12" fontWeight="600" textAnchor="middle">SOURCE (.java / .cs)</text>
+    <text x="195" y="95" fontSize="18" textAnchor="middle">→</text>
+    <rect x="225" y="65" width="150" height="50" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="300" y="95" fontSize="12" fontWeight="600" textAnchor="middle">BYTECODE (CIL)</text>
+    <text x="410" y="95" fontSize="18" textAnchor="middle">→</text>
+    <rect x="440" y="65" width="190" height="50" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="535" y="88" fontSize="12" fontWeight="600" textAnchor="middle">JVM / CLR</text>
+    <text x="535" y="106" fontSize="10" fill="#666" textAnchor="middle">interprets or JIT-compiles</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    The same bytecode runs unmodified on any platform with a compatible virtual machine.
+  </figcaption>
+</figure>
+
+### What the virtual machine actually buys you
+
+The VM layer buys portability at the cost of requiring that VM to be installed and present wherever the code runs — the exact deployment tradeoff Chapter 1's section on runtime environments described. It also buys a consistent execution environment the language can rely on for services like automatic memory management (Chapter 5): both the JVM and CLR include full garbage collectors, meaning neither Java nor C# programmers manage memory manually the way C or C++ programmers do, because the virtual machine itself, not the compiled program, owns that responsibility.
+
+### VM languages vs. compiled and interpreted languages
+
+Positioned against the previous two sections, VM-based languages land in a genuine middle ground: they get compilation's upfront error-catching and (with JIT, next section) much of native code's eventual performance, while retaining interpreted languages' portability — the same compiled artifact runs anywhere the VM exists, without needing to be recompiled per target platform the way a C or Rust binary does. This middle position is exactly why Java and C# became (and largely remain) dominant choices for large enterprise systems that need to run across varied, sometimes unpredictable deployment environments.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="virtual-machine-languages-q1"
+    question="What does Java's 'write once, run anywhere' slogan actually depend on?"
+    options={[
+      "Java source code being directly executable by any CPU without any translation",
+      "The JVM, not the underlying operating system or CPU, being what actually executes the compiled bytecode — so the same .class file runs identically anywhere a compatible JVM is installed"
+      ,
+      "Every operating system natively understanding Java bytecode without any additional software",
+      "Java never being compiled at all",
+    ]}
+    answer={1}
+    explanation="Portability comes from the JVM acting as a consistent execution layer across platforms, executing the same bytecode regardless of the underlying OS or hardware."
+  />
+  <Quiz
+    id="virtual-machine-languages-q2"
+    question="What is the CLR's role in the .NET ecosystem, and what is its closest equivalent in the Java world?"
+    options={[
+      "The CLR compiles C# directly to native machine code with no intermediate format, unlike Java",
+      "The CLR executes CIL bytecode compiled from C# source, handling execution, JIT compilation, and garbage collection — playing essentially the same role the JVM plays for Java"
+      ,
+      "The CLR is a package manager for .NET dependencies",
+      "The CLR only exists on Windows and has no cross-platform equivalent",
+    ]}
+    answer={1}
+    explanation="The CLR is .NET's virtual machine, analogous to the JVM — it runs the compiled intermediate bytecode (CIL) and provides services like JIT compilation and garbage collection."
+  />
+  <Quiz
+    id="virtual-machine-languages-q3"
+    question="What is the main cost of the portability the JVM and CLR provide?"
+    options={[
+      "Java and C# programs cannot be distributed to other machines at all",
+      "The corresponding virtual machine must be installed and present wherever the compiled bytecode is meant to run"
+      ,
+      "Bytecode must be recompiled separately for every operating system",
+      "Garbage collection becomes impossible when using a virtual machine",
+    ]}
+    answer={1}
+    explanation="The portability trade requires the target machine to have a compatible virtual machine installed, unlike a natively compiled binary that runs without any such dependency."
+  />
+  <Quiz
+    id="virtual-machine-languages-q4"
+    question="Why are VM-based languages described as occupying 'a genuine middle ground' between ahead-of-time compiled and interpreted languages?"
+    options={[
+      "Because they cannot be used for any real software",
+      "Because they combine compilation's upfront error-catching and JIT-enabled near-native performance with interpreted languages' portability, running the same compiled artifact anywhere the VM exists without per-platform recompilation"
+      ,
+      "Because they are identical to interpreted languages in every respect",
+      "Because they require no compilation step whatsoever",
+    ]}
+    answer={1}
+    explanation="VM-based languages blend properties from both ends of the spectrum — compile-time checking and near-native speed alongside cross-platform portability without recompiling per target."
+  />
+</QuizSet>

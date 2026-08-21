@@ -1,0 +1,83 @@
+Every value has a type — a number, a string, a list — but languages differ sharply in *when* they check that a value's type matches what an operation expects. That single design decision, checked before the program runs versus checked while it runs, is what "static vs. dynamic typing" actually means, and it's one of the most consequential splits between languages you'll use.
+
+### What a type actually represents
+
+A **type** is a category of values that share a set of valid operations and a representation in memory: `int` supports arithmetic, `string` supports concatenation, and the language (or the programmer) is expected to keep values used in ways that match their type — you can't meaningfully divide a string by a boolean. A type system is the set of rules a language uses to track and enforce which types values have and which operations are valid on them.
+
+### Compile-time checking
+
+In a **statically typed** language — Java, C, Rust, Go, TypeScript — every variable's type is known before the program ever runs, either because the programmer wrote it explicitly or because the compiler inferred it from context. The compiler checks that every operation is valid for the types involved *before* producing a runnable program, and rejects the code with a compile error if it isn't. `let x: number = "hello";` in TypeScript never runs — it fails during compilation, because assigning a string where a number was declared is caught before execution begins.
+
+### Runtime checking
+
+In a **dynamically typed** language — Python, JavaScript, Ruby — a variable can refer to a value of any type, and that type is only checked at the moment an operation actually happens, while the program runs. `x = "hello"` then later `x = 5` is completely legal — `x` isn't tied to a type, only the specific value it currently holds is. This means a type mismatch (`"5" + None` in Python) isn't caught until execution actually reaches that line — which might be seconds into running the program, or might be a rarely hit branch that doesn't surface for months.
+
+### Type inference
+
+Both static and dynamic languages can use **type inference** — the compiler or interpreter figuring out a type without it being written explicitly. `let x = 5` in Rust or TypeScript doesn't require writing `: number`; the compiler infers it from the literal `5` and still enforces it statically from that point on. Inference is a convenience feature layered on top of a type system's fundamental static-or-dynamic nature — it doesn't change which category a language falls into.
+
+### Duck typing
+
+**Duck typing** — "if it walks like a duck and quacks like a duck, treat it as a duck" — is a dynamic-typing idiom where code cares only about whether an object supports the operations it needs, not its declared type. A Python function that calls `.read()` on its argument will happily accept any object with a `.read()` method, regardless of what class it belongs to, because the check happens at the moment `.read()` is called, not before.
+
+### Gradual typing
+
+**Gradual typing** lets a fundamentally dynamic language opt into static checks incrementally — TypeScript adds a static type layer on top of JavaScript that's checked at compile time but erased before the code actually runs (JavaScript itself stays fully dynamic underneath); Python's type hints (`def add(a: int, b: int) -> int`) are optional annotations checked by separate tools like `mypy`, not enforced by the Python interpreter itself. Gradual typing is a popular middle ground: it gives large dynamic codebases some of static typing's safety without forcing a full rewrite.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="static-vs-dynamic-typing-q1"
+    question="What is the core distinction between static and dynamic typing?"
+    options={[
+      "Static languages don't have types at all",
+      "Static typing checks types before the program runs (at compile time); dynamic typing checks types while the program runs (at the moment an operation happens)"
+      ,
+      "Dynamic typing is always faster than static typing",
+      "Static typing only applies to numbers",
+    ]}
+    answer={1}
+    explanation="The defining difference is timing: static type checking happens ahead of execution and can reject invalid code before it ever runs; dynamic type checking happens live, during execution."
+  />
+  <Quiz
+    id="static-vs-dynamic-typing-q2"
+    question="Why might a type mismatch bug in a dynamically typed language go unnoticed for months in production?"
+    options={[
+      "Because dynamic languages cannot have type mismatches",
+      "Because the check only happens when that specific line of code actually executes, so a rarely hit branch can hide the error until it finally runs"
+      ,
+      "Because dynamic languages automatically fix type errors",
+      "Because production environments disable type checking",
+    ]}
+    answer={1}
+    explanation="Dynamic typing defers checking to the moment an operation runs, so code paths that are rarely exercised can hide a type error indefinitely."
+  />
+  <Quiz
+    id="static-vs-dynamic-typing-q3"
+    question="Does using type inference (like `let x = 5` in TypeScript, with no explicit type annotation) make a language dynamically typed?"
+    options={[
+      "Yes, any inferred type is dynamic by definition",
+      "No — inference is a convenience that lets the compiler figure out a type automatically, but the type is still fixed and enforced at compile time in a statically typed language"
+      ,
+      "Only in Python",
+      "Yes, because there's no type annotation visible in the source code",
+    ]}
+    answer={1}
+    explanation="Type inference doesn't change when the check happens — it just saves the programmer from writing the type explicitly; the compiler still enforces it statically from that point forward."
+  />
+  <Quiz
+    id="static-vs-dynamic-typing-q4"
+    question="What does gradual typing, as used by TypeScript or Python's type hints, actually provide?"
+    options={[
+      "A way to make a dynamic language fully statically typed with no exceptions",
+      "A way to add optional static type checks on top of a fundamentally dynamic language, without requiring a full rewrite"
+      ,
+      "A method for removing all types from a statically typed language",
+      "A guarantee that no runtime errors can ever occur"
+      ,
+      ]}
+    answer={1}
+    explanation="Gradual typing layers optional, tool- or compiler-checked static types onto a dynamic language, giving some of static typing's safety incrementally rather than all at once."
+  />
+</QuizSet>

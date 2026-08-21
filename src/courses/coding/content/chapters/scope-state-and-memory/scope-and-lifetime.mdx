@@ -1,0 +1,82 @@
+Two questions come up constantly once a program has more than a handful of variables: *where* is this name visible, and *how long* does the value it refers to actually stick around? These are two related but genuinely separate concepts — **scope** and **lifetime** — and conflating them is a common source of confusion, especially once closures (Chapter 4) enter the picture.
+
+### Global scope
+
+A variable in **global scope** is visible from anywhere in the program, including inside functions defined far away from where it was declared. Global scope is convenient and, in any program past a small size, dangerous — any piece of code anywhere can read or modify it, which makes tracking down where a value actually changed a genuinely hard problem in a large codebase. Most style guides across every language recommend minimizing global state for exactly this reason.
+
+### Local scope
+
+A **local** variable is visible only within the function (or block) it's declared in. This is the default and the recommended norm — keeping a variable's visibility as narrow as possible limits how much code could possibly be responsible for a bug involving it, which is a huge practical win as programs grow.
+
+### Block scope
+
+**Block scope** ties a variable's visibility to the specific `{ }` block (an `if`, a `for` loop body) it's declared inside, not just the enclosing function. JavaScript's `let` and `const` are block-scoped; its older `var` is not — `var` is function-scoped, meaning a `var` declared inside an `if` block is still visible after that block ends, which surprises people used to block scoping and is a large part of why `let`/`const` were introduced.
+
+### Function scope
+
+**Function scope** ties a variable's visibility to the entire enclosing function, regardless of which nested blocks it passes through. This is what `var` does in JavaScript, and it's the default scoping rule in a number of older or more permissive languages — a variable declared anywhere inside a function is visible everywhere else in that same function.
+
+### Lexical scope
+
+**Lexical scope** (also called static scope) means a name's visibility is determined by *where it's written in the source code*, not by the runtime call sequence that leads to it executing — which is how essentially every mainstream language resolves scope today, and it's what makes closures (Chapter 4) predictable: a nested function can see the variables of the function it's textually written inside, regardless of who ends up calling it or when.
+
+### Scope vs. lifetime
+
+Scope answers "where is this name visible in the code?" — a purely textual, compile-time question. **Lifetime** answers "how long does the value actually exist in memory?" — a runtime question, covered fully in the next two sections on the stack and the heap. The two usually track together (a local variable's scope ends when its function returns, and so does its lifetime, since its stack frame is destroyed) but they can diverge sharply — a closure's captured variable is out of the scope where you can freely reference it by that exact name elsewhere in the code, yet its lifetime is extended well past when the enclosing function returned, precisely because the closure keeps it alive.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="scope-and-lifetime-q1"
+    question="What is the difference between scope and lifetime?"
+    options={[
+      "They are the exact same concept with two different names",
+      "Scope is where a name is visible in the source code (a compile-time question); lifetime is how long the value actually exists in memory (a runtime question)"
+      ,
+      "Scope only applies to global variables",
+      "Lifetime only applies to functions, not variables",
+    ]}
+    answer={1}
+    explanation="Scope is a textual/structural property determined by where code is written; lifetime is about how long a value persists while the program actually runs — related but distinct questions."
+  />
+  <Quiz
+    id="scope-and-lifetime-q2"
+    question="Why do most style guides across languages recommend minimizing global state?"
+    options={[
+      "Because global variables are always slower than local ones",
+      "Because any code anywhere in the program can read or modify global state, making it hard to track down where a bug involving that state actually originated as the program grows"
+      ,
+      "Because global variables cannot hold numbers",
+      "Because global scope is not supported by most languages",
+    ]}
+    answer={1}
+    explanation="Global scope's wide visibility means any part of a large codebase could be responsible for an unexpected change, which makes debugging significantly harder than with narrowly scoped local variables."
+  />
+  <Quiz
+    id="scope-and-lifetime-q3"
+    question="What is the key difference between JavaScript's var (function-scoped) and let/const (block-scoped)?"
+    options={[
+      "var and let behave identically in every situation",
+      "A var declared inside a block like an if statement remains visible for the rest of the enclosing function, while a let or const declared the same way is only visible within that specific block"
+      ,
+      "let cannot be used inside functions",
+      "var can only hold numbers",
+    ]}
+    answer={1}
+    explanation="var's visibility extends to the whole enclosing function regardless of nested blocks, while let and const are confined to the specific block they're declared in, which is generally the more predictable behavior."
+  />
+  <Quiz
+    id="scope-and-lifetime-q4"
+    question="How can a closure's captured variable have a lifetime that outlasts its original scope?"
+    options={[
+      "This is impossible — a variable's lifetime can never exceed its scope",
+      "Lexical scope determines where a name can be referenced in the source code, but a closure keeps the actual value alive in memory as long as the closure itself exists, even after the enclosing function has returned"
+      ,
+      "Because global variables are secretly involved in every closure",
+      "Because closures convert local variables into constants",
+    ]}
+    answer={1}
+    explanation="A closure extends a captured variable's lifetime past the normal end of its enclosing function's execution, even though the variable's original scope (where you could freely name it elsewhere) has ended."
+  />
+</QuizSet>

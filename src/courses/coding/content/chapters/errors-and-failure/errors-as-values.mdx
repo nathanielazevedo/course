@@ -1,0 +1,94 @@
+Exceptions handle failure by interrupting normal control flow. Go — along with a growing number of languages influenced by it — takes a completely different position: treat an error as an ordinary **value**, returned from a function exactly like any other result, and require the caller to check it explicitly, right where the call happens, rather than letting it silently propagate elsewhere.
+
+### Go's error model
+
+A Go function that can fail returns two values: the actual result, and an `error` — `nil` if nothing went wrong, or a non-nil value describing what did:
+
+```go
+func readConfig(path string) (Config, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return Config{}, err
+    }
+    return parseConfig(data)
+}
+```
+
+Calling this function forces you to look at both return values — `config, err := readConfig("app.yaml")` — and Go's convention (enforced by tooling and culture, though not the compiler itself) is to check `err` immediately, right after the call, before doing anything else with `config`.
+
+### Explicit error handling
+
+The practical consequence is that error handling is **visible at every call site** — there's no invisible path an error can take through the program; if a function can fail, its return type says so directly, and using its result without checking the error is a decision you make explicitly (even if that decision is, in practice, sometimes wrongly skipped). Compare this to an exception-based function, whose signature gives no hint at all about what it might throw unless the language forces you to declare it.
+
+```go
+config, err := readConfig("app.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+useConfig(config)
+```
+
+### The tradeoff: verbosity for visibility
+
+The obvious cost of this style is repetition — `if err != nil { return err }` (or its equivalent) appears constantly throughout real Go code, since every fallible call needs its own explicit check, and there's no equivalent to an exception silently bubbling several layers up on its own. Go's designers made this tradeoff deliberately: they consider the verbosity worth paying for the guarantee that no error can be silently ignored by accident the way an uncaught, unexpected exception sometimes can be — every possible failure is a value sitting right there in the code, impossible to structurally forget existed the way an undeclared exception can be forgotten.
+
+### Errors as values beyond Go
+
+This isn't unique to Go — it's the same underlying philosophy behind Rust's `Result` type (the next section covers this specifically) and it echoes in patterns like returning `null` or a sentinel value on failure in older C-style code, though those approaches lack the type-level guarantee that the error case has to be handled that Go's and Rust's approaches provide. The core idea connects directly back to Chapter 2's point about how a language represents absence: errors-as-values makes "this operation might not have succeeded" part of the ordinary type of a function's return value, rather than an invisible, separate control-flow path layered on top of it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="errors-as-values-q1"
+    question="How does Go's error model differ from exception-based error handling?"
+    options={[
+      "Go does not support any form of error handling at all",
+      "Go functions return an error as an ordinary value alongside their result, requiring the caller to check it explicitly at the call site, rather than throwing an exception that can propagate invisibly"
+      ,
+      "Go's error model is identical to exceptions with different keyword names",
+      "Go errors can only occur inside try blocks",
+    ]}
+    answer={1}
+    explanation="Instead of interrupting control flow and propagating up the call stack automatically like an exception, a Go error is just a returned value the caller is expected to check right where the call happens."
+  />
+  <Quiz
+    id="errors-as-values-q2"
+    question="What does it mean that error handling is 'visible at every call site' in Go's model?"
+    options={[
+      "Errors are printed to the console automatically without any code required",
+      "A function's return type itself signals whether it can fail, and using its result requires an explicit decision about whether to check the accompanying error value"
+      ,
+      "Errors can only be handled in a single central location in the whole program",
+      "Go automatically prevents any function from ever failing",
+    ]}
+    answer={1}
+    explanation="Because the error is part of the ordinary return signature, every caller sees directly, in the code, that a call might fail — unlike an exception, whose possibility isn't necessarily visible from a function's signature."
+  />
+  <Quiz
+    id="errors-as-values-q3"
+    question="What is the main tradeoff Go's designers accepted by choosing errors-as-values over exceptions?"
+    options={[
+      "Go's approach makes error handling impossible to write incorrectly",
+      "More repetitive, verbose code (an explicit check after nearly every fallible call) in exchange for making it structurally harder to silently ignore or forget about an error case"
+      ,
+      "Go's approach removes the need to ever handle errors",
+      "There is no tradeoff at all — this approach has no downsides",
+    ]}
+    answer={1}
+    explanation="The repeated explicit error checks add verbosity throughout Go code, but the payoff, in the designers' view, is that a possible failure is always visible right there in the code rather than hidden in an undeclared exception path."
+  />
+  <Quiz
+    id="errors-as-values-q4"
+    question="How does the errors-as-values philosophy connect to Chapter 2's discussion of how languages represent absence?"
+    options={[
+      "It has no connection to that topic at all",
+      "It makes 'this operation might not have succeeded' part of a function's ordinary return type, similar in spirit to representing absence as an explicit value rather than an invisible separate mechanism"
+      ,
+      "It requires every value in the language to be nullable",
+      "It eliminates the need for functions to have return types",
+    ]}
+    answer={1}
+    explanation="Just as Chapter 2 discussed representing 'no value' explicitly, errors-as-values represents 'this might have failed' explicitly within the type system, rather than as a hidden, separate control-flow mechanism layered on top."
+  />
+</QuizSet>

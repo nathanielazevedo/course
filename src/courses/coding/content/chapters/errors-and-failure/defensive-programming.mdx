@@ -1,0 +1,96 @@
+Exceptions, errors-as-values, and `Result`/`Option` are all about handling failure once it happens. **Defensive programming** is a complementary habit aimed earlier in the process: reducing how often invalid states occur in the first place, and catching them as close as possible to their source, rather than letting bad data travel deep into a program before something finally breaks.
+
+### Validation
+
+**Validation** is checking that input data actually meets the assumptions the rest of the code depends on, at the point it enters the system — a form field, an API request body, a function's arguments. Validating early means a function three layers deeper in the code can simply *trust* that the data it receives is well-formed, rather than every single function re-checking the same assumptions independently:
+
+```python
+def create_account(email, age):
+    if "@" not in email:
+        raise ValueError("invalid email")
+    if age < 0 or age > 150:
+        raise ValueError("invalid age")
+    # everything below can now trust email and age are sane
+    ...
+```
+
+### Assertions
+
+An **assertion** is a check for a condition the programmer believes must always be true if the code is correct — not a check on external input (that's validation's job), but an internal consistency check: "if this assertion ever fails, there's a bug in this code, not in the data it was given."
+
+```python
+def calculate_average(numbers):
+    assert len(numbers) > 0, "cannot average an empty list"
+    return sum(numbers) / len(numbers)
+```
+
+Assertions are typically stripped out of optimized production builds in some languages (C's `assert`, when `NDEBUG` is defined) precisely because they're meant to catch programmer errors during development, not to serve as production-facing error handling for expected failure conditions — that distinction (bug in the code vs. expected failure case) is exactly what separates an assertion from validation.
+
+### Preconditions
+
+A **precondition** is a specific, named form of validation or assertion: a documented requirement a function expects to already be true of its inputs before it starts doing anything — "this list must be sorted," "this connection must already be open," "this ID must be non-negative." Stating preconditions explicitly (in a comment, a type, or a runtime check) turns an implicit assumption that could silently cause wrong behavior into an explicit, checkable contract, which is exactly the same instinct behind the guard clauses covered back in Chapter 3.
+
+### Fail-fast behavior
+
+**Fail-fast** is the principle of surfacing a problem as loudly and as early as possible — the instant an invalid state is detected — rather than letting the program limp along with corrupted data and fail mysteriously somewhere much later, far from the actual root cause. A function that validates its arguments and immediately raises a clear, specific error ("age cannot be negative") is failing fast; a function that silently accepts a negative age, stores it, and only produces a confusing downstream error weeks later when a report tries to compute something with it is not — and the second scenario is dramatically harder to debug, because the actual cause and the eventual symptom are now separated by a large, hard-to-trace distance.
+
+### Tying the chapter together
+
+Defensive programming, exceptions, errors-as-values, and `Result`/`Option` aren't competing strategies — they're complementary layers. Defensive programming (validation, assertions, fail-fast) reduces how often something goes wrong and catches problems as close to their source as possible; exceptions and error-values handle the failures that inevitably still occur despite that, in whichever style a given language favors. A well-designed system uses both: guard against bad states proactively, and handle the failures that get through deliberately, visibly, and as close to where they happened as the design allows.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="defensive-programming-q1"
+    question="What is the purpose of validating input as early as possible, at the point it enters a system?"
+    options={[
+      "To make the program run using less memory",
+      "So that code deeper in the system can trust the data it receives is well-formed, rather than every function independently re-checking the same assumptions"
+      ,
+      "To prevent the program from ever raising an exception",
+      "To eliminate the need for functions to have parameters",
+    ]}
+    answer={1}
+    explanation="Validating at the boundary means downstream code can rely on the data's correctness, avoiding redundant, scattered checks throughout the rest of the system."
+  />
+  <Quiz
+    id="defensive-programming-q2"
+    question="What is the key difference between an assertion and input validation?"
+    options={[
+      "They are the exact same technique with different names",
+      "An assertion checks an internal consistency condition that should always hold if the code itself is correct; validation checks whether external input meets the program's expectations"
+      ,
+      "Assertions are always kept in production code and validation is always removed",
+      "Validation only applies to numbers",
+    ]}
+    answer={1}
+    explanation="An assertion failing signals a bug in the code's own logic; validation failing signals that external input didn't meet requirements — two conceptually distinct kinds of checks."
+  />
+  <Quiz
+    id="defensive-programming-q3"
+    question="What does 'fail-fast' mean, and why is it valuable for debugging?"
+    options={[
+      "It means a program should never report any errors",
+      "It means surfacing a problem as loudly and early as possible, right where it's detected, rather than letting corrupted data travel deep into the program before failing mysteriously far from the root cause"
+      ,
+      "It means a program should always run as quickly as possible regardless of correctness",
+      "It means errors should be logged only after the program has finished running",
+    ]}
+    answer={1}
+    explanation="Failing immediately at the point of detection keeps the cause and the symptom close together, which is dramatically easier to debug than a failure that surfaces much later, far from where the actual problem originated."
+  />
+  <Quiz
+    id="defensive-programming-q4"
+    question="How does this section describe the relationship between defensive programming and error-handling mechanisms like exceptions or Result types?"
+    options={[
+      "They are competing, mutually exclusive strategies — a program must choose only one",
+      "They are complementary layers: defensive programming reduces how often invalid states occur and catches them early, while exceptions/errors-as-values handle the failures that still occur despite that"
+      ,
+      "Defensive programming makes exceptions and Result types completely unnecessary",
+      "Only statically typed languages can use defensive programming techniques",
+    ]}
+    answer={1}
+    explanation="The section frames these as working together — reducing the frequency and reach of failures through defensive habits, while still relying on a language's error-handling mechanism for the failures that inevitably get through."
+  />
+</QuizSet>

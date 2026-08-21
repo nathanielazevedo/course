@@ -1,0 +1,108 @@
+Branching and looping cover most control flow, but real code frequently needs to escape the normal top-to-bottom, in-order path entirely — stop a loop early, skip to the next item without finishing the current pass, or hand a value back to whoever called the current function. This section covers those escape hatches.
+
+### `break`
+
+`break` immediately exits the nearest enclosing loop, regardless of what the loop's own condition says. It's the right tool when you've found what you were looking for and continuing to iterate would be pure waste:
+
+```python
+for item in inventory:
+    if item.id == target_id:
+        found = item
+        break
+```
+
+Without `break`, this loop would keep scanning every remaining item even after finding the one it wanted — correct, but needlessly slow on a large collection.
+
+### `continue`
+
+`continue` skips the rest of the current iteration and jumps straight to the loop's next pass, without exiting the loop entirely. It's the tool for "skip this one, keep going" rather than "stop entirely":
+
+```python
+for item in orders:
+    if item.status == "cancelled":
+        continue
+    process(item)
+```
+
+This reads more clearly than wrapping the entire rest of the loop body in an `if not cancelled:` block, especially once there are several conditions worth skipping on.
+
+### `return`
+
+`return` exits a function immediately, optionally handing a value back to the code that called it. Unlike `break`, which only exits a loop, `return` exits the entire function, unwinding out of any loops or conditionals it happens to be nested inside at the moment it executes. This is covered more fully in Chapter 4, but it belongs here too because it's fundamentally a control-flow construct — a way of jumping out of the normal sequence of execution based on a condition.
+
+### Early exits
+
+An **early exit** — returning, breaking, or throwing as soon as a function has the information it needs, rather than accumulating that logic into a single exit point at the end — is a deliberate style choice, not just a shortcut. Code that exits as soon as it can tends to be flatter and easier to read than code that nests every subsequent check inside the `else` of the previous one.
+
+### Guard clauses
+
+A **guard clause** is an early return specifically used to handle an invalid or edge case up front, before the main logic of a function:
+
+```python
+def process_order(order):
+    if order is None:
+        return None
+    if not order.items:
+        return None
+    # main logic, now guaranteed a valid, non-empty order
+    ...
+```
+
+Without guard clauses, this same logic would nest three levels deep inside `if order is not None: if order.items: ...`, growing harder to read with every additional check. Guard clauses trade a few extra exit points for flatter, more linear code — and they're one of the most consistently recommended style patterns across otherwise very different language communities, because the benefit doesn't depend on any language-specific feature.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="control-flow-beyond-loops-q1"
+    question="What is the difference between break and continue inside a loop?"
+    options={[
+      "They do exactly the same thing",
+      "break exits the loop entirely; continue skips the rest of the current iteration and moves on to the loop's next pass"
+      ,
+      "continue exits the loop; break skips to the next iteration",
+      "Both immediately end the enclosing function",
+    ]}
+    answer={1}
+    explanation="break stops the loop from running any further; continue only skips the remainder of the current pass and lets the loop continue with its next iteration."
+  />
+  <Quiz
+    id="control-flow-beyond-loops-q2"
+    question="How does return differ from break in terms of scope?"
+    options={[
+      "return only works inside loops, just like break",
+      "return exits the entire enclosing function, unwinding out of any loops or conditionals it's nested inside, while break only exits the nearest loop"
+      ,
+      "break exits functions; return exits loops",
+      "There is no difference between them",
+    ]}
+    answer={1}
+    explanation="return's effect reaches all the way out of the function, regardless of how many loops or conditionals it happens to be nested inside, whereas break's effect is limited to the nearest enclosing loop."
+  />
+  <Quiz
+    id="control-flow-beyond-loops-q3"
+    question="What problem do guard clauses specifically address?"
+    options={[
+      "They make a program run using less memory",
+      "They handle invalid or edge cases with an early return at the top of a function, avoiding deeply nested conditional logic for the main case"
+      ,
+      "They are required by every compiler to accept a program",
+      "They replace the need for loops entirely",
+    ]}
+    answer={1}
+    explanation="Guard clauses return early for cases that don't need the main logic, keeping the primary logic flatter and less deeply nested than checking every condition inline."
+  />
+  <Quiz
+    id="control-flow-beyond-loops-q4"
+    question="Why is 'early exit' considered a style choice rather than just a shortcut?"
+    options={[
+      "Because it always makes code run faster on every platform",
+      "Because exiting as soon as a function or loop has what it needs tends to produce flatter, more linear code than accumulating logic toward a single exit point"
+      ,
+      "Because languages require it for correctness",
+      "Because it removes the need for functions to have return values",
+    ]}
+    answer={1}
+    explanation="Early exits are primarily a readability tradeoff — code that returns or breaks as soon as it can avoids the deep nesting that comes from delaying every exit to one place."
+  />
+</QuizSet>

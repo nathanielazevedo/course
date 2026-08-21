@@ -1,0 +1,86 @@
+C# and Go share a surprising amount despite feeling quite different day to day — both are garbage-collected, both compile down through a managed layer or straight to native code with built-in concurrency support, and both were explicitly designed to fix specific frustrations their creators had with earlier, more established languages.
+
+### .NET
+
+C# is the flagship language of Microsoft's .NET platform, compiling to CIL bytecode executed by the CLR (Chapter 10) — the same virtual-machine architecture Java's JVM uses, providing the same portability and automatic memory management tradeoffs covered in that chapter. .NET has evolved substantially from its originally Windows-only roots into a genuinely cross-platform runtime (.NET Core and its successors), narrowing what was once a much sharper distinction between C#'s ecosystem and Java's.
+
+### Managed execution
+
+Like Java, C# is a **managed language** — the CLR handles memory management (garbage collection, Chapter 5), type safety enforcement, and bytecode execution, sparing the programmer from the manual memory management C, C++, and Rust require (each in their own distinct way, covered across Chapter 5 and Chapter 10). This managed layer is exactly what gives C# (and Java) their characteristic tradeoff: less low-level control and a real garbage-collection performance cost, in exchange for eliminating entire categories of memory bugs by construction.
+
+### Modern language evolution
+
+C# has evolved considerably since its early, deliberately Java-like first releases — adding LINQ (a declarative, SQL-like query syntax embedded directly in the language, Chapter 7's declarative programming applied to in-memory collections), first-class `async`/`await` (Chapter 11, which several other languages later adopted syntax directly inspired by), and increasingly sophisticated type-system features, positioning it today as a genuinely multi-paradigm language (Chapter 7) rather than the more strictly class-based design it started as.
+
+### Simplicity as a design goal
+
+Go was built at Google specifically as a reaction against the complexity its creators felt had accumulated in C++ and Java over their respective histories — deliberately omitting features considered core to those languages: no classical inheritance (Chapter 6 covered Go's structural interfaces as its alternative), no generics for its first decade (added later, more conservatively than most languages), no exceptions (Chapter 8's errors-as-values, which Go pioneered into mainstream use). Every one of these omissions is a deliberate simplicity tradeoff, not an oversight — Go's design philosophy explicitly favors a small, learnable language with one obvious way to do most things over a larger, more expressive one.
+
+### Explicit errors
+
+Go's error-handling model (Chapter 8) is one of its most distinctive, most debated design choices: functions return errors as ordinary values, checked explicitly by the caller (`if err != nil`) rather than thrown as exceptions, trading verbosity for the guarantee that no failure path is invisible in a function's signature.
+
+### Interfaces
+
+Go's structural interfaces (Chapter 6) are satisfied implicitly by any type with matching methods, with no `implements` keyword anywhere in the language — a design choice that keeps types decoupled from the interfaces they happen to satisfy, letting code depend on small, narrowly scoped interfaces (`io.Reader`, `io.Writer`) that many unrelated types across the standard library and third-party code can implement without any of them needing to know about each other in advance.
+
+### Concurrency
+
+Go's built-in concurrency primitives — goroutines and channels (Chapter 11) — are arguably its single most influential contribution to mainstream language design: lightweight, cheaply spawned concurrent units of execution and message-passing communication are baked directly into the language's syntax and standard library, rather than bolted on as an external library, which is a large part of why Go became a default choice for network services and infrastructure tooling that need to juggle enormous numbers of concurrent connections efficiently.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="c-and-go-q1"
+    question="What architectural similarity do C# and Java share, as covered in Chapter 10?"
+    options={[
+      "Neither language uses any form of compilation",
+      "Both compile to bytecode executed by a virtual machine (the CLR for C#, the JVM for Java), providing similar portability and automatic memory management tradeoffs"
+      ,
+      "Both compile directly to native machine code with no virtual machine involved",
+      "C# and Java share no meaningful similarities at all",
+    ]}
+    answer={1}
+    explanation="C# and Java both use a virtual-machine execution model — CIL/CLR and bytecode/JVM respectively — giving them comparable portability and garbage-collected memory management characteristics."
+  />
+  <Quiz
+    id="c-and-go-q2"
+    question="What deliberate design philosophy motivated many of Go's most notable omissions, such as classical inheritance and exceptions?"
+    options={[
+      "Go's designers simply forgot to include these features",
+      "A deliberate reaction against the complexity Go's creators felt had accumulated in C++ and Java, favoring a small, learnable language with one obvious way to do most things"
+      ,
+      "These features are technically impossible to implement in a compiled language",
+      "Go was designed before these concepts existed in any language",
+    ]}
+    answer={1}
+    explanation="Go's omissions were intentional simplicity tradeoffs, reflecting its designers' explicit goal of a smaller, more learnable language rather than an oversight or technical limitation."
+  />
+  <Quiz
+    id="c-and-go-q3"
+    question="How does Go's approach to interfaces differ from a language requiring an explicit implements keyword?"
+    options={[
+      "Go does not support interfaces at all",
+      "Go interfaces are satisfied implicitly by any type with matching methods, with no explicit declaration needed, keeping types decoupled from the interfaces they happen to satisfy"
+      ,
+      "Go requires every type to explicitly declare every interface it satisfies, just like Java",
+      "Go interfaces can only be satisfied by types defined in the standard library",
+    ]}
+    answer={1}
+    explanation="Go's structural interfaces are satisfied automatically based on matching method signatures, without any explicit implements declaration, unlike languages using nominal typing."
+  />
+  <Quiz
+    id="c-and-go-q4"
+    question="Why is Go's built-in concurrency support (goroutines and channels) considered one of its most influential design contributions?"
+    options={[
+      "Because Go was the first language to ever support any form of concurrency",
+      "Because lightweight concurrent execution and message-passing communication are baked directly into the language's syntax and standard library, rather than bolted on as an external library, making Go especially well-suited to network services handling many concurrent connections"
+      ,
+      "Because goroutines eliminate the need for any error handling",
+      "Because Go's concurrency model requires no operating system support at all",
+    ]}
+    answer={1}
+    explanation="Having concurrency primitives as first-class language features rather than an add-on library made writing highly concurrent network services and infrastructure tools especially natural in Go, contributing to its widespread adoption in that space."
+  />
+</QuizSet>

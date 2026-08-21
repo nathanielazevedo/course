@@ -1,0 +1,90 @@
+C, C++, and Rust form a natural trio: all three compile ahead of time to native machine code with no mandatory garbage collector (Chapter 10), all three give the programmer direct, low-level control over memory (Chapter 5), and each represents a distinct answer to the same underlying question — how much should the language itself protect you from your own mistakes, versus how much should it trust you?
+
+### Memory (C)
+
+C offers essentially the least protection of any language covered in this course: memory is managed entirely by hand (Chapter 5's manual memory management), pointers can be pointed at nearly anything with no compiler-enforced restriction (Chapter 5's section on pointers), and there is no bounds checking on array access by default at all — reading or writing past the end of an array is undefined behavior, not a caught error. This isn't a design flaw so much as C's entire founding premise: trust the programmer completely, provide almost no safety net, and in exchange get a language simple enough to reason about at the level of "this is nearly exactly what the CPU will do."
+
+### Pointers (C, continued)
+
+C's raw pointers (Chapter 5) are the clearest expression of this philosophy — `int *p = &x;` gives direct, unrestricted access to a memory address, with pointer arithmetic (`p + 1` moves to the next `int`-sized chunk of memory) baked directly into the language's core operators, and nothing stopping a programmer from dereferencing an invalid, freed, or entirely made-up address, with the resulting bugs (Chapter 5's use-after-free, buffer overruns) accounting for a large share of historically serious real-world security vulnerabilities.
+
+### Minimal abstraction and systems programming (C, continued)
+
+This directness is exactly why C remains the language operating system kernels, embedded firmware, and other systems-programming domains are built in: there is essentially no abstraction layer between C source code and what actually executes, which matters enormously when you're writing the very software (a kernel, a device driver) that other languages' runtimes and abstractions ultimately depend on existing at all.
+
+### Zero-cost abstractions and templates (C++)
+
+C++ keeps C's core philosophy — direct compilation to native code, manual memory management available, no mandatory runtime — while adding a much larger language: classes and inheritance (Chapter 6), templates (generic code that works across multiple types, resolved and specialized entirely at compile time with no runtime cost), and an extensive standard library. Its **zero-cost abstractions** principle (Chapter 10) aims to let these higher-level features compile down to code no less efficient than hand-written low-level equivalents — a genuinely difficult engineering goal the language has pursued consistently across decades of evolution.
+
+### RAII
+
+**RAII (Resource Acquisition Is Initialization)** is C++'s primary answer to manual memory management's biggest risk: tying a resource's lifetime (memory, a file handle, a lock) directly to an object's lifetime, so the resource is automatically released the instant the object goes out of scope (Chapter 5's scope-and-lifetime), via the object's destructor — running cleanup code deterministically and automatically, without needing a garbage collector or requiring the programmer to remember an explicit `free()` call at every possible exit path.
+
+### Complexity as the cost
+
+C++'s expressive power comes with a real, widely acknowledged cost: the language has grown enormous over decades of additions, with multiple overlapping ways to accomplish similar things (raw pointers, smart pointers, references; several different initialization syntaxes), a notoriously complex specification, and a learning curve substantially steeper than nearly any other mainstream language covered in this course — the tradeoff for genuinely fine-grained control and zero-overhead abstraction, and a direct motivation behind Rust's own subsequent design.
+
+### Ownership and borrowing (Rust)
+
+Rust takes a fundamentally different position from both: keep C and C++'s core promise — direct compilation, no mandatory garbage collector, full control over memory layout — while making memory-safety bugs (use-after-free, data races, null pointer dereferences) impossible to compile in the first place, through the ownership and borrowing system covered fully in Chapter 5. Rust's bet is that the vast majority of what a garbage collector buys you (safety) can instead be achieved through compile-time analysis that costs nothing at runtime, at the price of a stricter, more demanding compiler and a genuinely steeper initial learning curve than C or even C++ for programmers unfamiliar with its ownership model.
+
+### Memory safety and zero-cost abstractions (Rust, continued)
+
+Rust explicitly targets the exact gap between C/C++'s performance and Java/Go's memory safety, without accepting either's typical cost (C/C++'s memory-safety risk, or a garbage collector's runtime overhead) — a genuinely novel point on the spectrum this whole chapter has been mapping, and a large part of why Rust has grown rapidly in exactly the systems-programming domains C has historically dominated, including parts of the Linux kernel itself in recent years.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="c-c-and-rust-q1"
+    question="What is C's fundamental design premise regarding memory safety, according to this section?"
+    options={[
+      "C provides extensive compiler-enforced memory safety guarantees",
+      "C trusts the programmer completely, providing almost no safety net — no bounds checking by default, unrestricted pointers — in exchange for a language that maps very directly onto what the CPU actually does"
+      ,
+      "C uses a garbage collector to manage all memory automatically",
+      "C cannot access memory addresses directly at all",
+    ]}
+    answer={1}
+    explanation="C's design deliberately omits most safety checks, trusting the programmer's discipline in exchange for directness and minimal abstraction over the underlying machine."
+  />
+  <Quiz
+    id="c-c-and-rust-q2"
+    question="What does RAII (Resource Acquisition Is Initialization) accomplish in C++?"
+    options={[
+      "It requires a garbage collector to function",
+      "It ties a resource's lifetime directly to an object's lifetime, so the resource is automatically released via the object's destructor when it goes out of scope, without needing manual cleanup calls at every exit path"
+      ,
+      "It prevents C++ programs from ever allocating memory",
+      "It is identical to Rust's borrow checker",
+    ]}
+    answer={1}
+    explanation="RAII automates resource cleanup by binding it to scope-based object lifetimes, giving C++ deterministic, automatic cleanup without a garbage collector — distinct from Rust's separate ownership/borrowing system."
+  />
+  <Quiz
+    id="c-c-and-rust-q3"
+    question="What is the fundamental bet Rust's ownership and borrowing system makes, compared to C/C++ and to garbage-collected languages?"
+    options={[
+      "That memory safety requires accepting a garbage collector's runtime overhead, just like Java or Go",
+      "That most of what a garbage collector buys you (safety) can be achieved instead through compile-time ownership analysis that costs nothing at runtime, at the price of a stricter, more demanding compiler"
+      ,
+      "That memory safety is not worth pursuing at all",
+      "That Rust should abandon compiling to native machine code",
+    ]}
+    answer={1}
+    explanation="Rust aims to achieve memory safety comparable to garbage-collected languages while retaining C/C++'s zero-runtime-overhead compilation model, using compile-time ownership rules instead of a runtime garbage collector."
+  />
+  <Quiz
+    id="c-c-and-rust-q4"
+    question="What is identified as the primary cost of C++'s expressive power and zero-cost abstractions?"
+    options={[
+      "C++ programs always run slower than equivalent C programs",
+      "The language has grown enormous over decades, with multiple overlapping ways to accomplish similar things and a notoriously steep learning curve compared to most other mainstream languages"
+      ,
+      "C++ cannot be used to write operating systems",
+      "C++ requires a garbage collector to run any program",
+    ]}
+    answer={1}
+    explanation="C++'s decades of accumulated features and multiple overlapping approaches to similar problems create real complexity and a steep learning curve, which is the tradeoff for its fine-grained control and zero-overhead abstractions."
+  />
+</QuizSet>

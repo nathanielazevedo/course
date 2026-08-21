@@ -1,0 +1,87 @@
+Every example so far in this course could plausibly fit in a single file. Real programs can't — a production codebase might span thousands of files and millions of lines, and none of that is manageable without a deliberate structure for organizing it. This section covers the layers languages provide for that: files, modules, packages, and namespaces.
+
+### Files
+
+A **file** is the most basic unit of organization — one physical text file containing some subset of a program's source code. Splitting a program across files is partly about keeping any single file human-readable (nobody wants to scroll through a 20,000-line file to find one function) and partly the foundation everything else in this section builds on: modules, packages, and namespaces are all, ultimately, ways of organizing and referring to collections of files.
+
+### Modules
+
+A **module** is a unit of code — typically corresponding to one file, though not always — that can export some of what it defines (making it usable elsewhere) while keeping the rest private to itself. Python treats every `.py` file as a module automatically; JavaScript's ES modules use explicit `export`/`import` to control exactly what crosses a module's boundary. The core value of a module is a controlled interface: other code can use what a module exports, and nothing else, which is the same encapsulation instinct from Chapter 6 applied at the scale of a whole file instead of a single class.
+
+```python
+# math_utils.py
+def square(x):
+    return x * x
+
+def _internal_helper(x):   # convention: leading underscore signals "not for external use"
+    return x + 1
+```
+
+### Packages
+
+A **package** groups multiple related modules together under one namespace, typically corresponding to a directory. Python's packages are directories containing an `__init__.py`; Java's packages (`com.example.utils`) map directly onto a directory structure and control both organization and (through access modifiers) visibility between packages. A package is essentially "a folder of modules that belong together conceptually," giving a large codebase a second, coarser level of structure above individual files.
+
+### Namespaces
+
+A **namespace** solves a different, narrower problem: preventing naming collisions. Two different libraries might both define a function called `parse` — without namespaces, importing both would create an ambiguous conflict over which `parse` a bare reference to that name actually means. C++'s `namespace`, C#'s `namespace`, and the effective namespacing that Python's and Java's package/module systems provide all let two identically named things coexist without conflict, as long as they're referred to through their distinguishing namespace (`json.parse` vs. `yaml.parse`) rather than bare names alone.
+
+### How these layers work together
+
+In practice, these four concepts stack: files are grouped into modules, modules are grouped into packages, and packages exist within namespaces that keep large codebases (and the external libraries they depend on) from colliding with each other by name. The next section, on imports, covers how code in one of these units actually reaches into another to use what it exports — the mechanism that makes this entire layered structure actually functional rather than just organizational.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="how-large-programs-are-organized-q1"
+    question="What is the core value a module provides, beyond simply being a file?"
+    options={[
+      "It makes the code run faster automatically",
+      "A controlled interface — the module decides what it exports for other code to use, while keeping the rest private, extending the encapsulation idea from object-oriented programming to the scale of a whole file"
+      ,
+      "It prevents the module from ever being imported elsewhere",
+      "It removes the need for functions inside the module",
+    ]}
+    answer={1}
+    explanation="Modules apply the same encapsulation instinct as classes — deciding what's exposed versus kept internal — but at the scale of an entire file's worth of code rather than a single object."
+  />
+  <Quiz
+    id="how-large-programs-are-organized-q2"
+    question="How does a package typically relate to modules?"
+    options={[
+      "A package is smaller than a single module",
+      "A package groups multiple related modules together, typically corresponding to a directory, giving a codebase a coarser level of structure above individual files"
+      ,
+      "A package and a module are always exactly the same thing",
+      "Packages can only contain exactly one module each",
+    ]}
+    answer={1}
+    explanation="Packages provide a layer of organization above individual modules, bundling related modules together — commonly reflected directly in the directory structure of a project."
+  />
+  <Quiz
+    id="how-large-programs-are-organized-q3"
+    question="What specific problem does a namespace solve?"
+    options={[
+      "It makes a program run without needing a compiler",
+      "It prevents naming collisions, letting two identically named things (like a parse function from two different libraries) coexist without conflict, as long as they're referred to through their distinguishing namespace"
+      ,
+      "It replaces the need for any file organization at all",
+      "It only applies to numeric variables",
+    ]}
+    answer={1}
+    explanation="Namespaces let identically named definitions from different sources coexist by qualifying references (like json.parse vs. yaml.parse), avoiding ambiguity that bare, unqualified names alone would create."
+  />
+  <Quiz
+    id="how-large-programs-are-organized-q4"
+    question="How do files, modules, packages, and namespaces relate to each other according to this section?"
+    options={[
+      "They are four unrelated, competing systems that never combine",
+      "They stack as layers: files are grouped into modules, modules are grouped into packages, and packages exist within namespaces that prevent naming collisions across a large codebase and its dependencies"
+      ,
+      "A namespace is always identical to a single file",
+      "Packages exist only in compiled languages, never in interpreted ones",
+    ]}
+    answer={1}
+    explanation="These four concepts build on each other in increasing scale — from individual files up to modules, packages, and the namespaces that keep everything from colliding by name."
+  />
+</QuizSet>

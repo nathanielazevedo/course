@@ -1,0 +1,78 @@
+Every time your program opens a file, allocates significant memory, sends a network packet, or creates another process, it's asking the operating system to do something on its behalf — because a process running in user mode (Chapter 1's brief mention of this split) isn't allowed to touch hardware or shared system resources directly. **System calls** are the mechanism that request crosses through.
+
+### Crossing into the operating system
+
+A process runs in **user mode**, a restricted CPU privilege level that prevents it from directly executing certain instructions or accessing certain memory — a deliberate isolation boundary that keeps one misbehaving or malicious program from corrupting the kernel or another process's data. The operating system's kernel runs in **kernel mode**, with full hardware access. A **system call** is the controlled, well-defined gateway between the two: your process executes a special instruction that transfers control to the kernel, the kernel performs the requested operation with its elevated privileges, and control returns to your process once it's done.
+
+### What system calls actually do
+
+None of the higher-level operations covered throughout this course — opening a file (Chapter 5's heap allocation is one layer removed from this; actual file I/O is a different system call entirely), creating a process (the previous section), sending data over a socket (later in this chapter) — happen without at least one system call underneath. `File.Open()` in C#, `open()` in Python, `fs.readFile()` in Node.js — every one of these standard library functions is, at its core, a thin wrapper that eventually issues the platform's actual system call (`openat` on Linux, `CreateFileW` on Windows, as Chapter 1's Windows-specific example touched on) and translates its raw result back into whatever object or exception the language's own API surface presents to you.
+
+### Files
+
+Opening, reading, writing, and closing a file are all separate system calls, each one crossing into the kernel to interact with the actual filesystem driver managing the physical (or virtual, or networked) storage underneath. This is why file I/O is measurably slower than operations that stay entirely within your own process's memory — each system call involves a real context switch into kernel mode and back, a fixed overhead independent of how small the actual read or write is, which is exactly why buffering (accumulating many small writes into one larger system call) is such a common and effective performance technique across nearly every language's I/O libraries.
+
+### Networking
+
+Sending or receiving data over a network similarly requires system calls to interact with the kernel's networking stack — `socket()`, `connect()`, `send()`, `recv()` at the lowest level, wrapped by every higher-level networking API in every language covered in this course. The next-to-last section of this chapter covers networking as a topic in its own right; the point here is narrower: every network operation, no matter how it's exposed at the language level, ultimately crosses this exact same user-mode-to-kernel-mode boundary.
+
+### Processes
+
+Creating a new process (`fork()` and `exec()` on Unix-like systems, `CreateProcess` on Windows) is itself a system call — which is why Chapter 11's process creation, and this chapter's opening section on what happens when a program runs, both ultimately bottom out here: the operating system is the only thing actually capable of creating a new isolated process, and it does so only in response to this exact kind of explicit request crossing from user mode into the kernel.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="system-calls-q1"
+    question="Why can't a process running in user mode directly access hardware or perform privileged operations itself?"
+    options={[
+      "Because user mode processes have no way to run any code at all",
+      "Because user mode is a deliberately restricted CPU privilege level, isolating processes from directly executing certain instructions or accessing certain memory to protect the kernel and other processes"
+      ,
+      "Because only compiled languages can run in user mode",
+      "Because user mode only exists in operating systems built after 2010",
+    ]}
+    answer={1}
+    explanation="The user mode/kernel mode split is a hardware-enforced privilege boundary specifically designed to prevent user-level code from directly corrupting the kernel or other processes' data."
+  />
+  <Quiz
+    id="system-calls-q2"
+    question="What is a system call, fundamentally?"
+    options={[
+      "A function defined entirely within a user program's own code",
+      "The controlled gateway through which a user-mode process requests the kernel perform a privileged operation on its behalf, transferring control temporarily into kernel mode and back"
+      ,
+      "A synonym for a compiler error",
+      "A type of variable declaration",
+    ]}
+    answer={1}
+    explanation="System calls are the defined mechanism for crossing from restricted user mode into the kernel's elevated privilege level to perform operations a user process can't do on its own."
+  />
+  <Quiz
+    id="system-calls-q3"
+    question="Why is file I/O measurably slower than operations that stay entirely within a process's own memory?"
+    options={[
+      "Because file systems are always corrupted",
+      "Because each file operation involves a system call, which requires a real context switch into kernel mode and back — a fixed overhead independent of how small the actual read or write is"
+      ,
+      "Because files can only be accessed once per program run",
+      "Because file I/O never actually uses system calls",
+    ]}
+    answer={1}
+    explanation="The overhead of crossing into kernel mode and back for each system call is a real, fixed cost, which is exactly why techniques like buffering (batching many small operations into fewer system calls) improve I/O performance."
+  />
+  <Quiz
+    id="system-calls-q4"
+    question="What do higher-level standard library functions like File.Open() in C# or open() in Python ultimately do underneath?"
+    options={[
+      "They bypass the operating system entirely and access hardware directly",
+      "They act as thin wrappers that eventually issue the platform's actual system call, translating the raw result back into whatever object or exception the language's own API presents"
+      ,
+      "They only work if no operating system is installed",
+      "They compile the program into a different programming language",
+    ]}
+    answer={1}
+    explanation="Standard library I/O functions are ultimately built on top of the platform's real system calls, with the language's API layer wrapping and translating the underlying kernel interaction into a more convenient interface."
+  />
+</QuizSet>

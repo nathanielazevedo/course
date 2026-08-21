@@ -1,0 +1,92 @@
+The earlier sections in this chapter covered branching, looping, and escaping normal flow as separate tools. This closing section pulls them together and pushes further into **structured pattern matching** — the modern synthesis where a single construct can branch, destructure, and bind in one motion, and where knowing which control-flow shape to reach for is itself a skill worth building deliberately.
+
+### Matching on shape, not just value
+
+A `switch` compares a value against other values. Pattern matching compares a value against a *shape*, which can be far richer: "is this a list with exactly two elements?", "is this a `Some` wrapping a number greater than zero?", "is this an object with a `status` field equal to `"error"`?" Rust's `match` is the clearest example:
+
+```rust
+match response {
+    Ok(value) if value > 0 => println!("positive: {value}"),
+    Ok(_) => println!("non-positive"),
+    Err(e) => println!("failed: {e}"),
+}
+```
+
+Each arm is testing structure (`Ok` vs. `Err`), optionally adding a further condition (the `if value > 0` guard), and binding a name (`value`, `e`) to part of the matched data — three things a plain `switch` can't do at once.
+
+### Destructuring as control flow
+
+JavaScript and Python don't have a full `match` in every version, but destructuring assignment does related work: `const { status, message } = response;` combined with a following `if (status === "error")` is doing, across two lines, roughly what a `match` arm does in one. Python 3.10's `match` statement closes this gap directly, supporting the same shape-and-bind pattern as Rust's.
+
+### Exhaustiveness as a safety net
+
+The real payoff of pattern matching over a chain of `if`/`else if` shows up when the set of possibilities is fixed and known — an enum, a `Result` type, a small set of variants. A compiler that enforces exhaustiveness will refuse to compile a `match` that doesn't handle every variant, turning "I forgot to handle the error case" from a runtime bug discovered in production into a compile-time error caught before the code ships. This is one of the most concrete, measurable safety benefits a language feature can offer, and it's a large part of why Rust and other modern languages lean on it so heavily.
+
+### Choosing the right control structure
+
+With this chapter's full toolkit in view — `if`, `switch`/`match`, `for`, `while`, `break`/`continue`/`return`, recursion — the practical skill is picking the right one for the shape of the problem, not defaulting to whichever you learned first:
+
+- A fixed, small set of known cases to test against a value → `switch`/`match`, especially with a language that checks exhaustiveness.
+- An unknown number of repetitions bounded by a condition → `while`.
+- A known collection to walk → `for`/`foreach`.
+- A problem defined in terms of a smaller version of itself (trees, nested structures) → recursion.
+- A composite value you need to branch on *and* extract data from at the same time → pattern matching.
+
+None of these choices is really about performance in most everyday code — it's about which construct lets the next person reading the code (very possibly you, in six months) see the intent immediately rather than reverse-engineer it from a generic loop or a long `if` chain.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="pattern-matching-and-structured-control-q1"
+    question="What can pattern matching do in a single construct that a plain switch statement cannot?"
+    options={[
+      "Compare a value against exactly one other value",
+      "Test the structure/shape of a value, optionally add a further guard condition, and bind parts of the matched data to new names, all at once"
+      ,
+      "Only work with strings",
+      "Replace the need for functions entirely",
+    ]}
+    answer={1}
+    explanation="A match arm can check a value's shape, apply an additional condition, and extract named data from it in one expression — three things a value-comparison switch handles only partially or not at all."
+  />
+  <Quiz
+    id="pattern-matching-and-structured-control-q2"
+    question="What concrete safety benefit does compiler-enforced exhaustiveness in pattern matching provide?"
+    options={[
+      "It guarantees the program runs faster",
+      "It refuses to compile code that doesn't handle every possible variant of a matched value, catching a forgotten case at compile time instead of in production"
+      ,
+      "It removes the need for a base case in recursive functions",
+      "It automatically writes test cases for the programmer",
+    ]}
+    answer={1}
+    explanation="Exhaustiveness checking converts a class of bugs — an unhandled variant — from something discovered at runtime into a compile-time error, which is a measurable safety win."
+  />
+  <Quiz
+    id="pattern-matching-and-structured-control-q3"
+    question="According to this section, when is recursion generally the more natural control-flow choice over an explicit loop?"
+    options={[
+      "Whenever performance is the only consideration",
+      "When a problem is naturally defined in terms of a smaller version of itself, such as traversing trees or nested structures"
+      ,
+      "Only when the language doesn't support loops",
+      "Never — loops are always preferable to recursion",
+    ]}
+    answer={1}
+    explanation="Recursion tends to read more naturally for self-similar problems like tree traversal, where 'process this node, then recursively process its children' maps directly onto the problem's structure."
+  />
+  <Quiz
+    id="pattern-matching-and-structured-control-q4"
+    question="What is the main criterion this section suggests for choosing between control-flow constructs in everyday code?"
+    options={[
+      "Whichever construct was learned first should always be used",
+      "Which construct most clearly communicates intent to a future reader of the code, given the shape of the problem"
+      ,
+      "Only raw execution speed, regardless of readability",
+      "Whichever construct uses the fewest characters",
+    ]}
+    answer={1}
+    explanation="The section frames the choice as primarily about clarity and intent — letting a reader see immediately what the code is doing — rather than as a performance decision in typical code."
+  />
+</QuizSet>

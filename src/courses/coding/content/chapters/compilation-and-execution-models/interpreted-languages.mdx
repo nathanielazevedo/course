@@ -1,0 +1,74 @@
+Where the previous section's languages translate everything before anyone runs the program, interpreted languages translate and execute together, live, each time the program actually runs — the tradeoff Chapter 1 introduced conceptually, now examined through the two clearest real-world examples.
+
+### Python
+
+Classic Python execution actually involves a small compilation step most people don't think of as "compiling": the CPython interpreter first compiles source `.py` files into bytecode (cached as `.pyc` files), and *that* bytecode is what the interpreter actually walks and executes, one instruction at a time, rather than re-parsing raw source text on every run. This is why Python is more precisely described as "bytecode-interpreted" rather than purely interpreting source text directly — but from a deployment perspective, it behaves like a classic interpreted language regardless: there's no separate ahead-of-time build step producing a standalone binary, and a compatible Python interpreter needs to be present wherever the code runs, exactly as Chapter 1's section on runtime environments described.
+
+### Shell scripting
+
+Shell scripts (Bash, Zsh, PowerShell) are interpreted even more directly — a shell reads a script largely line by line, translating and executing each command as it goes, with essentially none of the upfront whole-file analysis a language like Python's bytecode compilation performs. This is exactly why a shell script can fail partway through with a syntax error on a *later* line, after already having executed several earlier lines successfully — the interpreter genuinely hadn't looked ahead at that later line yet, in sharp contrast to Chapter 1's point about how Python's `SyntaxError`s are typically caught before any execution begins, because Python's compilation-to-bytecode step processes the whole file up front before the interpreter starts running any of it.
+
+### The practical tradeoffs, revisited
+
+Interpreted execution's core appeal remains what Chapter 1 described: immediacy — edit a file, run it, no separate build step in between — which is exactly why scripting, rapid prototyping, and automation tasks lean so heavily on interpreted languages. The cost is repeated translation-adjacent work on every run (even with Python's bytecode caching, the interpreter still has to walk and execute that bytecode fresh every single execution, with none of ahead-of-time compilation's one-time optimization work carried over between runs) and a hard dependency on the right interpreter being installed and available wherever the code needs to execute.
+
+### Where the line actually blurs
+
+It's worth being precise that "interpreted language" is really a statement about how a language is *typically* run, not an unchangeable property of the language itself — Python has multiple implementations (PyPy notably includes a JIT compiler, covered in the next section), and there's no reason in principle a sufficiently motivated project couldn't build an ahead-of-time compiler for Python or Bash. In practice, though, the ecosystem, tooling, and typical deployment story around a language are what actually determine whether you experience it as "compiled" or "interpreted" day to day — which is exactly why this section (and the next, on JIT compilation) is organized around real, dominant implementations rather than abstract language specifications alone.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="interpreted-languages-q1"
+    question="Why is Python more precisely described as 'bytecode-interpreted' rather than purely interpreting raw source text?"
+    options={[
+      "Because Python code compiles all the way down to native machine code before running",
+      "Because CPython first compiles .py source files into bytecode, and it's that bytecode the interpreter actually walks and executes, rather than re-parsing raw source text on every run"
+      ,
+      "Because Python has no concept of interpretation at all",
+      "Because Python requires a separate standalone build step producing a binary, like C does",
+    ]}
+    answer={1}
+    explanation="Python's execution model includes an intermediate bytecode-compilation step, distinguishing it from a language that interprets raw source text directly, even though it still behaves like a classic interpreted language from a deployment perspective."
+  />
+  <Quiz
+    id="interpreted-languages-q2"
+    question="Why can a shell script fail with a syntax error partway through, after already having successfully executed several earlier lines?"
+    options={[
+      "Shell scripts cannot contain syntax errors",
+      "A shell interprets a script largely line by line, without the whole-file upfront analysis a language like Python's bytecode compilation performs, so it hasn't examined a later line until execution actually reaches it"
+      ,
+      "Shell scripts always execute every line simultaneously",
+      "This behavior only happens in compiled languages",
+    ]}
+    answer={1}
+    explanation="Shell interpretation processes commands progressively rather than analyzing the whole script upfront, so a later syntax problem isn't discovered until execution actually reaches that line."
+  />
+  <Quiz
+    id="interpreted-languages-q3"
+    question="What is the main appeal of interpreted execution, and what is its main cost, as described in this section?"
+    options={[
+      "The appeal is guaranteed higher performance; the cost is a mandatory separate build step",
+      "The appeal is immediacy — no separate build step between editing and running; the cost is repeated translation-adjacent work on every run and a hard dependency on the right interpreter being available"
+      ,
+      "Interpreted languages have no real tradeoffs compared to compiled languages",
+      "The appeal is smaller file sizes; the cost is an inability to use functions",
+    ]}
+    answer={1}
+    explanation="Interpreted execution trades away ahead-of-time compilation's one-time optimization and standalone-binary distribution for the convenience of running code immediately without a build step."
+  />
+  <Quiz
+    id="interpreted-languages-q4"
+    question="What point does this section make about 'interpreted language' as a category?"
+    options={[
+      "It is an absolute, unchangeable property built into a language's specification",
+      "It describes how a language is typically run in practice, not an unchangeable property of the language itself — some implementations (like PyPy for Python) use JIT compilation instead"
+      ,
+      "Only shell scripting languages can ever be considered interpreted",
+      "Every interpreted language must produce a standalone compiled binary eventually",
+    ]}
+    answer={1}
+    explanation="Whether a language 'is' interpreted often reflects its dominant implementation and ecosystem conventions rather than a fixed technical constraint, as shown by alternative implementations that compile or JIT-compile the same language."
+  />
+</QuizSet>

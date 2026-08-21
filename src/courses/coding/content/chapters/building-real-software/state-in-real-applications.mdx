@@ -1,0 +1,78 @@
+Chapter 5 covered state at the level of a single program's memory — variables, the stack, the heap. Real applications juggle state at several distinct scales simultaneously, and confusing which scale a particular piece of state actually belongs to is a common, genuinely costly source of bugs in production software.
+
+### Local state
+
+**Local state** is exactly what Chapter 5 already covered: variables scoped to a single function or component, existing only as long as that scope is active. In a UI application, a form's "is this checkbox currently checked" is a natural fit for local state — it belongs entirely to that one component, nothing else in the application needs to know about it directly, and it doesn't need to survive the component being removed from the screen.
+
+### Application state
+
+**Application state** is shared across multiple parts of a single running program — a logged-in user's identity, a shopping cart's contents, a UI theme preference — needed by more than one component or module simultaneously. Managing this well is a genuinely hard, well-studied problem: too little structure and every part of the application reaches into shared global state directly (Chapter 5's warning about global scope, at application scale), producing exactly the "who changed this and when" debugging nightmare that section described; too much structure (elaborate state-management frameworks for a genuinely simple application) adds real complexity that isn't earning its keep. Frameworks like Redux, Vuex, and React's Context API all exist to manage this specific problem — controlled, traceable ways for application state to be read and updated from many places without collapsing back into unstructured global mutation.
+
+### Persistent state
+
+**Persistent state** survives beyond a single running instance of the program entirely — Chapter 13's databases are the clearest example, but browser `localStorage`, configuration files, and any data written to disk all qualify too. The critical shift persistent state introduces is that it now needs to survive not just function calls and object lifetimes (Chapter 5) but entire process restarts, crashes, and deployments — which is exactly why Chapter 13's material on databases, transactions, and reliable writes matters as much as it does; a bug that loses in-memory application state is usually recoverable by restarting; a bug that corrupts persistent state can be a genuinely serious, hard-to-undo problem.
+
+### Distributed state
+
+**Distributed state** is state that exists across multiple separate processes or machines simultaneously, which have to somehow agree on (or reconcile disagreements about) its actual current value — a genuinely much harder problem than any of the previous three, because Chapter 11's concurrency concerns (multiple things touching shared data) now apply across a network, without the shared memory that made locks and mutexes possible in the first place. Two servers behind a load balancer, both potentially handling requests that touch the "same" logical piece of data, need some strategy — a single source of truth database (Chapter 13), a distributed consensus protocol, or careful application design that avoids needing strict consistency at all — because there's no equivalent of a simple in-process lock (Chapter 11) that spans separate machines cleanly.
+
+### Choosing the right scope for a given piece of state
+
+The practical skill this section is building toward: before writing a line of code that stores something, ask which of these four scopes it actually belongs to. State kept more broadly scoped than it needs to be (a value that's really local, shoved into shared application state "just in case") creates unnecessary coupling and unpredictability; state kept more narrowly scoped than it needs to be (local state that another part of the application actually needs, worked around with awkward prop-passing or duplicated copies that can drift out of sync) creates its own, different maintenance headache. Getting this right consistently is one of the most valuable, transferable skills separating experienced engineers from people who are still writing individually correct functions without yet stepping back to see how state should actually flow through a whole system.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="state-in-real-applications-q1"
+    question="What distinguishes application state from local state?"
+    options={[
+      "Application state only exists in compiled languages",
+      "Application state is shared across multiple parts of a single running program, unlike local state, which is scoped to a single function or component and not needed elsewhere"
+      ,
+      "Local state can never change once set",
+      "Application state and local state are identical concepts",
+    ]}
+    answer={1}
+    explanation="Application state needs to be visible and coordinated across multiple parts of a program, unlike local state, which stays entirely contained within one function or component's own scope."
+  />
+  <Quiz
+    id="state-in-real-applications-q2"
+    question="What real shift does persistent state introduce compared to in-memory application state?"
+    options={[
+      "Persistent state disappears the instant the program restarts, just like local state",
+      "Persistent state needs to survive not just function calls and object lifetimes, but entire process restarts, crashes, and deployments — making bugs that corrupt it far more serious than bugs affecting in-memory state alone"
+      ,
+      "Persistent state cannot be stored in a database",
+      "Persistent state is always faster to access than local state",
+    ]}
+    answer={1}
+    explanation="Because persistent state outlives the running process, corruption or bugs affecting it are much harder to simply fix by restarting, unlike transient in-memory application state."
+  />
+  <Quiz
+    id="state-in-real-applications-q3"
+    question="Why is distributed state a harder problem than application state managed within a single process?"
+    options={[
+      "Because distributed state never actually needs to be read by more than one process",
+      "Because multiple separate processes or machines have to agree on shared state without the benefit of shared memory, meaning in-process synchronization tools like locks can't be used directly across machines"
+      ,
+      "Because distributed systems cannot use databases at all",
+      "Because distributed state is identical to local state in every way",
+    ]}
+    answer={1}
+    explanation="Distributed state extends the coordination challenges of Chapter 11's concurrency across separate machines with no shared memory, requiring different strategies (a single source of truth, consensus protocols) than simple in-process locking."
+  />
+  <Quiz
+    id="state-in-real-applications-q4"
+    question="What practical skill does this section emphasize regarding where to store a given piece of state?"
+    options={[
+      "Always default to the broadest possible scope (global/application state) for every value",
+      "Deliberately choosing the narrowest scope that actually fits a given piece of state's real needs, since both over-scoping and under-scoping create their own distinct maintenance problems"
+      ,
+      "Never use application-level state under any circumstances",
+      "Only local state should ever be used in real applications",
+    ]}
+    answer={1}
+    explanation="The section frames choosing the right scope — not defaulting to the broadest or narrowest option — as the key skill, since mismatched scoping in either direction creates real coupling or duplication problems."
+  />
+</QuizSet>

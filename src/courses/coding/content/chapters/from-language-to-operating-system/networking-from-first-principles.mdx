@@ -1,0 +1,86 @@
+Nearly every program you write today talks to something else over a network — an API, a database, another service. This section builds networking up from the same first-principles approach the rest of this course has used throughout: what's actually happening underneath the `fetch()` call or the HTTP client library, layer by layer.
+
+### Sockets
+
+A **socket** is the operating-system-level abstraction (created through the system calls covered earlier in this chapter) representing one endpoint of a network connection — an address (an IP address and a port number) that data can be sent to or received from. Every higher-level networking API in every language — Python's `requests`, JavaScript's `fetch`, Java's `HttpClient` — is, at its foundation, built on top of sockets, the same way every file-handling API is built on top of the file-related system calls from earlier in this chapter.
+
+### TCP
+
+**TCP (Transmission Control Protocol)** is the reliable transport layer most application-level networking is built on: it guarantees that data sent arrives in order, without gaps, and retransmits anything lost along the way — turning the internet's fundamentally unreliable, packet-based physical reality into something applications can treat as a dependable, ordered stream of bytes (connecting directly back to the previous section's concept of a stream). Establishing a TCP connection involves a **three-way handshake** — a brief exchange confirming both sides are ready — before any actual application data flows, which is part of why establishing a *new* connection has measurable latency separate from the time it takes to actually send data once connected.
+
+### HTTP
+
+**HTTP (Hypertext Transfer Protocol)** is a request-response protocol built on top of TCP, and it's the protocol underneath the overwhelming majority of web and API traffic: a client sends a structured request (a method like `GET` or `POST`, a URL, headers, sometimes a body), and a server sends back a structured response (a status code, headers, usually a body). This is the paradigm covered in Chapter 7's declarative programming applied to communication — HTTP describes the *what* (fetch this resource, submit this data) while TCP and the layers below handle the *how* of actually getting bytes reliably from one machine to another.
+
+```python
+import requests
+response = requests.get("https://api.example.com/users/42")
+print(response.status_code, response.json())
+```
+
+Every line of this innocuous-looking code triggers, underneath: DNS resolution (translating `api.example.com` into an IP address), a TCP handshake to that address, an HTTP request formatted and sent over that connection, and finally a response parsed back out of the raw bytes that arrive.
+
+### Clients and servers
+
+Nearly all application networking follows a **client-server** model: a server listens on a socket bound to a known port, waiting for incoming connections, while clients initiate connections to that known address to make requests. This asymmetry is fundamental — a server is passively waiting and generally handles many simultaneous client connections (directly connecting to Chapter 11's concurrency material: a real server needs to handle potentially thousands of simultaneous client sockets concurrently, exactly the kind of workload async programming and event loops, or a language's threading model, are built to manage efficiently), while a typical client initiates one connection at a time for its own specific request.
+
+### Bringing it together
+
+Every layer covered in this section stacks on the one below: sockets provide raw endpoints, TCP provides reliable ordered delivery over those endpoints, HTTP provides a structured request-response protocol on top of TCP, and the client-server model describes how programs actually use all of that in practice. Understanding this stack is exactly what turns "the network request timed out" or "connection refused" from a mysterious failure into a diagnosable one — a "connection refused" means nothing was listening on that socket at all; a slow response after a successful connection points somewhere entirely different, in the application layer rather than the transport layer underneath it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="networking-from-first-principles-q1"
+    question="What is a socket?"
+    options={[
+      "A synonym for an HTTP request",
+      "The operating-system-level abstraction representing one endpoint of a network connection, identified by an address and port, that every higher-level networking API is ultimately built on top of"
+      ,
+      "A file format for storing images",
+      "A type of database query",
+    ]}
+    answer={1}
+    explanation="Sockets are the foundational OS-provided abstraction for network communication, created via system calls, underneath every higher-level networking library or API a language provides."
+  />
+  <Quiz
+    id="networking-from-first-principles-q2"
+    question="What guarantee does TCP provide that makes it suitable as the foundation for reliable application networking?"
+    options={[
+      "TCP guarantees data will never be delayed under any circumstances",
+      "TCP guarantees data sent arrives in order, without gaps, retransmitting anything lost, turning the internet's unreliable packet-based reality into a dependable, ordered stream of bytes"
+      ,
+      "TCP eliminates the need for any network hardware",
+      "TCP only works for encrypted connections",
+    ]}
+    answer={1}
+    explanation="TCP's reliability guarantees — ordered, complete delivery with retransmission of lost data — are what let applications treat network communication as a dependable stream, rather than dealing with raw, unreliable packet delivery directly."
+  />
+  <Quiz
+    id="networking-from-first-principles-q3"
+    question="What is the relationship between HTTP and TCP?"
+    options={[
+      "HTTP and TCP are unrelated, competing protocols",
+      "HTTP is a request-response protocol built on top of TCP — TCP handles reliable byte delivery, while HTTP structures that communication into requests and responses"
+      ,
+      "TCP is built on top of HTTP",
+      "HTTP replaces the need for sockets entirely",
+    ]}
+    answer={1}
+    explanation="HTTP operates at a higher layer than TCP, structuring the reliable byte stream TCP provides into a request-response protocol used for web and API traffic."
+  />
+  <Quiz
+    id="networking-from-first-principles-q4"
+    question="Why does a real-world server need to handle many simultaneous client connections concurrently, connecting back to Chapter 11's material?"
+    options={[
+      "Because servers can only ever handle one client connection in their entire lifetime",
+      "Because the client-server model is asymmetric — a server passively listens and typically serves many simultaneous clients — which is exactly the kind of workload async programming, event loops, and threading models are designed to manage efficiently"
+      ,
+      "Because TCP requires every connection to be established simultaneously",
+      "Because HTTP cannot be used with more than one client at a time",
+    ]}
+    answer={1}
+    explanation="A server's role in the client-server model means it typically needs to serve many clients at once, which directly motivates the concurrency techniques (async, threading, event loops) covered in the earlier chapter on concurrency."
+  />
+</QuizSet>

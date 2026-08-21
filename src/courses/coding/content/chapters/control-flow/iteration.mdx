@@ -1,0 +1,93 @@
+Most useful programs need to do something more than once — process every item in an order, retry a request until it succeeds, read a file line by line. **Iteration** is the family of control-flow constructs built for repetition, and while the surface syntax varies a lot, there are really only a few underlying shapes.
+
+### `for`
+
+A classic C-style `for` loop makes every part of repetition explicit: an initializer, a condition checked before each pass, and an update step run after each pass.
+
+```c
+for (int i = 0; i < 10; i++) {
+    printf("%d\n", i);
+}
+```
+
+This form is powerful because it's flexible — you control the starting point, the stopping condition, and the step size independently — but it's also more error-prone than it looks; off-by-one errors (looping one time too many or too few) are a direct consequence of getting these three parts slightly wrong.
+
+### `while`
+
+A `while` loop repeats a block as long as a condition stays true, without any built-in notion of a counter — useful when you don't know in advance how many iterations you'll need, only the condition that should stop you.
+
+```python
+while not queue.is_empty():
+    process(queue.pop())
+```
+
+A `do...while` variant (found in C, Java, JavaScript) checks the condition *after* the body runs instead of before, guaranteeing the loop body executes at least once — useful for things like "prompt the user, then keep prompting while the input is invalid."
+
+### Iterators and enumerators
+
+Modern languages mostly avoid manual counters by using **iterators** — objects that know how to produce a sequence of values one at a time, tracking their own position internally. A `for...of` loop in JavaScript, a `for` loop in Python, and Java's enhanced `for` loop are all walking an iterator (sometimes called an **enumerator** in .NET languages) rather than manually indexing into a collection — which eliminates an entire class of off-by-one and out-of-bounds bugs by construction.
+
+### `foreach` and `range`
+
+`foreach`-style loops (`for item in items` in Python, `for (const item of items)` in JavaScript, `foreach` in C#) are the most common way iteration appears in real code: walk a collection, binding each element to a name in turn, with no counter to manage at all. When you specifically need a sequence of numbers rather than a collection's elements, most languages provide a **range** construct — Python's `range(10)`, Rust's `0..10` — which produces a sequence of numbers lazily, without allocating them all in memory up front.
+
+### Higher-order iteration
+
+The most modern style of iteration doesn't use loop syntax at all — it passes a function to a method that does the looping internally: `.map()`, `.filter()`, `.forEach()` in JavaScript; list comprehensions in Python; `.iter().map()` chains in Rust. This is **higher-order iteration**, covered in full in Chapter 4's section on higher-order functions — it expresses "transform every element" or "keep only elements matching this condition" directly as intent, rather than as a manually written loop that happens to accomplish the same thing.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="iteration-q1"
+    question="What three components does a classic C-style for loop make explicit, which a while loop leaves for the programmer to manage manually?"
+    options={[
+      "The function name, its parameters, and its return type",
+      "An initializer, a condition checked each pass, and an update step run after each pass"
+      ,
+      "The variable's type, its scope, and its lifetime",
+      "The collection, the index, and the element type",
+    ]}
+    answer={1}
+    explanation="A for loop bundles the counter setup, the stopping condition, and the increment/decrement step into one construct, unlike a while loop which only expresses the condition."
+  />
+  <Quiz
+    id="iteration-q2"
+    question="What is the key difference between a while loop and a do...while loop?"
+    options={[
+      "do...while loops cannot contain a condition",
+      "do...while checks its condition after the body runs, guaranteeing at least one execution; while checks the condition before the body ever runs"
+      ,
+      "while loops are only available in Python",
+      "There is no functional difference between them",
+    ]}
+    answer={1}
+    explanation="Checking the condition after the body (do...while) guarantees the loop body runs at least once, which a standard while loop, checked before execution, does not guarantee."
+  />
+  <Quiz
+    id="iteration-q3"
+    question="Why do foreach-style loops (for item in items) eliminate an entire class of bugs compared to manually indexed loops?"
+    options={[
+      "They run faster on every hardware architecture",
+      "They walk an iterator that tracks its own position internally, removing the need for a manually managed counter and the off-by-one or out-of-bounds errors that come with it"
+      ,
+      "They can only be used with numbers",
+      "They automatically sort the collection before iterating",
+    ]}
+    answer={1}
+    explanation="Iterators encapsulate position-tracking internally, so there's no manually maintained index variable that could be set incorrectly, eliminating a common source of bugs."
+  />
+  <Quiz
+    id="iteration-q4"
+    question="What distinguishes higher-order iteration (like .map() or a list comprehension) from a traditional loop?"
+    options={[
+      "It cannot process collections at all",
+      "It passes a function describing the transformation or filter to a method that performs the looping internally, expressing intent rather than the mechanics of looping"
+      ,
+      "It is only available in statically typed languages",
+      "It always runs slower than a manual loop with no exceptions",
+    ]}
+    answer={1}
+    explanation="Higher-order iteration methods like map and filter take a function describing what to do with each element and handle the iteration mechanics internally, rather than requiring explicit loop syntax."
+  />
+</QuizSet>

@@ -1,0 +1,78 @@
+Once source code has become an AST, a language needs to decide how it actually turns into running behavior. There are three broad strategies — compilation, interpretation, and JIT (just-in-time) compilation — and most of the languages you'll use in practice pick some blend of the three rather than a pure form of any one.
+
+### Compilation: translate first, run later
+
+A **compiler** translates the entire program ahead of time into a lower-level form — often native machine code for a specific CPU architecture — and writes it out as a standalone artifact (an `.exe`, a Linux binary, a `.dll`). Later, running the program means the operating system loads that already-translated file and the CPU executes it directly, with no translation step in between. C, C++, Rust, and Go all work this way. The upside is speed: all the analysis and translation work happened once, before anyone ran the program, so execution has no per-run translation overhead. The downside is a build step — you can't just edit a file and run it; you have to recompile first, and the resulting binary is tied to a specific operating system and CPU architecture.
+
+### Interpretation: translate as you go
+
+An **interpreter** skips producing a standalone translated artifact. Instead, it walks the AST (or a simplified form of it) directly, executing each node as it reaches it — evaluate this expression, execute this statement, then move to the next one. Classic Python and Ruby scripts, and shell scripts, work this way: there's no separate compiled program to distribute, just the source and an interpreter that reads it live. The upside is immediacy — edit and run, no build step. The downside is that translation work (deciding what an expression means) happens over and over, every time that code runs, which is inherently slower than code that was already translated once.
+
+### JIT compilation: the middle path
+
+**Just-in-time (JIT) compilation** starts a program running through an interpreter or a fast, low-effort compiler, then watches which parts of the code run frequently — "hot" functions and loops — and compiles *those specific parts* into optimized native machine code while the program is still running, swapping the fast version in for future calls. JavaScript engines (V8, SpiderMonkey), the JVM, and .NET's CLR all do this. It gets much of interpretation's flexibility (no separate build-and-distribute step for the developer, in JavaScript's case) combined with much of compiled code's speed for the parts of a program that actually matter for performance — because most programs spend the overwhelming majority of their time in a small fraction of their code.
+
+### Bytecode as a stepping stone
+
+Many "interpreted" or JIT-compiled languages don't actually interpret raw source text directly. They first compile it to **bytecode** — a compact, low-level instruction set that isn't the source language anymore but also isn't real machine code. Python compiles to `.pyc` bytecode before its interpreter runs it; Java compiles to `.class` bytecode that the JVM either interprets or JIT-compiles; C# compiles to CIL that the CLR handles the same way. Bytecode exists because it's much faster to execute (or JIT-compile) than raw source text, while staying portable across CPU architectures in a way native machine code isn't.
+
+### Why this distinction actually matters
+
+None of this is academic trivia — it explains real, observable behavior. It's why a Go binary just runs with no installed runtime required, while a Python script needs a Python interpreter present on the machine. It's why a long-running Node.js server tends to speed up after its first few seconds, once V8's JIT has identified and optimized its hot paths, while a short-lived script never gets that benefit. And it's why "compiled vs. interpreted" is really a spectrum, not a binary choice — most modern languages sit somewhere in the middle, and Chapter 10 returns to this with a full pass across specific languages.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="compilation-interpretation-and-jit-compilation-q1"
+    question="What is the fundamental difference between compilation and interpretation?"
+    options={[
+      "Compilation only works for small programs",
+      "Compilation translates the whole program ahead of time into a standalone artifact; interpretation translates and executes code directly, without producing that separate artifact"
+      ,
+      "Interpretation always produces faster programs than compilation",
+      "There is no real difference between them",
+    ]}
+    answer={1}
+    explanation="Compilation front-loads translation work into a build step that produces a runnable artifact; interpretation does translation work live, each time the code runs."
+  />
+  <Quiz
+    id="compilation-interpretation-and-jit-compilation-q2"
+    question="What does JIT (just-in-time) compilation do that distinguishes it from both pure compilation and pure interpretation?"
+    options={[
+      "It compiles the entire program before any execution begins, exactly like ahead-of-time compilation",
+      "It starts running code through an interpreter or fast compiler, then compiles frequently executed ('hot') parts to optimized native code while the program is still running"
+      ,
+      "It only works for languages with no functions",
+      "It removes the need for any parsing step",
+    ]}
+    answer={1}
+    explanation="JIT compilation identifies hot code paths during execution and compiles just those to native code on the fly, blending interpretation's flexibility with compiled code's speed where it matters most."
+  />
+  <Quiz
+    id="compilation-interpretation-and-jit-compilation-q3"
+    question="Why do languages like Python and Java compile source code to bytecode rather than interpreting the raw source text directly?"
+    options={[
+      "Bytecode is required by law for all programming languages",
+      "Bytecode is much faster to execute or JIT-compile than raw source text, while remaining portable across CPU architectures unlike native machine code"
+      ,
+      "Bytecode eliminates the need for a runtime entirely",
+      "Bytecode is identical to native machine code",
+    ]}
+    answer={1}
+    explanation="Bytecode is a compact intermediate form — faster to process than raw text, but still architecture-independent, unlike compiled native code."
+  />
+  <Quiz
+    id="compilation-interpretation-and-jit-compilation-q4"
+    question="Why might a long-running Node.js server get noticeably faster a few seconds after starting up?"
+    options={[
+      "Because the server restarts automatically",
+      "Because V8's JIT compiler has had time to identify hot code paths and compile them into optimized native code"
+      ,
+      "Because JavaScript switches to a different programming language at runtime",
+      "Because interpreted code always speeds up over time regardless of the engine",
+    ]}
+    answer={1}
+    explanation="JIT compilers need to observe which code actually runs frequently before they optimize it, so performance often improves once those hot paths have been identified and compiled."
+  />
+</QuizSet>

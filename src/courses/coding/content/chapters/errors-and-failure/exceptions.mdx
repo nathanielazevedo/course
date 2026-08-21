@@ -1,0 +1,97 @@
+Once a runtime error happens, a language needs a way to signal it and let some part of the program respond — deciding whether to recover, log it, or give up entirely. **Exceptions** are the mechanism most mainstream languages use for this, and they work by interrupting normal control flow and unwinding the call stack until something is prepared to handle the problem.
+
+### `throw` and `try`
+
+Code that detects a problem it can't itself resolve **throws** (or **raises**) an exception — a value, usually of a special error type, that signals what went wrong. Code that anticipates a problem wraps the risky operation in a `try` block, which lets it attempt the operation while being ready to respond if it fails:
+
+```python
+try:
+    result = 10 / user_input
+except ZeroDivisionError:
+    print("cannot divide by zero")
+```
+
+### `catch`
+
+A `catch` block (called `except` in Python) specifies what to do if an exception of a matching type occurs inside the corresponding `try` block. This is the actual recovery logic — logging the error, retrying, falling back to a default value, or re-throwing a different, more meaningful exception for calling code higher up to handle instead.
+
+### `finally`
+
+A `finally` block runs unconditionally after the `try`/`catch`, whether an exception was thrown or not — the standard place to put cleanup code (closing a file, releasing a lock, disconnecting from a database) that absolutely must run regardless of whether the operation succeeded:
+
+```java
+FileReader reader = null;
+try {
+    reader = new FileReader("data.txt");
+    process(reader);
+} catch (IOException e) {
+    log.error("failed to read file", e);
+} finally {
+    if (reader != null) reader.close();  // always runs
+}
+```
+
+### Exception propagation
+
+If a `try` block doesn't catch the specific exception that occurs (or if there's no `try` at all around the point of failure), the exception **propagates**: it interrupts the current function immediately, unwinds up to whoever called it, and checks whether *that* code has a matching `catch` — continuing up the call stack (Chapter 5) until either something catches it, or it reaches the very top of the program uncaught, which typically crashes the program and prints a **stack trace**: a record of exactly which functions were active, in what order, at the moment the exception was thrown. This is precisely why a stack trace is so useful for debugging (Chapter 14 covers this directly) — it's a map of the call stack at the exact instant things went wrong.
+
+### The cost of exceptions
+
+Exceptions are convenient — they let error-handling code live far away from where an error actually occurs, without every intermediate function needing to explicitly check for and pass along a failure — but that convenience has a real cost: a function's signature alone doesn't tell you what exceptions it might throw (unless the language enforces this, as Java's checked exceptions attempt to), which makes it easy to forget an error case exists at all until it happens in production. This exact tradeoff — implicit, convenient exceptions versus explicit, visible error handling — is what the next section, on errors as values, takes a completely different position on.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="exceptions-q1"
+    question="What is the purpose of a finally block?"
+    options={[
+      "To catch a different type of exception than the try block",
+      "To run cleanup code unconditionally after a try/catch, regardless of whether an exception was thrown, such as closing a file or releasing a lock"
+      ,
+      "To prevent any exceptions from ever being thrown",
+      "To replace the need for a try block entirely",
+    ]}
+    answer={1}
+    explanation="finally guarantees its code runs whether the try block succeeded or an exception was caught, making it the standard place for cleanup that must happen either way."
+  />
+  <Quiz
+    id="exceptions-q2"
+    question="What happens when an exception isn't caught by the try block where it occurred?"
+    options={[
+      "The program silently ignores it and continues as if nothing happened",
+      "It propagates up the call stack, checking each calling function in turn for a matching catch, until either something handles it or it reaches the top and crashes the program"
+      ,
+      "It automatically converts itself into a compile-time error",
+      "The exception disappears and no error is ever reported",
+    ]}
+    answer={1}
+    explanation="Uncaught exceptions unwind through the call stack, giving each calling frame a chance to catch them, and only crash the program if nothing along that entire chain handles them."
+  />
+  <Quiz
+    id="exceptions-q3"
+    question="What is a stack trace, and why is it useful for debugging?"
+    options={[
+      "A list of every variable ever created during the program's execution",
+      "A record of exactly which functions were active, in what order, at the moment an exception was thrown, mapping the call stack at that exact instant"
+      ,
+      "A performance measurement of how long the program took to run",
+      "A list of all files the program has access to",
+    ]}
+    answer={1}
+    explanation="A stack trace captures the nested sequence of calls leading up to the failure, giving a debugger a precise map of exactly how execution reached the point where the exception was thrown."
+  />
+  <Quiz
+    id="exceptions-q4"
+    question="What is the tradeoff this section identifies with using exceptions for error handling?"
+    options={[
+      "Exceptions are always slower than every alternative with no other downside",
+      "Exceptions let error-handling code live away from the point of failure without every intermediate function needing to pass along a failure explicitly, but a function's signature usually doesn't reveal what exceptions it might throw"
+      ,
+      "Exceptions can only be used in dynamically typed languages",
+      "Exceptions eliminate the need for a call stack",
+    ]}
+    answer={1}
+    explanation="The convenience of exceptions bubbling up automatically comes at the cost of visibility — unless a language enforces declaring possible exceptions, it's easy for a caller to be unaware an error case even exists."
+  />
+</QuizSet>

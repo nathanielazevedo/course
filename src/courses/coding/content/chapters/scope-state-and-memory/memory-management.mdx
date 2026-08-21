@@ -1,0 +1,94 @@
+Every piece of heap data allocated somewhere needs to eventually be freed, or a program's memory use grows without bound. How that freeing happens — by hand, automatically, or through compile-time rules — is one of the deepest and most consequential differences between programming languages, touching performance, safety, and how a language feels to write in.
+
+### Manual memory management
+
+In C, freeing heap memory is entirely the programmer's job: every `malloc` needs a matching `free`, called exactly once, at exactly the right time — not before every reference to that memory is done using it, and not never. Get this wrong in one direction (freeing too early, or freeing twice) and you get **use-after-free** or **double-free** bugs — some of the most dangerous, hardest-to-diagnose bugs in software, and a leading source of real-world security vulnerabilities. Get it wrong in the other direction (never freeing memory that's no longer needed) and you get a **memory leak** — the program's memory use grows slowly over time until it runs out.
+
+```c
+int *data = malloc(sizeof(int) * 100);
+// ... use data ...
+free(data);   // the programmer's responsibility, every single time
+```
+
+### Garbage collection
+
+**Garbage collection (GC)** automates this: the runtime periodically scans heap memory, determines which objects are no longer reachable from any active reference (Chapter 5's previous section), and frees them automatically. Java, Python, JavaScript, C#, and Go all use garbage collection, in various specific implementations — generational collectors, tracing collectors, and others — but the shared idea is the same: the programmer never calls `free`, and use-after-free and double-free bugs become structurally impossible, because the collector won't reclaim memory that's still reachable. The cost is a real one: garbage collection takes CPU time and can introduce unpredictable pauses while it runs, which matters for latency-sensitive software even if it rarely matters for typical application code.
+
+### Reference counting
+
+**Reference counting** is a specific, simpler GC strategy: each heap object tracks how many references currently point at it, incrementing on each new reference and decrementing when one goes away; when the count hits zero, the object is freed immediately. Python uses this as its primary mechanism (supplemented by a separate cycle-detecting collector for reference cycles, which counting alone can't resolve — two objects referencing each other keep each other's count above zero forever otherwise). Reference counting's advantage is that memory is freed the instant it becomes unreachable, rather than waiting for a periodic collection pass.
+
+### Ownership
+
+Rust takes a third approach entirely: **ownership**. Every value has exactly one owner (a variable), and when that owner goes out of scope, the value is freed — deterministically, at compile time, with no runtime garbage collector needed at all. Passing a value to a function, or assigning it to another variable, **moves** ownership by default; the original owner can no longer use it, which the compiler enforces and rejects at compile time if violated.
+
+```rust
+let data = vec![1, 2, 3];
+let moved = data;          // ownership moves to `moved`
+// println!("{:?}", data); // compile error: data was moved
+```
+
+### Borrowing
+
+Because moving ownership every time would be unworkable, Rust also allows **borrowing** — temporarily referencing a value without taking ownership of it, via `&` (immutable borrow) or `&mut` (mutable borrow). The compiler's **borrow checker** enforces a strict rule at compile time: any number of immutable borrows, or exactly one mutable borrow, but never both at once — a rule that, enforced statically, eliminates data races and use-after-free bugs entirely, without needing a garbage collector to catch them at runtime.
+
+### Rust's approach in context
+
+Rust's bet is that most of what garbage collection buys you (memory safety) can be achieved instead through compile-time rules that cost nothing at runtime — at the price of a steeper learning curve and a compiler that rejects some valid-looking code the ownership rules can't yet prove is safe. It's a genuinely different point on the same spectrum as manual management and garbage collection: all three are answers to the identical underlying question — who decides when heap memory is freed, and how do we know it's safe to free it?
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="memory-management-q1"
+    question="What is the fundamental risk of manual memory management, as in C?"
+    options={[
+      "It makes programs run more slowly than any automated approach",
+      "The programmer is responsible for freeing every allocation exactly once at the right time, and mistakes cause use-after-free bugs, double-frees, or memory leaks"
+      ,
+      "It prevents heap allocation entirely",
+      "It requires a garbage collector to be installed separately",
+    ]}
+    answer={1}
+    explanation="Manual management puts the correctness burden entirely on the programmer — freeing too early, too late, or twice all cause real, often severe bugs."
+  />
+  <Quiz
+    id="memory-management-q2"
+    question="How does garbage collection eliminate use-after-free bugs?"
+    options={[
+      "It doesn't — GC languages are equally susceptible to use-after-free bugs",
+      "The collector only frees memory once it determines nothing can still reach it, so memory that's still referenced is never reclaimed while it's in use"
+      ,
+      "It prevents any object from ever being freed",
+      "It requires the programmer to manually mark objects as safe to free",
+    ]}
+    answer={1}
+    explanation="Because a GC only reclaims memory it has determined is unreachable, code can never end up holding a reference to memory the collector has already freed."
+  />
+  <Quiz
+    id="memory-management-q3"
+    question="Why does Python's reference counting alone fail to reclaim memory involved in a reference cycle (two objects referencing each other)?"
+    options={[
+      "Reference cycles are impossible in Python",
+      "Each object in the cycle keeps the other's reference count above zero forever, since they reference each other, which is why Python supplements counting with a separate cycle-detecting collector"
+      ,
+      "Reference counting only works on primitive types",
+      "Cycles are automatically converted to a single object",
+    ]}
+    answer={1}
+    explanation="Two mutually referencing objects never reach a reference count of zero through counting alone, since each is still 'referenced' by the other — a separate cycle detector is needed to catch this case."
+  />
+  <Quiz
+    id="memory-management-q4"
+    question="What does Rust's ownership and borrowing system achieve without using a garbage collector at runtime?"
+    options={[
+      "It disables heap allocation entirely",
+      "It enforces, at compile time, rules about who owns a value and how it can be referenced (borrowed), eliminating use-after-free bugs and data races with zero runtime GC overhead"
+      ,
+      "It requires the programmer to manually call free() just like C",
+      "It only works for programs with no functions",
+    ]}
+    answer={1}
+    explanation="Rust's borrow checker statically enforces ownership and borrowing rules at compile time, catching memory-safety violations before the program ever runs, without needing a garbage collector."
+  />
+</QuizSet>

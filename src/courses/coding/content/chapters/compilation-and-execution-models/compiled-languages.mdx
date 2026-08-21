@@ -1,0 +1,78 @@
+Chapter 1 introduced compilation, interpretation, and JIT compilation at a conceptual level. This chapter puts real languages against each model in detail, starting with the ahead-of-time compiled languages that translate source directly to native machine code before anyone ever runs the program.
+
+### C
+
+C compiles directly to native machine code for a specific target architecture, with essentially no runtime beyond what's needed to set up the stack and call `main`. This directness is the entire point of the language: C code, once compiled, runs about as close to "the CPU executing exactly what you wrote" as a language gets, which is exactly why operating system kernels, embedded firmware, and other performance- and control-critical software have relied on it for decades.
+
+### C++
+
+C++ compiles the same way as C — directly to native code — while adding a much larger language on top: classes, templates, exceptions, and extensive standard library facilities C never had. Its compilation model shares C's core philosophy (no mandatory runtime, direct translation to machine code) while its **zero-cost abstractions** principle — a guiding design goal, not an absolute guarantee — aims to let higher-level features like classes and generics compile down to code no less efficient than the equivalent hand-written low-level C, so choosing a higher-level abstraction shouldn't cost you performance you'd get from writing the low-level version by hand.
+
+### Rust
+
+Rust also compiles directly to native machine code with no garbage collector and no separate runtime, using the ownership and borrowing system covered in Chapter 5 to achieve C++-level performance while eliminating entire categories of memory bugs at compile time instead of relying on programmer discipline alone. Its compiler, `rustc`, is notably slower than C's or C++'s for a given amount of code, largely because it's doing significantly more static analysis (the borrow checker, extensive type inference) before it ever gets to generating machine code — a direct tradeoff of more compile-time work in exchange for stronger safety guarantees with zero runtime cost.
+
+### Go
+
+Go compiles to native machine code too, but takes a different position on runtime: unlike C, C++, and Rust, Go bundles a small, mandatory runtime into every compiled binary, including a garbage collector (Chapter 5) and a lightweight cooperative scheduler for goroutines (Chapter 11). This makes a compiled Go binary somewhat larger than an equivalent C binary, in exchange for memory safety and built-in concurrency support without needing anything like Rust's borrow checker or C's fully manual memory management.
+
+### The shared payoff of ahead-of-time compilation
+
+All four languages share the core payoff of compiling ahead of time: a single, self-contained (or nearly self-contained) binary that runs without needing a separately installed interpreter or virtual machine on the target machine, with all the translation work — parsing, type checking, optimization, code generation — done once, at build time, rather than repeated on every run. This is precisely why "compile once, distribute a binary" remains the standard deployment model for command-line tools, operating system components, and performance-sensitive services, in contrast to the interpreted and virtual-machine-based languages covered in the next two sections.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="compiled-languages-q1"
+    question="What is the core shared characteristic of C, C++, Rust, and Go's compilation model?"
+    options={[
+      "They all require a virtual machine to be installed on the target system",
+      "They all compile ahead of time directly to native machine code, producing a binary that can run without a separately installed interpreter"
+      ,
+      "They can only run inside a web browser",
+      "None of them can produce a standalone executable",
+    ]}
+    answer={1}
+    explanation="All four languages translate source code to native machine code before distribution, resulting in a binary that doesn't depend on an installed interpreter or VM to run."
+  />
+  <Quiz
+    id="compiled-languages-q2"
+    question="What does C++'s 'zero-cost abstractions' principle aim for?"
+    options={[
+      "That every C++ program runs instantly regardless of complexity",
+      "That higher-level features like classes and templates compile down to code no less efficient than the equivalent hand-written low-level code, so choosing the abstraction doesn't cost performance"
+      ,
+      "That C++ code never needs to be compiled at all",
+      "That all C++ programs are memory-safe by default",
+    ]}
+    answer={1}
+    explanation="Zero-cost abstractions means using a higher-level language feature shouldn't impose runtime overhead beyond what writing the equivalent lower-level code by hand would require."
+  />
+  <Quiz
+    id="compiled-languages-q3"
+    question="Why is Rust's compiler generally slower than C's for a comparable amount of code?"
+    options={[
+      "Because Rust code is always much longer than equivalent C code",
+      "Because rustc performs significantly more static analysis before generating machine code, including the borrow checker's compile-time memory-safety verification"
+      ,
+      "Because Rust does not actually compile to machine code",
+      "Because Rust requires an internet connection to compile",
+    ]}
+    answer={1}
+    explanation="Rust trades more upfront compile-time analysis (ownership/borrow checking, extensive inference) for strong safety guarantees achieved without any runtime cost."
+  />
+  <Quiz
+    id="compiled-languages-q4"
+    question="How does Go's compilation model differ from C, C++, and Rust's?"
+    options={[
+      "Go does not compile to native machine code at all",
+      "Go bundles a small mandatory runtime — including a garbage collector and a goroutine scheduler — into every compiled binary, unlike C, C++, and Rust, which have no such runtime"
+      ,
+      "Go requires an externally installed virtual machine, like Java does",
+      "Go cannot produce standalone executables",
+    ]}
+    answer={1}
+    explanation="Unlike the other three, Go includes runtime services (GC, concurrency scheduling) directly in its compiled output, trading a somewhat larger binary for memory safety and built-in concurrency without manual management or a borrow checker."
+  />
+</QuizSet>

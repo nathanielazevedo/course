@@ -1,0 +1,95 @@
+Everything the stack can't do well — hold data of unknown size, keep data alive past the function that created it, share one piece of data between multiple parts of a program — is exactly what **the heap** exists for. It's slower and more complex to manage than the stack, and that complexity is the direct cause of most of the memory-related bugs and language-design decisions covered in the rest of this chapter.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 200" width="100%" height="auto" role="img" aria-label="A stack frame holding a variable named data, which is a reference (arrow) pointing to a separate block of memory in the heap holding the actual list contents." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="30" y="40" width="180" height="120" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="120" y="30" fontSize="12" fontWeight="600" textAnchor="middle">STACK FRAME</text>
+    <rect x="55" y="80" width="130" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="120" y="104" fontSize="12" textAnchor="middle">data → 0x7F2A</text>
+    <text x="330" y="103" fontSize="18" textAnchor="middle">──────→</text>
+    <rect x="430" y="40" width="180" height="120" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="520" y="30" fontSize="12" fontWeight="600" textAnchor="middle">HEAP</text>
+    <rect x="455" y="80" width="130" height="40" fill="#fff" stroke="#000" strokeWidth="1.5" strokeDasharray="3 2" />
+    <text x="520" y="104" fontSize="11" textAnchor="middle">[1, 2, 3, 4, ...]</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    A local variable holds a stack-allocated reference; the data it points to lives separately on the heap.
+  </figcaption>
+</figure>
+
+### Dynamic allocation
+
+**Dynamic allocation** is requesting a block of heap memory of a specific size *while the program runs*, rather than having a fixed size baked in at compile time. When you write `new User(...)` in Java, `Box::new(value)` in Rust, or simply create a list in Python that grows as you append to it, the runtime is asking the heap allocator for a chunk of memory sized to fit that data — an operation that, unlike stack allocation, requires the allocator to actually search for and track available space, which is part of why heap allocation is measurably slower than stack allocation.
+
+### Objects live here
+
+As Chapter 2 established, composite types — objects, most collections — are typically stored on the heap and referred to through a reference held on the stack (or inside another heap object). This is exactly why a variable holding an object behaves the way it does when passed to a function or assigned to another variable (Chapter 4): the reference — a stack-sized, fixed-size pointer — is what's copied around, while the actual object data stays put on the heap, unaffected by how many references point at it.
+
+### References, revisited
+
+A **reference** into heap memory is what lets data outlive the function that created it. A stack frame's local variable disappears when the function returns, but if that local variable was a reference to heap data, and something else (a returned value, a variable in the caller, an object field) still holds a copy of that same reference, the heap data itself is untouched — it doesn't care that the original stack frame is gone, because it was never stored there in the first place.
+
+### Shared data
+
+Because a heap object can be referenced from more than one place at once — two variables, two objects, two threads — heap data is inherently **shared** in a way stack data structurally can't be. This is the source of both the heap's power (it's how two parts of a program can genuinely collaborate on the same data) and one of its sharpest risks: if one part of the program mutates shared heap data while another part is still relying on its old state, unexpected bugs follow — a topic Chapter 11's section on concurrency returns to directly, since it gets significantly harder once multiple threads touch the same heap data at once.
+
+### The cost of the heap's flexibility
+
+Because heap memory isn't automatically reclaimed the way a stack frame is (popping a frame is instantaneous and complete; heap data has no equivalent "the function that made this is done" signal), something has to decide when a piece of heap data is no longer needed and can be freed. That "something" — manual freeing, garbage collection, or ownership rules — is the entire subject of the next two sections, and it's arguably the single biggest philosophical difference between programming languages covered anywhere in this course.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-heap-q1"
+    question="What kind of data typically needs to live on the heap rather than the stack?"
+    options={[
+      "Only boolean values",
+      "Data of unknown or dynamically changing size, data that must outlive the function that created it, or data shared between multiple parts of a program"
+      ,
+      "Only data used exactly once",
+      "All data in every language lives exclusively on the heap",
+    ]}
+    answer={1}
+    explanation="The heap accommodates the cases the stack's fixed-size, strictly-nested, function-scoped model can't handle — dynamic sizing, longer lifetimes, and sharing across references."
+  />
+  <Quiz
+    id="the-heap-q2"
+    question="Why is dynamic (heap) allocation typically slower than stack allocation?"
+    options={[
+      "Heap memory is physically located farther from the CPU in every computer",
+      "Heap allocation requires the allocator to search for and track available space of the right size, unlike stack allocation, which is just moving a pointer"
+      ,
+      "Heap memory cannot be accessed by the CPU directly",
+      "There is no actual performance difference between them",
+    ]}
+    answer={1}
+    explanation="Unlike the stack's simple pointer-bump allocation, the heap allocator must find and manage a suitably sized free block, which is inherently more work."
+  />
+  <Quiz
+    id="the-heap-q3"
+    question="How can heap-allocated data outlive the stack frame of the function that created it?"
+    options={[
+      "It cannot — all data disappears when its creating function returns",
+      "As long as a reference to the heap data is still held somewhere — a returned value, a variable in the caller, another object's field — the heap data persists independently of the original stack frame"
+      ,
+      "Heap data is copied onto every stack frame automatically",
+      "Only global variables can reference heap data",
+    ]}
+    answer={1}
+    explanation="Heap data isn't tied to any particular stack frame's lifetime; it persists as long as at least one reference to it exists, regardless of whether the original creating function has returned."
+  />
+  <Quiz
+    id="the-heap-q4"
+    question="What fundamental problem does the heap create that the stack doesn't have, setting up the next two sections?"
+    options={[
+      "The heap cannot store objects at all",
+      "Because heap memory isn't automatically reclaimed the way a popped stack frame is, something must decide when heap data is no longer needed and can be freed"
+      ,
+      "The heap is only available in interpreted languages",
+      "Heap memory is always shared between every running program on a machine",
+    ]}
+    answer={1}
+    explanation="Unlike the stack's automatic, instantaneous cleanup on function return, heap memory needs an explicit mechanism — manual freeing, garbage collection, or ownership — to determine when it's safe to reclaim."
+  />
+</QuizSet>

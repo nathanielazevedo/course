@@ -1,0 +1,81 @@
+Every meaningful piece of logic in a program eventually gets wrapped in a **function** — a named, reusable block of code that takes input, does something with it, and (usually) produces output. Functions are the primary tool every language gives you for managing complexity: instead of one enormous sequence of statements, a program becomes a collection of small, named, individually understandable pieces that call each other.
+
+### Input
+
+A function's **input** is the data it receives to work with, expressed as **parameters** — placeholders in the function's definition that get filled in with actual values (**arguments**) each time it's called. A function with no parameters still has an implicit kind of input: whatever state it reads from outside itself, covered below under side effects.
+
+```python
+def discount_price(price, percent_off):
+    return price * (1 - percent_off / 100)
+```
+
+Here `price` and `percent_off` are parameters; calling `discount_price(50, 20)` supplies `50` and `20` as arguments.
+
+### Transformation
+
+The **transformation** is the actual logic — the sequence of operations the function performs on its input to arrive at a result. This is the part most people picture when they think of "the function," but input and output matter just as much, because they define the *contract* the function makes with whoever calls it: give me this, I'll give you back that.
+
+### Output
+
+A function's **output** is the value it hands back via `return` (Chapter 3 covers `return` as a control-flow construct; this is the same mechanism, viewed from the function-design side). Not every function has to return something meaningful — a function whose entire purpose is to cause a side effect (printing, writing a file, sending a network request) might return nothing at all, which most languages represent with a specific "no value" type (`None` in Python, `void` in Java and C, `()` in Rust).
+
+### Side effects
+
+A **side effect** is any change a function makes to something outside its own local scope — modifying a global variable, writing to a file, printing to the console, mutating an object passed in as an argument. A function with no side effects, whose output depends purely on its input and nothing else, is called a **pure function** — call it twice with the same arguments and you get the same result every time, with no observable impact on anything outside it. Pure functions are dramatically easier to reason about, test, and run safely in parallel, which is why Chapter 7's section on functional programming builds an entire paradigm around maximizing them. Most real-world code is a mix: some functions are pure logic, others exist specifically to cause side effects, and being deliberate about which is which is one of the most valuable habits a programmer can build.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-a-function-q1"
+    question="What are the three things every function conceptually involves, according to this section?"
+    options={[
+      "A class, an object, and an interface",
+      "Input (parameters/arguments), a transformation (the logic), and output (a return value)"
+      ,
+      "A file, a variable, and a loop",
+      "A compiler, a linker, and a runtime",
+    ]}
+    answer={1}
+    explanation="A function takes input via parameters, performs some transformation on it, and typically produces output — the fundamental contract a function makes with its caller."
+  />
+  <Quiz
+    id="what-is-a-function-q2"
+    question="What is the difference between a parameter and an argument?"
+    options={[
+      "They are exactly the same thing with two different names",
+      "A parameter is the placeholder defined in the function's signature; an argument is the actual value supplied when the function is called"
+      ,
+      "Arguments are only used in statically typed languages",
+      "Parameters can only be numbers",
+    ]}
+    answer={1}
+    explanation="The function definition declares parameters as placeholders; calling the function fills those placeholders with concrete argument values."
+  />
+  <Quiz
+    id="what-is-a-function-q3"
+    question="What is a side effect, in the context of a function?"
+    options={[
+      "Any value a function returns to its caller",
+      "Any change a function makes to something outside its own local scope, such as a global variable, a file, or an object passed in as an argument"
+      ,
+      "A syntax error that occurs when calling a function incorrectly",
+      "The time it takes a function to execute",
+    ]}
+    answer={1}
+    explanation="Side effects are observable changes a function causes beyond simply computing and returning a value — modifying shared state, writing output, and similar actions."
+  />
+  <Quiz
+    id="what-is-a-function-q4"
+    question="What makes a function 'pure,' and why does this section say pure functions are valuable?"
+    options={[
+      "A pure function is one that never has any parameters",
+      "A pure function has no side effects and its output depends only on its input, making it easier to reason about, test, and run safely in parallel"
+      ,
+      "A pure function is one that only works on strings",
+      "Pure functions are always faster than impure ones in every case",
+    ]}
+    answer={1}
+    explanation="Purity — no side effects, output determined entirely by input — is what makes a function predictable and safe to test or parallelize without worrying about hidden state."
+  />
+</QuizSet>

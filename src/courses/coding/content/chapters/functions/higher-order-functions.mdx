@@ -1,0 +1,107 @@
+Once a language treats functions as values (previous section), a natural next step follows: functions that take other functions as arguments, or return them as results. These are **higher-order functions**, and a small handful of them — `map`, `filter`, `reduce` — have become the standard vocabulary for working with collections across nearly every modern language.
+
+### `map`
+
+`map` applies a given function to every element of a collection, producing a new collection of the results, one-to-one:
+
+```python
+prices = [10, 20, 30]
+with_tax = list(map(lambda p: p * 1.08, prices))
+```
+```javascript
+const withTax = prices.map(p => p * 1.08);
+```
+
+This expresses "transform every element" directly, as a single call, rather than as a manually written loop that allocates an empty result list, appends to it each iteration, and returns it at the end — the loop version isn't wrong, it's just doing the same thing with more ceremony and more room for a mistake.
+
+### `filter`
+
+`filter` keeps only the elements of a collection that satisfy a given condition, producing a new, possibly-shorter collection:
+
+```python
+in_stock = list(filter(lambda item: item.quantity > 0, inventory))
+```
+```javascript
+const inStock = inventory.filter(item => item.quantity > 0);
+```
+
+Like `map`, this states intent directly — "keep the ones matching this" — instead of a loop that conditionally appends to an accumulator.
+
+### `reduce`
+
+`reduce` (also called `fold` in some languages) combines every element of a collection into a single accumulated result, applying a combining function repeatedly:
+
+```python
+from functools import reduce
+total = reduce(lambda acc, price: acc + price, prices, 0)
+```
+```javascript
+const total = prices.reduce((acc, price) => acc + price, 0);
+```
+
+`reduce` is the most general of the three — `map` and `filter` can both be implemented in terms of `reduce`, because "build up a running result by combining an accumulator with each element" is general enough to express nearly any collection-processing operation, though `map` and `filter` remain more readable for the specific, common cases they cover.
+
+### Function composition
+
+**Function composition** is building a new function by chaining two or more existing functions together, feeding the output of one directly into the input of the next: `compose(addTax, applyDiscount)` produces a single function equivalent to calling `applyDiscount` and then feeding its result into `addTax`. Some languages provide built-in composition operators (Haskell's `.`, functional libraries in JavaScript); others rely on manually chaining calls (`addTax(applyDiscount(price))`) or a method-chaining style (`prices.filter(...).map(...).reduce(...)`), which is functionally the same idea expressed without a dedicated compose operator.
+
+### Why this style has spread so widely
+
+`map`/`filter`/`reduce` and composition aren't just functional-programming trivia confined to Haskell — they've become mainstream vocabulary in Python, JavaScript, Java (streams), C# (LINQ), Rust (iterator adapters), and more, precisely because they let code state *what* transformation is happening rather than *how* to mechanically loop through it. This directly sets up Chapter 7's section on functional programming, which is really this idea — treating computation as composed transformations of data — taken to its fullest expression as a whole paradigm.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="higher-order-functions-q1"
+    question="What does map do to a collection?"
+    options={[
+      "It removes elements that don't match a condition",
+      "It applies a given function to every element, producing a new collection of the transformed results, one-to-one"
+      ,
+      "It combines every element into a single accumulated value",
+      "It sorts the collection in place",
+    ]}
+    answer={1}
+    explanation="map transforms each element independently and produces a new collection of equal length holding the results."
+  />
+  <Quiz
+    id="higher-order-functions-q2"
+    question="How does reduce (fold) differ from map and filter?"
+    options={[
+      "It cannot accept a function as an argument",
+      "It combines all elements of a collection into a single accumulated result by repeatedly applying a combining function, rather than producing a new collection of the same shape"
+      ,
+      "It is only available in statically typed languages",
+      "It is identical to map in every respect",
+    ]}
+    answer={1}
+    explanation="reduce collapses a collection down to one accumulated value, which is why map and filter can both be expressed in terms of it, even though they read more clearly on their own for their specific purposes."
+  />
+  <Quiz
+    id="higher-order-functions-q3"
+    question="What is function composition?"
+    options={[
+      "Writing multiple unrelated functions in the same file",
+      "Building a new function by chaining existing functions together, feeding the output of one directly into the input of the next"
+      ,
+      "A way to make a function accept unlimited arguments",
+      "A synonym for recursion",
+    ]}
+    answer={1}
+    explanation="Composition combines functions so that calling the composed function runs them in sequence, each one's output becoming the next one's input."
+  />
+  <Quiz
+    id="higher-order-functions-q4"
+    question="Why has the map/filter/reduce style spread well beyond purely functional languages into Python, JavaScript, Java, C#, and Rust?"
+    options={[
+      "Because it is required by modern hardware to run any program",
+      "Because it lets code state what transformation is happening rather than the mechanical details of how to loop through it, which improves clarity across many kinds of codebases"
+      ,
+      "Because loops were removed from these languages",
+      "Because it is the only way to iterate over a collection in these languages",
+    ]}
+    answer={1}
+    explanation="The appeal is expressive clarity — these operations describe intent directly, which is valuable regardless of whether a language is purely functional or multi-paradigm."
+  />
+</QuizSet>

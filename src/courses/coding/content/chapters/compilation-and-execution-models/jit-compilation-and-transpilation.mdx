@@ -1,0 +1,78 @@
+Two more translation strategies round out this chapter's tour: JIT compilation, which recovers much of native performance for VM-based and interpreted languages by compiling hot code while the program runs, and transpilation, which translates between two source languages rather than down toward machine code at all.
+
+### JIT compilation, in real systems
+
+Chapter 1 introduced JIT (just-in-time) compilation conceptually; here's how it actually operates in the languages that rely on it most. The JVM's JIT compiler (HotSpot, its default implementation, is even named for exactly this behavior) starts executing bytecode through an interpreter, tracks which methods are called frequently, and compiles those specific "hot" methods to optimized native machine code on the fly, replacing the interpreted version for all future calls. .NET's CLR does the same with CIL. Both can apply optimizations a purely ahead-of-time compiler often can't, because the JIT compiler has runtime information an AOT compiler never sees — the actual, observed shapes and types of data flowing through the code, not just what's theoretically possible according to the source.
+
+### JavaScript engines
+
+JavaScript's runtimes take JIT compilation further than most, out of necessity — JavaScript wasn't originally designed with performance as the top priority, and modern engines like V8 (Chrome, Node.js) compensate with genuinely sophisticated **multi-tier JIT** pipelines: code starts running through a fast, low-effort interpreter, gets progressively promoted to more aggressively optimized compiled versions as the engine gains confidence about which code paths are actually hot and what types actually flow through them, and can even **deoptimize** — falling back to a slower tier — if an assumption the optimizer made (like "this variable is always a number") turns out to be wrong later in execution. This adaptive, multi-stage strategy is a large part of why modern JavaScript performance can rival much more traditionally "fast" languages for many real workloads, despite the language's dynamic typing.
+
+### Runtime optimization in general
+
+The unifying idea behind JIT across every implementation is **runtime optimization**: using information only available while the program is actually running — which functions are actually called often, what types actually show up, which branches are actually taken — to make better decisions than any static, ahead-of-time analysis could make from source code alone. This is a genuine advantage over pure AOT compilation for certain workloads, at the acknowledged cost of some warm-up time before the JIT has gathered enough information to start optimizing effectively — a program's first few seconds (or the first few iterations of a loop) commonly run slower than its steady state, once the JIT has caught up.
+
+### TypeScript to JavaScript
+
+**Transpilation** is a related but distinct idea: translating source code from one language into another *source* language, at a similar level of abstraction, rather than compiling toward machine code or bytecode. TypeScript compiles ("transpiles") to plain JavaScript — adding static types, interfaces, and other compile-time-only features on top of JavaScript, then stripping all of that away entirely before the code actually runs, leaving ordinary JavaScript that any JavaScript engine (with its own separate JIT pipeline, as covered above) can execute exactly as if it had been written by hand.
+
+### Modern JavaScript tooling
+
+This same transpilation idea underlies a huge amount of modern web tooling: Babel transpiles newer JavaScript syntax down to older, more widely supported syntax so code written with the latest language features still runs on older browsers; JSX (React's HTML-like syntax embedded in JavaScript) transpiles to plain JavaScript function calls before ever reaching a browser. In every case, transpilation's defining trait is the same: the *output* is still source code in a real, directly executable language — just not the language the developer actually wrote — distinguishing it clearly from true compilation, whose output is bytecode or native machine code that isn't source code in any conventional sense at all.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="jit-compilation-and-transpilation-q1"
+    question="What advantage can a JIT compiler have over a purely ahead-of-time compiler?"
+    options={[
+      "JIT compilers never need to analyze the code at all",
+      "A JIT compiler has runtime information — the actual observed types and code paths — that an ahead-of-time compiler, working only from source code, never sees"
+      ,
+      "JIT compilers always produce smaller compiled binaries",
+      "AOT compilers cannot produce working programs",
+    ]}
+    answer={1}
+    explanation="Because JIT compilation happens while the program runs, it can base optimization decisions on real observed behavior — actual types and hot paths — rather than only what's theoretically possible from static source analysis."
+  />
+  <Quiz
+    id="jit-compilation-and-transpilation-q2"
+    question="What does 'deoptimization' mean in the context of a JavaScript engine's multi-tier JIT?"
+    options={[
+      "The engine permanently stops executing the program",
+      "The engine falls back to a slower execution tier when an assumption its optimizer made (such as a variable always being a number) turns out to be wrong"
+      ,
+      "The engine deletes the JIT-compiled code from memory permanently",
+      "Deoptimization only happens in ahead-of-time compiled languages",
+    ]}
+    answer={1}
+    explanation="If a runtime assumption the JIT relied on for optimization is later violated, the engine reverts to a less optimized (but still correct) execution path rather than producing wrong results."
+  />
+  <Quiz
+    id="jit-compilation-and-transpilation-q3"
+    question="What is the key difference between transpilation and true compilation to bytecode or machine code?"
+    options={[
+      "There is no real difference between the two",
+      "Transpilation's output is still source code in a real, directly executable language (just not the one the developer wrote), while compilation's output is bytecode or native machine code that isn't conventional source code at all"
+      ,
+      "Transpilation always produces native machine code",
+      "Compilation always produces JavaScript as its output",
+    ]}
+    answer={1}
+    explanation="Transpilation translates between languages at a similar level of abstraction (like TypeScript to JavaScript), producing readable source code, unlike compilation, whose output is a lower-level, non-source format."
+  />
+  <Quiz
+    id="jit-compilation-and-transpilation-q4"
+    question="Why might a program's first few seconds of execution run slower than its steady state under a JIT-compiled runtime?"
+    options={[
+      "Because the program is always broken during that time",
+      "Because the JIT compiler needs time to observe which code paths are actually hot and gather enough runtime information before it starts optimizing effectively — the acknowledged warm-up cost of JIT compilation"
+      ,
+      "Because ahead-of-time compilation always happens first, regardless of the language",
+      "Because the operating system blocks execution during startup",
+    ]}
+    answer={1}
+    explanation="JIT optimization relies on observed runtime behavior, which takes some execution time to accumulate — hence the characteristic warm-up period before optimized, compiled versions of hot code take over."
+  />
+</QuizSet>

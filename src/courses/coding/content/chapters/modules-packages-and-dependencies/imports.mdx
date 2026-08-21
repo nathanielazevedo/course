@@ -1,0 +1,83 @@
+Splitting code into modules is only useful if code in one module can actually use what another module exports. **Importing** is the mechanism that makes that connection — and, despite looking like a single, simple line at the top of a file, it's doing more real work underneath than it appears to.
+
+### What importing actually does
+
+`import json` or `from utils import square` isn't just a declaration — it's an instruction telling the language's runtime (or its compiler, for statically compiled languages) to locate the target module, ensure it has been loaded and initialized (running any top-level code in it, if it hasn't been loaded already this run), and then bind the imported names into the current module's scope so they can be referenced directly. The first time a module is imported anywhere in a program, its own top-level code actually executes — which is why import order can occasionally matter, and why import cycles (module A importing module B, which imports module A) can cause subtle bugs or outright errors depending on the language.
+
+### Static imports
+
+A **static import** is resolved at compile time (or at least fully determined before the program starts running) — the compiler or bundler knows, at build time, exactly which module every import statement refers to, which lets it verify the imported names actually exist, catch typos as compile errors (Chapter 8), and — for a bundler tool building a JavaScript app for the web — even eliminate unused exports entirely from the final shipped code (a process called tree-shaking, possible specifically because static imports make every dependency knowable ahead of time).
+
+```typescript
+import { square } from "./mathUtils";  // resolved at build time
+```
+
+### Dynamic imports
+
+A **dynamic import** is resolved while the program is running, often based on a value only known at runtime — which plugin the user selected, which locale's translation file to load. JavaScript's `import()` function (distinct from the static `import` statement) and Python's `importlib.import_module(name)` both let code decide *which* module to load based on a runtime value, at the cost of losing some of static imports' build-time guarantees (a typo in a dynamically constructed module name won't be caught until that specific line actually executes).
+
+```javascript
+const moduleName = getUserSelectedTheme();
+const theme = await import(`./themes/${moduleName}.js`);
+```
+
+### Module resolution
+
+**Module resolution** is the process a language's tooling follows to turn an import statement's target string into an actual file on disk — is `"./utils"` a relative path from the current file? Is `"lodash"` a package installed in `node_modules`, found by searching progressively upward through parent directories? Is `import numpy` resolved by searching Python's configured `sys.path`? Every language has its own resolution algorithm, and understanding it explains real, otherwise-confusing errors: "module not found" almost always means the resolution algorithm searched everywhere it knows to look and genuinely didn't find a match, which is often a path, installation, or configuration problem rather than a typo in the code itself.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="imports-q1"
+    question="What actually happens the first time a module is imported anywhere in a running program?"
+    options={[
+      "Nothing happens until the module's functions are actually called later",
+      "The module's own top-level code executes (if it hasn't run already this session), and the imported names are bound into the importing module's scope"
+      ,
+      "The imported module is permanently deleted from disk",
+      "Only the module's function signatures are loaded, with no code execution at all",
+    ]}
+    answer={1}
+    explanation="Importing triggers the target module's own top-level code to run (once, on first import), which is part of why import order and import cycles can sometimes cause subtle issues."
+  />
+  <Quiz
+    id="imports-q2"
+    question="What advantage does a static import provide that a dynamic import does not?"
+    options={[
+      "Static imports run faster in every single case with no exceptions",
+      "The exact module being imported is known at build/compile time, allowing the compiler or bundler to verify the import, catch typos as compile errors, and even eliminate unused code (tree-shaking)"
+      ,
+      "Static imports can load a different module depending on user input",
+      "Static imports are only available in Python",
+    ]}
+    answer={1}
+    explanation="Because static imports are fully known ahead of time, tooling can validate them and optimize the build (like removing unused exports) — guarantees a dynamic import, resolved only at runtime, can't offer."
+  />
+  <Quiz
+    id="imports-q3"
+    question="Why would a developer use a dynamic import instead of a static one?"
+    options={[
+      "Dynamic imports are required for every import in every language",
+      "When which module to load depends on a value only known while the program is running, such as a user-selected theme or locale"
+      ,
+      "Dynamic imports eliminate the need for module resolution",
+      "Dynamic imports are always faster than static imports",
+    ]}
+    answer={1}
+    explanation="Dynamic imports are useful specifically when the target module can't be determined until runtime, at the cost of losing some of the compile-time verification static imports provide."
+  />
+  <Quiz
+    id="imports-q4"
+    question="What does 'module resolution' refer to?"
+    options={[
+      "The process of compiling a module into machine code",
+      "The process a language's tooling follows to turn an import statement's target string into an actual file on disk, searching according to the language's specific resolution rules"
+      ,
+      "The process of deleting unused modules from a project",
+      "A synonym for garbage collection",
+    ]}
+    answer={1}
+    explanation="Module resolution is the search algorithm — checking relative paths, installed package directories, or configured search paths — that a language uses to map an import string to a real file."
+  />
+</QuizSet>

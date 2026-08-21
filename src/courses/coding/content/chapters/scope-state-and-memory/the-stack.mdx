@@ -1,0 +1,87 @@
+Chapter 4 introduced the call stack as the mechanism behind function calls. This section looks at **the stack** as a region of memory in its own right — what makes it fast, what it's good for, and what its one hard limit actually is.
+
+### Function calls, revisited as memory
+
+Every function call pushes a new stack frame, and every return pops one off (Chapter 4 covered this from the control-flow side). What makes the stack worth a dedicated section is *how* it manages memory: allocation and deallocation on the stack are just moving a single pointer — the "top of stack" marker — up or down. There's no searching for free space, no bookkeeping about what's still in use; the very last thing pushed is always the very first thing popped, a strict last-in-first-out discipline that makes stack memory operations some of the cheapest a CPU can perform.
+
+### Local variables, again
+
+Local variables (parameters and anything declared inside a function body) are stored in the current stack frame by default, in most languages, as long as their size is known ahead of time — a fixed-size number, a struct with a known layout. This is why local variables are so cheap to create and destroy: creating one is just writing into already-allocated frame space, and destroying it is simply popping the frame, no individual cleanup required.
+
+### Stack frames as isolated workspaces
+
+Each stack frame is its own isolated workspace — one function's local variables can't accidentally collide with another's, even if they share the exact same names, because they live in entirely separate frames (Chapter 4's recursion example demonstrated this directly). This isolation is part of what makes reasoning about a single function in isolation possible at all: you don't need to know what every other function in the program is doing with its own locals to understand what yours will do with its.
+
+### Stack overflow
+
+The stack's LIFO discipline and fixed, contiguous layout come with a real limit: each thread is typically given a fixed, relatively small amount of stack space (commonly around 1MB, though it varies by platform and language) when it starts. Push more frames onto it than that space allows — through excessively deep, non-tail-recursive function calls (Chapter 3), most commonly — and you get a **stack overflow**: the runtime detects the stack has grown past its allotted region and terminates the program (or throws a specific exception, in languages that catch this gracefully) rather than letting it corrupt adjacent memory.
+
+```python
+def infinite_recursion(n):
+    return infinite_recursion(n + 1)  # no base case — grows without bound
+
+infinite_recursion(0)  # RecursionError: maximum recursion depth exceeded
+```
+
+This connects directly back to Chapter 3's point about base cases: a stack overflow is very often the concrete, observable symptom of a recursive function missing one, or of a base case that's unreachable due to a logic error.
+
+### Why the stack alone isn't enough
+
+The stack's speed comes at a real cost: everything on it has a size known at compile time, and everything on it disappears the moment its function returns. Any data that needs to outlive its creating function, or whose size isn't known until the program is actually running (a list that grows to an unknown length, an object shared between multiple parts of a program), can't live on the stack at all — which is exactly the gap the next section, on the heap, exists to fill.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-stack-q1"
+    question="Why are allocation and deallocation on the stack so cheap compared to other forms of memory management?"
+    options={[
+      "Because the stack does not actually store any real data",
+      "Because stack memory follows a strict last-in-first-out discipline — allocating and freeing memory is just moving a single 'top of stack' pointer, with no searching or bookkeeping required"
+      ,
+      "Because the stack is stored on the CPU itself rather than in memory",
+      "Because stack variables are never actually initialized",
+    ]}
+    answer={1}
+    explanation="The LIFO structure means the runtime never needs to search for free space or track which pieces of stack memory are still in use — it just moves a pointer."
+  />
+  <Quiz
+    id="the-stack-q2"
+    question="What causes a stack overflow?"
+    options={[
+      "Running out of disk space",
+      "Pushing more stack frames than the fixed stack space allotted to a thread can hold, most commonly from excessively deep, non-tail-recursive function calls"
+      ,
+      "Declaring too many global variables",
+      "Calling a function with too many arguments",
+    ]}
+    answer={1}
+    explanation="Each thread gets a fixed, limited region of stack memory; exceeding it — typically through very deep recursion — triggers a stack overflow rather than letting memory corruption occur silently."
+  />
+  <Quiz
+    id="the-stack-q3"
+    question="Why can't data whose size isn't known until the program is running (like a list that grows arbitrarily) generally live directly on the stack?"
+    options={[
+      "Because the stack can only hold boolean values",
+      "Because stack allocation relies on sizes known at compile time and a strict LIFO teardown order, which doesn't accommodate data of unknown or changing size that needs to outlive its creating function"
+      ,
+      "Because the stack has no size limit at all, unlike the heap",
+      "Because only global variables can hold collections",
+    ]}
+    answer={1}
+    explanation="The stack's speed comes from its predictable, compile-time-known layout and strict frame-based teardown — exactly the properties that dynamically sized or longer-lived data can't rely on."
+  />
+  <Quiz
+    id="the-stack-q4"
+    question="How does a missing base case in a recursive function typically manifest at runtime?"
+    options={[
+      "The program runs forever without any visible symptom",
+      "It often results in a stack overflow, since each recursive call keeps pushing a new frame with nothing to stop the recursion from growing unbounded"
+      ,
+      "It causes a syntax error at compile time",
+      "It has no effect because the stack has unlimited size",
+    ]}
+    answer={1}
+    explanation="Without a base case to stop it, recursion keeps pushing frames until the stack's fixed space is exhausted, producing a stack overflow — the concrete runtime symptom of the missing base case."
+  />
+</QuizSet>

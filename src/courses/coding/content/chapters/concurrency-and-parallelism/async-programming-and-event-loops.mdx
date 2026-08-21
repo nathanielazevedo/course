@@ -1,0 +1,97 @@
+Most real-world concurrency in application code isn't about spreading heavy computation across CPU cores at all — it's about waiting: waiting on a network response, a database query, a file read. **Async programming** is a concurrency model built specifically for this case, letting a program handle many pending operations without dedicating a whole OS thread (an expensive resource, relatively speaking) to each one just to sit there waiting.
+
+### The problem async solves
+
+A thread blocked waiting on a slow network request is a thread doing nothing useful, yet still consuming real resources — its own stack memory, its own scheduling overhead. A server handling ten thousand simultaneous slow connections using one thread per connection would need ten thousand mostly-idle threads, which doesn't scale well on most systems. Async programming's core idea: instead of blocking a whole thread while waiting, register what should happen when the operation eventually completes, and free that thread to go do other useful work in the meantime.
+
+### Promises and futures
+
+A **promise** (JavaScript) or **future** (many other languages, including Rust and Java) is a value representing a result that doesn't exist yet, but will (or might fail to) at some point. Rather than blocking until the value is ready, code can register what to do once it is:
+
+```javascript
+fetch("/api/users")
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error(error));
+```
+
+This is directly built on the callback pattern from Chapter 4 — `.then()` registers a callback to run once the promise resolves — with the promise itself adding structure (chaining, unified error handling) that raw, manually nested callbacks lacked.
+
+### `async` and `await`
+
+**`async`/`await`** syntax, now present in JavaScript, Python, Rust, C#, and more, lets asynchronous code be *written* in a style that reads like ordinary sequential code, while still behaving asynchronously underneath:
+
+```javascript
+async function loadUser() {
+  const response = await fetch("/api/users");
+  const data = await response.json();
+  console.log(data);
+}
+```
+
+`await` doesn't block the whole thread the way a synchronous blocking call would — it suspends *this specific function*, letting the underlying runtime go do other work, and resumes this function exactly where it left off once the awaited value is actually ready. The code reads top-to-bottom like the promise-chain example above, restructured to look sequential, but the actual execution behavior underneath is identical.
+
+### The JavaScript event loop
+
+JavaScript's concurrency model is built around a single-threaded **event loop**: one thread runs your JavaScript code, and asynchronous operations (network requests, timers, file I/O in Node.js) are handed off to the surrounding environment (the browser or Node's runtime) to actually perform. When one of those operations completes, its callback is placed on a queue, and the event loop — continuously checking "is the call stack (Chapter 4) empty? if so, take the next thing off the queue and run it" — picks it up and runs it once the current synchronous code has finished.
+
+### Call stack, task queue, and microtasks
+
+The event loop actually manages two related queues with different priority: the **microtask queue** (holding resolved promise callbacks, among other things) is fully drained — every microtask, including any new microtasks those callbacks themselves schedule — before the loop moves on to the next item in the (lower-priority) **task queue** (holding things like `setTimeout` callbacks and I/O completions). This precise ordering is exactly why a promise callback reliably runs before a `setTimeout(fn, 0)` callback scheduled around the same time, even though both are, broadly speaking, "asynchronous" — they're competing for different queues with different draining rules, not truly running in an arbitrary or unpredictable order.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="async-programming-and-event-loops-q1"
+    question="What core problem does async programming solve for I/O-bound workloads like handling many slow network connections?"
+    options={[
+      "It makes CPU-bound computation run faster across multiple cores",
+      "It avoids dedicating a whole OS thread to each pending operation just to sit idle waiting, instead registering what to do once the operation completes and freeing the thread for other work in the meantime"
+      ,
+      "It eliminates the need for any network requests at all",
+      "It requires every operation to run on a separate CPU core",
+    ]}
+    answer={1}
+    explanation="Async programming targets the specific inefficiency of threads blocked doing nothing while waiting on slow I/O, letting one thread handle many pending operations concurrently instead."
+  />
+  <Quiz
+    id="async-programming-and-event-loops-q2"
+    question="What does await actually do when it's reached inside an async function?"
+    options={[
+      "It blocks the entire program, including all other threads, until the value is ready",
+      "It suspends the current function, letting the underlying runtime do other work, and resumes this function exactly where it left off once the awaited value is ready"
+      ,
+      "It immediately deletes the function without ever resuming it",
+      "It converts the async function into a synchronous one permanently",
+    ]}
+    answer={1}
+    explanation="await pauses only the specific async function at that point, without blocking the whole thread, and execution resumes there once the awaited promise/future settles."
+  />
+  <Quiz
+    id="async-programming-and-event-loops-q3"
+    question="What is JavaScript's event loop continuously checking for?"
+    options={[
+      "Whether the user has closed the browser tab",
+      "Whether the call stack is empty, and if so, taking the next item off a queue (microtask or task) and running it"
+      ,
+      "Whether any syntax errors exist in the code",
+      "Whether more memory needs to be allocated for the heap",
+    ]}
+    answer={1}
+    explanation="The event loop's core job is coordinating single-threaded execution: run synchronous code to completion, then pull queued callbacks to run once the stack is clear."
+  />
+  <Quiz
+    id="async-programming-and-event-loops-q4"
+    question="Why does a resolved promise's callback reliably run before a setTimeout(fn, 0) callback scheduled around the same time?"
+    options={[
+      "Because setTimeout callbacks never actually run in JavaScript",
+      "Because promise callbacks go into the microtask queue, which is fully drained (including new microtasks it schedules) before the event loop moves on to the lower-priority task queue that holds setTimeout callbacks"
+      ,
+      "Because this behavior is random and unpredictable",
+      "Because promises always execute synchronously with no delay at all",
+    ]}
+    answer={1}
+    explanation="The event loop's strict priority — fully draining the microtask queue before touching the task queue — makes this ordering consistent and predictable rather than arbitrary."
+  />
+</QuizSet>

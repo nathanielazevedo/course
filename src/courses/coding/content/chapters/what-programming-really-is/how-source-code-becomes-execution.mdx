@@ -1,0 +1,94 @@
+The text you type in an editor is not what a CPU runs. Between your source file and a running program sits a pipeline — the same shape in every language, even though different languages stop at different points along it. Understanding this pipeline demystifies a lot of language trivia: why Python gives you a stack trace pointing at a specific line, why C won't even build if you misspell a keyword, why some errors show up before your program runs and others only show up while it's running.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 200" width="100%" height="auto" role="img" aria-label="Pipeline: source code, then tokens via lexing, then an abstract syntax tree via parsing, then either compilation to native code or interpretation, ending in execution." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="10" y="70" width="110" height="52" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="65" y="101" fontSize="12" fontWeight="600" textAnchor="middle">SOURCE CODE</text>
+    <text x="165" y="101" fontSize="18" textAnchor="middle">→</text>
+    <rect x="185" y="70" width="90" height="52" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="230" y="94" fontSize="12" fontWeight="600" textAnchor="middle">TOKENS</text>
+    <text x="230" y="112" fontSize="10" fill="#666" textAnchor="middle">(lexing)</text>
+    <text x="300" y="101" fontSize="18" textAnchor="middle">→</text>
+    <rect x="320" y="70" width="90" height="52" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="365" y="94" fontSize="12" fontWeight="600" textAnchor="middle">AST</text>
+    <text x="365" y="112" fontSize="10" fill="#666" textAnchor="middle">(parsing)</text>
+    <text x="435" y="101" fontSize="18" textAnchor="middle">→</text>
+    <rect x="455" y="70" width="170" height="52" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="540" y="94" fontSize="12" fontWeight="600" textAnchor="middle">COMPILE OR INTERPRET</text>
+    <text x="540" y="112" fontSize="10" fill="#666" textAnchor="middle">→ execution</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every language front-end follows this same shape before anything actually runs.
+  </figcaption>
+</figure>
+
+### Source code and tokens
+
+Source code is just a text file — a sequence of characters with no inherent structure a machine can act on yet. The first step, **lexing** (short for lexical analysis), scans that text and groups characters into **tokens**: meaningful chunks like `total`, `=`, `0`, `+`, `(`, `)`. A lexer doesn't understand grammar yet — it just recognizes "this run of characters is a number," "this one is an identifier," "this one is an operator," the same way you'd recognize word boundaries in a sentence before understanding what the sentence means.
+
+### Parsing and the abstract syntax tree
+
+**Parsing** takes that flat stream of tokens and imposes structure, checking it against the language's grammar rules and building an **abstract syntax tree (AST)** — a tree where each node represents a construct like "this is a function call," "this is a binary addition," "this is an if-statement with these branches." `total = price * quantity` becomes a tree with an assignment at the root, `total` as one child, and a multiplication node (with `price` and `quantity` as its own children) as the other. This is the point where a missing parenthesis or a misplaced keyword becomes a **syntax error** — the token stream doesn't form a valid tree under the language's grammar.
+
+### From AST to execution
+
+Once a language has a valid AST, it takes one of two broad paths, covered in full in the next section: it can be **compiled** — translated ahead of time into a lower-level form (often native machine code, sometimes an intermediate bytecode) that's saved and run later — or it can be **interpreted** — walked and executed directly, node by node, without ever producing a separate standalone artifact. Many modern languages blend both, and the next section is entirely about that distinction and the tradeoffs it implies.
+
+### Why this pipeline matters day to day
+
+This is not just trivia. It explains real, everyday behavior: a `SyntaxError` in Python happens during parsing, before a single line of your logic runs, which is why Python can catch a typo on line 400 even if line 1 never executes. A `NameError`, by contrast, only appears once execution actually reaches that line — because checking whether a name exists happens at runtime, not during parsing. Different languages draw this line between "caught before running" and "caught while running" differently, and that line is exactly what the rest of this course — types, errors, compilation models — keeps coming back to.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="how-source-code-becomes-execution-q1"
+    question="What is the correct order of the pipeline stages that turn source code into something structured enough to execute?"
+    options={[
+      "Parsing, then lexing, then tokens",
+      "Source code, then tokens (lexing), then an abstract syntax tree (parsing)",
+      "Execution, then compilation, then source code",
+      "Tokens, then source code, then execution",
+    ]}
+    answer={1}
+    explanation="Lexing turns raw text into tokens; parsing turns that token stream into a structured AST according to the language's grammar."
+  />
+  <Quiz
+    id="how-source-code-becomes-execution-q2"
+    question="What does a lexer actually recognize when it scans source code?"
+    options={[
+      "Complete valid programs only",
+      "Meaningful chunks of characters — identifiers, numbers, operators, punctuation — without yet understanding grammar",
+      "Only comments and whitespace",
+      "The final machine code the CPU will run",
+    ]}
+    answer={1}
+    explanation="Lexing groups characters into tokens like identifiers and operators; it doesn't yet know whether those tokens form a grammatically valid program."
+  />
+  <Quiz
+    id="how-source-code-becomes-execution-q3"
+    question="What is an abstract syntax tree (AST)?"
+    options={[
+      "A visual diagram programmers draw by hand before coding",
+      "A tree structure produced by parsing that represents the grammatical structure of the code, such as which expression an assignment applies to"
+      ,
+      "The final compiled machine code",
+      "A list of every variable name used in the program",
+    ]}
+    answer={1}
+    explanation="The AST captures the structure of the code — for example, an assignment node with an expression subtree as its value — after parsing checks it against the grammar."
+  />
+  <Quiz
+    id="how-source-code-becomes-execution-q4"
+    question="Why can a Python program raise a SyntaxError on a line that would never actually execute, while a NameError only appears once execution reaches that line?"
+    options={[
+      "Because Python doesn't really check syntax at all",
+      "Because syntax errors are caught during parsing, before any execution happens, while name lookups only happen at runtime as each line actually runs"
+      ,
+      "Because NameErrors are checked before parsing begins",
+      "Because SyntaxErrors and NameErrors are actually the same thing",
+    ]}
+    answer={1}
+    explanation="Parsing happens over the whole file before execution starts, so structural errors surface immediately; a name lookup failure can only be detected once that specific line runs."
+  />
+</QuizSet>

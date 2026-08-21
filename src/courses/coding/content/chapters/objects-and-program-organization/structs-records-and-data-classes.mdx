@@ -1,0 +1,106 @@
+Not every bundle of related data needs the full machinery of a class — inheritance, encapsulation, custom methods for every operation. Many languages provide a lighter-weight alternative purely for grouping data together: **structs**, **records**, and **data classes**, whose entire purpose is representing data plainly, without the behavioral baggage a full class implies.
+
+### Data-oriented programming, in miniature
+
+The core idea is separating "what shape is this data?" from "what can this thing do?" — a struct or record answers only the first question. A `Point` with `x` and `y` fields doesn't need custom methods to be useful; it needs to reliably hold two numbers and be easy to compare, copy, and pass around. This is a smaller-scale preview of the data-oriented programming paradigm covered fully in Chapter 7 — treating data as data first, and layering behavior on separately (as free functions that operate on it) rather than baking it directly into the type.
+
+### Structs
+
+**Structs**, most prominent in C, Go, and Rust, are fixed collections of named fields with no inheritance and (in C, and by default in Go) no methods at all — just data:
+
+```rust
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+fn distance(a: &Point, b: &Point) -> f64 {
+    ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()
+}
+```
+
+Rust and Go do let you attach methods to structs (`impl Point { ... }` in Rust), but the struct itself remains fundamentally a data definition — there's no inheritance between structs, which sidesteps the deep-hierarchy problems from earlier in this chapter entirely, by construction.
+
+### Records
+
+**Records** — Java's `record`, C#'s `record`, Python's `dataclass` — are a more recent addition to traditionally class-heavy languages, purpose-built to reduce the ceremony of a data-only class. Without a record, a plain Java class holding two fields still requires a hand-written constructor, `equals()`, `hashCode()`, and `toString()` to behave sensibly — dozens of lines for what is conceptually two fields. A record generates all of that automatically from the field declaration alone:
+
+```java
+public record Point(double x, double y) {}
+```
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+```
+
+Both give you a constructor, sensible equality (comparing field values, not object identity — a deliberate departure from the identity-based default equality covered in the "What Is an Object?" section), and a readable string representation, all without writing any of that boilerplate by hand.
+
+### Immutability by default
+
+Many of these lightweight data types default to (or strongly encourage) **immutability** — once created, a record's fields can't be reassigned. Java's `record` fields are always final; Rust's structs are immutable unless explicitly marked `mut`; functional-style data classes across many languages follow the same convention. This connects to the same tradeoff functional programming makes more broadly (Chapter 7): immutable data is inherently safer to share across functions or threads, because nothing can silently change out from under code that's holding a reference to it.
+
+### When to reach for a struct instead of a full class
+
+The practical rule of thumb: if a type's entire purpose is holding a fixed shape of related data — a coordinate, a color, an API response — reach for a struct, record, or data class instead of a full class with encapsulated fields and custom accessors. Reserve full classes for cases where an object genuinely needs to protect its own invariants (a `BankAccount` that must never go negative) or where meaningful behavior is intrinsic to the type, not just data passing through it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="structs-records-and-data-classes-q1"
+    question="What is the primary purpose of a struct, record, or data class compared to a full class?"
+    options={[
+      "To add support for inheritance that regular classes lack",
+      "To represent a fixed shape of related data plainly, without the behavioral machinery (encapsulation, custom methods, inheritance) a full class implies"
+      ,
+      "To replace all functions in a program",
+      "To make data mutable by force",
+    ]}
+    answer={1}
+    explanation="These lightweight types exist specifically for grouping data together simply, in contrast to full classes designed around encapsulated behavior and protected invariants."
+  />
+  <Quiz
+    id="structs-records-and-data-classes-q2"
+    question="What boilerplate does a language feature like Java's record or Python's dataclass generate automatically from a simple field declaration?"
+    options={[
+      "Nothing — they require the same amount of code as a plain class",
+      "A constructor, sensible field-based equality comparison, and a readable string representation, without the programmer writing any of it by hand"
+      ,
+      "Only a constructor, with no other generated methods",
+      "A full inheritance hierarchy",
+    ]}
+    answer={1}
+    explanation="Records/data classes eliminate the repetitive boilerplate of writing a constructor, equals/hashCode-equivalent logic, and a string representation by hand for simple data-holding types."
+  />
+  <Quiz
+    id="structs-records-and-data-classes-q3"
+    question="How does the default equality behavior of a record typically differ from the default identity-based equality of a plain object, as covered earlier in this chapter?"
+    options={[
+      "There is no difference — both always compare by identity",
+      "Records typically compare equality by field values (structural equality), while a plain object's default equality compares identity (are these the literal same object in memory?)"
+      ,
+      "Records can never be compared for equality at all",
+      "Plain objects always compare by field values, unlike records",
+    ]}
+    answer={1}
+    explanation="Records are designed to compare meaningfully by their data, which is a deliberate departure from the identity-based equality that applies to ordinary objects by default."
+  />
+  <Quiz
+    id="structs-records-and-data-classes-q4"
+    question="Why do many lightweight data types default to immutability?"
+    options={[
+      "Because mutable data cannot be represented in any programming language",
+      "Because immutable data is inherently safer to share across functions or threads, since nothing can silently change it out from under code holding a reference to it"
+      ,
+      "Because immutability makes a program run using less memory in every case",
+      "Because structs are required by definition to have zero fields",
+    ]}
+    answer={1}
+    explanation="Immutable data eliminates a class of bugs where shared data changes unexpectedly underneath code that assumed it was stable, which is especially valuable once multiple parts of a program (or multiple threads) hold the same reference."
+  />
+</QuizSet>

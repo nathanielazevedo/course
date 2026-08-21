@@ -1,0 +1,78 @@
+Static-vs-dynamic (previous section) is about *when* types are checked. Strong-vs-weak is a separate axis entirely: *how strictly* a language enforces that operations only apply to compatible types, and how willing it is to silently convert one type into another to make an operation "work" anyway. Confusing these two axes is one of the most common sources of miscommunication when programmers from different language backgrounds argue about type systems.
+
+### Implicit conversions
+
+An **implicit conversion** (also called **coercion**) happens when a language automatically converts a value from one type to another without the programmer asking for it, in order to make an operation succeed. `"5" - 2` in JavaScript implicitly converts the string `"5"` to the number `5`, producing `3` — the language decided, on its own, that the operation "should" work by converting one operand's type. This is the hallmark of a **weakly typed** language: type mismatches are often silently patched over rather than rejected.
+
+### Explicit conversions
+
+An **explicit conversion** is the programmer deliberately converting a value's type using a function or syntax built for that purpose — `int("5")` in Python, `Number("5")` in JavaScript, `parseInt` in various languages. Even weakly typed languages support explicit conversion; the difference is whether the language *requires* you to do it, or does it for you when it thinks it knows what you meant.
+
+### Coercion
+
+**Coercion** is the general mechanism behind implicit conversion, and it's worth knowing because it's rarely as simple as "convert this type to that type" — it usually follows a specific, sometimes surprising algorithm. JavaScript's `+` operator, for instance, coerces toward string concatenation if *either* operand is a string, but coerces toward numeric addition otherwise — which is why `1 + "2"` is `"12"` but `1 + 2` is `3`, and why understanding a language's coercion rules matters more than memorizing individual examples.
+
+### Why JavaScript behaves strangely sometimes
+
+JavaScript gets singled out constantly for surprising behavior — `[] + []` is `""`, `[] + {}` is `"[object Object]"` — not because its rules are random, but because it's a weakly typed language with an aggressive, many-step coercion algorithm for operators like `+` and `==`, applied consistently even to inputs nobody intended to compare or add. `==` in JavaScript performs type coercion before comparing (`"5" == 5` is `true`), which is exactly why most style guides recommend `===`, which compares both value *and* type with no coercion at all. None of this is a bug — it's the direct, consistent consequence of weak typing plus a specific coercion algorithm, which is why learning the algorithm (rather than memorizing exceptions) is what actually makes JavaScript's behavior predictable.
+
+### Strong typing by contrast
+
+A **strongly typed** language — Python, Rust, Java — refuses most implicit conversions and raises an error instead. `"5" - 2` in Python raises a `TypeError` rather than guessing what you meant; you must convert explicitly with `int("5") - 2`. Note that Python is strongly typed *and* dynamically typed at once — strength and dynamism are genuinely independent axes, and a language can combine any pairing of the two: statically-and-strongly (Rust), statically-and-weakly (older C, with its permissive implicit numeric conversions), dynamically-and-strongly (Python), or dynamically-and-weakly (JavaScript).
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="strong-and-weak-typing-q1"
+    question="How does strong/weak typing differ from static/dynamic typing?"
+    options={[
+      "They are two names for the exact same concept",
+      "Static/dynamic is about when types are checked; strong/weak is about how strictly the language enforces type compatibility and whether it silently converts types"
+      ,
+      "Weak typing means a language has no types",
+      "Strong typing means a language is always statically typed",
+    ]}
+    answer={1}
+    explanation="These are independent axes — a language's timing of type checks (static/dynamic) is separate from how permissive it is about mixing types in operations (strong/weak)."
+  />
+  <Quiz
+    id="strong-and-weak-typing-q2"
+    question="What is an implicit conversion (coercion)?"
+    options={[
+      "A conversion the programmer explicitly requests using a function like int() or parseInt",
+      "An automatic type conversion the language performs on its own, without being asked, in order to make an operation succeed"
+      ,
+      "A compile-time-only feature that never affects runtime behavior",
+      "A conversion that always causes a program to crash",
+    ]}
+    answer={1}
+    explanation="Coercion is the language deciding, on its own, to convert an operand's type so an operation like + or - can proceed, which is the defining trait of weak typing."
+  />
+  <Quiz
+    id="strong-and-weak-typing-q3"
+    question="Why does 1 + '2' produce the string '12' in JavaScript while 1 + 2 produces the number 3?"
+    options={[
+      "Because JavaScript's + operator is broken",
+      "Because JavaScript's + operator coerces toward string concatenation whenever either operand is a string, and toward numeric addition otherwise — a consistent, if surprising, coercion rule"
+      ,
+      "Because JavaScript randomly decides operator behavior at runtime",
+      "Because strings and numbers are the same type in JavaScript",
+    ]}
+    answer={1}
+    explanation="JavaScript's + follows a specific, consistent coercion algorithm based on the operand types involved, rather than behaving randomly."
+  />
+  <Quiz
+    id="strong-and-weak-typing-q4"
+    question="Is it possible for a language to be both strongly typed and dynamically typed at the same time, like Python?"
+    options={[
+      "No, strong typing always implies static typing",
+      "Yes — strength (how strictly types are enforced) and dynamism (when types are checked) are independent axes, so any combination is possible"
+      ,
+      "No, dynamic typing always implies weak typing",
+      "Only JavaScript can combine these two properties",
+    ]}
+    answer={1}
+    explanation="Python checks types at runtime (dynamic) but refuses to silently coerce mismatched types (strong) — demonstrating that the two axes are genuinely independent."
+  />
+</QuizSet>

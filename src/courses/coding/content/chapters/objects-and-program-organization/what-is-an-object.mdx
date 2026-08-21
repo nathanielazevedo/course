@@ -1,0 +1,88 @@
+Chapter 2 introduced objects briefly as a kind of composite value. This chapter treats them properly, as the central organizing idea of object-oriented programming: bundling related state and behavior together under one name, so a program's structure mirrors the real-world (or conceptual) things it's modeling.
+
+### State
+
+An object's **state** is the data it currently holds — its fields (also called properties, attributes, or members depending on the language). A `BankAccount` object's state might be its `balance` and `accountNumber`; a `User` object's state might be `name`, `email`, and `createdAt`. State is what makes one object of a given kind different from another object of the same kind — two `User` objects share the same *structure* but hold different *data*.
+
+### Behavior
+
+An object's **behavior** is what it can do — the operations (called **methods**) that act on its own state. A `BankAccount` might have a `deposit(amount)` method that increases `balance`, and a `withdraw(amount)` method that decreases it (perhaps refusing to if the result would go negative). The key idea is that behavior and the state it operates on live together, in the same place, rather than being separate functions that happen to take an account as a parameter.
+
+```python
+class BankAccount:
+    def __init__(self, balance=0):
+        self.balance = balance
+
+    def deposit(self, amount):
+        self.balance += amount
+
+    def withdraw(self, amount):
+        if amount > self.balance:
+            raise ValueError("insufficient funds")
+        self.balance -= amount
+```
+
+### Identity
+
+**Identity** is what distinguishes one object from another, independent of whether their state happens to be identical. Two separate `BankAccount` objects, both currently holding a balance of `$100`, are still two distinct objects — depositing into one doesn't affect the other, because each has its own identity and its own storage, even though their state is momentarily equal. This is exactly the value-vs-reference distinction from Chapter 2, applied specifically to objects: objects are compared by identity by default in most languages (are these literally the same object in memory?), separate from any custom equality logic a class might define to compare by state instead.
+
+### Encapsulation
+
+**Encapsulation** is the practice of bundling an object's state with the methods that are meant to operate on it, and restricting direct outside access to that state — instead of letting any code anywhere reach in and set `account.balance = -500` directly, a well-encapsulated `BankAccount` only allows balance changes through `deposit` and `withdraw`, which can enforce rules (never go negative) that direct field access would bypass entirely. Most languages support this with visibility modifiers — `private` fields in Java and C#, a leading underscore convention in Python, module-level privacy in Rust — though the strictness with which each language enforces it varies considerably, covered further in the next section on classes.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-an-object-q1"
+    question="What are the two things an object fundamentally bundles together?"
+    options={[
+      "A function and a loop",
+      "State (its data/fields) and behavior (its methods, which operate on that data)"
+      ,
+      "A class and an interface",
+      "A pointer and a reference",
+    ]}
+    answer={1}
+    explanation="An object combines data (state) with the operations that act on that data (behavior), keeping them together rather than as separate, unrelated pieces."
+  />
+  <Quiz
+    id="what-is-an-object-q2"
+    question="Why can two BankAccount objects both currently holding a balance of $100 still be considered distinct?"
+    options={[
+      "It's impossible for two objects to hold the same value at once",
+      "Each object has its own identity and its own separate storage, so their state happening to be equal at one moment doesn't make them the same object — depositing into one doesn't affect the other"
+      ,
+      "Because objects can only hold unique values by definition",
+      "Because BankAccount is a primitive type",
+    ]}
+    answer={1}
+    explanation="Identity is independent of current state — two objects can hold identical data yet remain separate entities with independent storage, which is why changes to one don't propagate to the other."
+  />
+  <Quiz
+    id="what-is-an-object-q3"
+    question="What problem does encapsulation address?"
+    options={[
+      "It prevents an object from ever having any methods",
+      "It restricts direct outside access to an object's internal state, forcing changes to go through methods that can enforce rules a raw field assignment would bypass"
+      ,
+      "It makes every field in an object public by default",
+      "It removes the need for a class to have a constructor",
+    ]}
+    answer={1}
+    explanation="Encapsulation keeps state changes funneled through methods that can validate or enforce invariants, rather than allowing arbitrary, unchecked direct modification of an object's data."
+  />
+  <Quiz
+    id="what-is-an-object-q4"
+    question="What is the relationship between the identity comparison most languages use by default for objects, and the value/reference distinction from Chapter 2?"
+    options={[
+      "There is no connection between the two ideas",
+      "Objects are reference types, so default equality checks whether two variables refer to the literal same object in memory, rather than automatically comparing their state field by field"
+      ,
+      "Objects are always compared by value automatically in every language",
+      "Identity comparison only applies to primitive types",
+    ]}
+    answer={1}
+    explanation="Since objects are typically reference types, default equality checks identity (same object in memory) rather than structural equality, unless a class explicitly overrides that behavior."
+  />
+</QuizSet>

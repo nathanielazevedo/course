@@ -10,6 +10,9 @@ import { getSectionContent as getLabAutomationContent } from "./lab-automation/c
 import { chapterInput as windowsDevInput } from "./windows-dev/chapters";
 import { getSectionContent as getWindowsDevContent } from "./windows-dev/content";
 
+import { chapterInput as codingInput } from "./coding/chapters";
+import { getSectionContent as getCodingContent } from "./coding/content";
+
 export type { Chapter, Section } from "../lib/chapters";
 
 export type Course = {
@@ -56,6 +59,15 @@ export const courses: Course[] = [
       "How Windows works from a C# developer's seat — processes, the filesystem, the registry, services, Win32 interop, security, desktop apps, diagnostics, and shipping a finished install.",
     ...makeChapterHelpers(buildChapters(windowsDevInput)),
     getSectionContent: getWindowsDevContent,
+  },
+  {
+    slug: "coding",
+    title: "Programming From First Principles",
+    tagline: "How Programming Languages Actually Work",
+    description:
+      "The concepts underneath every programming language — values and types, control flow, functions, memory, objects, paradigms, errors, concurrency, and how to become fluent in any language instead of just the one you learned first.",
+    ...makeChapterHelpers(buildChapters(codingInput)),
+    getSectionContent: getCodingContent,
   },
 ];
 

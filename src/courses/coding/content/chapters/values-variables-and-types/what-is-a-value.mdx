@@ -1,0 +1,82 @@
+Strip away syntax, control flow, even functions, and what's left is the most basic thing every program manipulates: **values**. A value is a piece of data a program can hold, pass around, compare, and operate on — `42`, `"hello"`, `true`, a list of numbers, an object representing a user. Everything a program does is ultimately values flowing through operations that produce new values.
+
+### Numbers
+
+Most languages distinguish integers (whole numbers) from floating-point numbers (numbers with a fractional part), because computers represent them completely differently in memory — integers as exact binary values, floats as an approximation using a scheme similar to scientific notation (covered in Chapter 9). This is why `0.1 + 0.2` famously doesn't equal exactly `0.3` in most languages: floating-point numbers can't represent every decimal fraction exactly in binary, so tiny rounding errors are baked into the representation itself, not a bug in any particular language.
+
+### Strings
+
+A **string** is a sequence of characters — text. How those characters are actually stored (as bytes, and under what encoding) varies by language and is covered later in this course, but at the value level a string is just "an ordered sequence of characters" that supports operations like concatenation, slicing, and searching, largely the same way across languages even when the exact method names differ (`upper()` in Python, `.toUpperCase()` in JavaScript).
+
+### Booleans
+
+A **boolean** is one of exactly two values, true or false, and it's the currency that control flow (Chapter 3) runs on — every `if` statement is ultimately asking "is this expression's boolean value true or false?" Some languages are strict about this (only an actual boolean can go in an `if`), while others are looser, treating things like `0`, empty strings, or `null` as "falsy" and everything else as "truthy" — a distinction covered in the section on strong and weak typing.
+
+### Collections
+
+Most real values aren't single numbers or strings — they're **collections**: ordered lists of values, unordered sets, key-to-value mappings. A shopping cart is a list of items; a dictionary of settings is a mapping from setting names to values. Collections are themselves values — you can pass a list into a function, store it in a variable, nest one inside another — which is what makes them powerful enough to represent almost any real-world data.
+
+### Objects
+
+An **object** bundles related values together under one name — a `User` with a `name`, an `email`, and an `age`, rather than three separate loose variables. Chapter 6 covers objects properly, but at the value level, the key idea is the same as collections: an object is a value made of other values, and it can be passed around, stored, and compared just like a number or a string can.
+
+### Null and absence
+
+Nearly every language needs a way to represent "no value here" — Python's `None`, JavaScript's `null` and `undefined`, Rust's absence of `Option::Some`. This sounds trivial but is one of the most consequential design decisions a language makes: representing absence as a special value that behaves like any other (and can therefore be accidentally used where a real value was expected) is the root cause of an entire class of runtime errors, covered in depth in Chapter 8.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-a-value-q1"
+    question="What is a 'value' in the most general sense used throughout this course?"
+    options={[
+      "Only a number stored in a variable",
+      "Any piece of data a program can hold, pass around, compare, and operate on — numbers, strings, booleans, collections, and objects alike"
+      ,
+      "Only data typed directly into source code",
+      "A synonym for a variable name",
+    ]}
+    answer={1}
+    explanation="Values are the raw material every program manipulates — from simple numbers to entire objects — regardless of what named variable, if any, currently refers to them."
+  />
+  <Quiz
+    id="what-is-a-value-q2"
+    question="Why does an expression like 0.1 + 0.2 not equal exactly 0.3 in most programming languages?"
+    options={[
+      "Because addition is implemented incorrectly in most languages",
+      "Because floating-point numbers approximate decimal values in binary, and not every decimal fraction can be represented exactly, producing tiny rounding errors"
+      ,
+      "Because 0.1 and 0.2 are strings, not numbers",
+      "Because this only happens in dynamically typed languages",
+    ]}
+    answer={1}
+    explanation="Floating-point representation is an approximation scheme, and certain decimal fractions simply can't be represented exactly in binary, which is a property of the representation, not a particular language's bug."
+  />
+  <Quiz
+    id="what-is-a-value-q3"
+    question="What do collections and objects have in common as values?"
+    options={[
+      "Neither can be passed into a function",
+      "Both are values made up of other values, and both can be passed around, stored in variables, and nested just like simpler values"
+      ,
+      "Both are always immutable in every language",
+      "Objects are a type of number",
+    ]}
+    answer={1}
+    explanation="Collections and objects are composite values — they bundle other values together — but they remain first-class values that can be passed, stored, and manipulated like anything else."
+  />
+  <Quiz
+    id="what-is-a-value-q4"
+    question="Why is the way a language represents 'absence of a value' (like null or None) called a consequential design decision?"
+    options={[
+      "Because it has no real effect on how programs behave",
+      "Because representing absence as a value that can behave like any other value is a root cause of an entire class of runtime errors, covered later in the errors chapter"
+      ,
+      "Because languages without null are always slower",
+      "Because null values cannot be stored in variables",
+    ]}
+    answer={1}
+    explanation="When 'nothing here' is represented as a value that can flow through the same code paths as real values, code can accidentally treat absence as if it were present data — a recurring source of runtime failures."
+  />
+</QuizSet>

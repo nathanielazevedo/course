@@ -1,0 +1,91 @@
+Functional programming takes a third, quite different stance from both procedural and object-oriented programming: instead of structuring a program around sequential steps or around objects with mutable state, structure it around composing pure functions (Chapter 4) that transform data without changing anything else. Chapter 4's section on higher-order functions was already a preview of this paradigm's core habits — this section makes the full philosophy explicit.
+
+### Pure functions, revisited as a discipline
+
+Functional programming treats purity (Chapter 4: output depends only on input, no side effects) not as an occasional nice-to-have, but as a default discipline applied as broadly as possible. A functional codebase tries to push side effects (writing to a file, making a network call, printing) to the thin outer edges of the program, keeping as much of the actual logic as possible as pure, side-effect-free transformations that are trivially easy to test — call the function with the same input, get the same output, every time, with nothing else to set up or verify.
+
+### Immutability
+
+**Immutability** — never modifying data in place, always producing a new value instead — is functional programming's other core habit, directly extending the immutable-by-default philosophy Chapter 6 touched on for structs and records. Rather than `list.append(item)` (mutating in place), functional style favors `newList = list + [item]` (producing a new list, leaving the original untouched). This eliminates an entire category of bugs where one part of a program mutates data another part is still relying on — because nothing is ever mutated, that scenario simply can't occur.
+
+```javascript
+// imperative / mutating
+function addTax(items) {
+  for (const item of items) item.price *= 1.08;
+  return items;
+}
+
+// functional / immutable
+function addTax(items) {
+  return items.map(item => ({ ...item, price: item.price * 1.08 }));
+}
+```
+
+### Function composition
+
+As Chapter 4 covered, **function composition** — building larger transformations by chaining smaller ones together — is functional programming's primary tool for structuring an entire program: instead of a sequence of imperative steps mutating shared state, a functional pipeline reads as `validate → transform → summarize`, each stage a pure function feeding the next, with the overall behavior emerging from how the pieces compose rather than from a step-by-step mutation trace.
+
+### Avoiding shared state
+
+Because pure functions don't read or write anything outside their own input and output, functional code structurally avoids **shared mutable state** — the exact thing that makes concurrent programming (Chapter 11) so hard to get right in other paradigms. Two pure functions running truly in parallel can never interfere with each other, because neither can observe or change anything the other depends on; this is a large part of why functional idioms have become increasingly prominent even in traditionally imperative languages as multi-core hardware has made concurrency a mainstream concern rather than a specialized one.
+
+### Functional programming in practice
+
+Few mainstream languages are purely functional (Haskell is the best-known example that commits fully); most — Python, JavaScript, C#, Java, Rust — are multi-paradigm languages (the closing section of this chapter) that let you adopt functional habits selectively: immutable data where it helps, `map`/`filter`/`reduce` pipelines instead of manual loops, pure functions wherever side effects genuinely aren't needed, while still allowing mutation and objects where those remain the clearer tool.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="functional-programming-q1"
+    question="What does functional programming treat as a core, broadly applied discipline rather than an occasional nice-to-have?"
+    options={[
+      "Writing as many global variables as possible",
+      "Purity — functions whose output depends only on their input, with side effects pushed to the thin outer edges of the program"
+      ,
+      "Deep inheritance hierarchies",
+      "Manual memory management",
+    ]}
+    answer={1}
+    explanation="Functional programming pushes for pure, side-effect-free functions as the default, keeping side effects isolated at the boundaries of the program rather than scattered throughout its logic."
+  />
+  <Quiz
+    id="functional-programming-q2"
+    question="How does the functional version of addTax differ from the imperative/mutating version in the example?"
+    options={[
+      "It modifies each item's price directly, exactly like the imperative version",
+      "It produces a brand-new array of items with updated prices, leaving the original items array untouched, rather than mutating the existing items in place"
+      ,
+      "It cannot process arrays at all",
+      "It requires a class to be defined first",
+    ]}
+    answer={1}
+    explanation="The functional version follows the immutability principle — returning new data rather than mutating the original — while the imperative version changes each item's price directly in place."
+  />
+  <Quiz
+    id="functional-programming-q3"
+    question="Why does avoiding shared mutable state make functional code easier to run safely in parallel?"
+    options={[
+      "Because functional programs cannot use multiple threads at all",
+      "Because pure functions can't read or write anything outside their own input and output, so two pure functions running in parallel can never interfere with each other's data"
+      ,
+      "Because parallel execution requires mutable state to work correctly",
+      "Because functional languages disable multi-core CPUs",
+    ]}
+    answer={1}
+    explanation="Since pure functions have no way to observe or affect anything beyond their own arguments and return value, there's no shared state for concurrently running pure functions to race over."
+  />
+  <Quiz
+    id="functional-programming-q4"
+    question="Is functional programming typically an all-or-nothing choice in most mainstream languages?"
+    options={[
+      "Yes, a codebase must be either fully functional or fully non-functional with no middle ground",
+      "No — most mainstream languages are multi-paradigm and let developers adopt functional habits selectively, using immutability and pure functions where they help while still allowing mutation and objects elsewhere"
+      ,
+      "Yes, only Haskell-derived languages can use any functional techniques",
+      "No, but only object-oriented languages can incorporate functional techniques",
+    ]}
+    answer={1}
+    explanation="Outside of dedicated functional languages like Haskell, most mainstream languages support mixing functional idioms with other paradigms as appropriate, rather than requiring a strict, exclusive commitment."
+  />
+</QuizSet>

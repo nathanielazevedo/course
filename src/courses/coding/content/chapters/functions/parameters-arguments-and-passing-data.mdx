@@ -1,0 +1,97 @@
+Not every parameter has to be filled the same way. Languages offer several distinct styles for supplying arguments to a function, and — separately — several distinct rules for exactly what gets handed over when an argument is passed. Both matter for predicting how a function call actually behaves.
+
+### Positional arguments
+
+**Positional arguments** are matched to parameters purely by order — the first argument fills the first parameter, the second fills the second, and so on. This is the default in most languages and works well until a function has enough parameters that remembering the correct order becomes its own burden.
+
+```python
+def create_user(name, email, age):
+    ...
+
+create_user("Ada", "ada@example.com", 32)  # positional
+```
+
+### Named arguments
+
+**Named (or keyword) arguments** let the caller specify which parameter each value fills by name, independent of order — Python's `create_user(email="ada@example.com", name="Ada", age=32)` works identically to the positional call above, and reads more clearly at the call site, especially with several arguments of the same type where positional order alone is easy to get wrong.
+
+### Default arguments
+
+A **default argument** lets a parameter have a value it takes on when the caller doesn't supply one at all: `def create_user(name, email, age=18):` lets callers omit `age` entirely and get `18`. This is a convenience for the common case, without forcing every caller to know or care about a value they usually don't need to change.
+
+### Variadic functions
+
+A **variadic function** accepts an arbitrary number of arguments rather than a fixed count — Python's `def total(*numbers):`, JavaScript's `function total(...numbers)`, C's `printf`. Internally, the variadic parameter is usually collected into a single composite value (a tuple, an array) that the function body can iterate over, which connects directly back to Chapter 2's primitive-vs-composite distinction.
+
+### Pass by value
+
+**Pass by value** means the function receives a *copy* of the argument — changes made to the parameter inside the function have no effect on the caller's original variable. As Chapter 2 covered, primitives are almost universally passed by value: passing a number into a function and reassigning the parameter inside doesn't touch the caller's number.
+
+### References
+
+**Passing a reference** means the function receives something that points at the same underlying data as the caller's variable, rather than an independent copy. As covered in Chapter 2, composites (lists, objects, dictionaries) are typically passed this way — the function doesn't get its own list, it gets a reference to the *same* list the caller has.
+
+### Object references
+
+This is worth stating precisely, because it resolves a common point of confusion: what's passed by value is the *reference itself*, not the object. `def add_item(cart): cart.append(item)` mutates the caller's actual cart, because `cart` inside the function refers to the same list object. But `def replace_cart(cart): cart = []` does *not* affect the caller's cart at all — it just reassigns the local `cart` name (a copy of the reference) to point at a brand-new empty list, leaving the caller's original reference untouched.
+
+### Why "pass by reference" is often misunderstood
+
+Many languages — Python, Java, JavaScript — are accurately described as "pass by value, where the value happens to be a reference for objects," not "pass by reference" in the strict sense some other languages (C++ with `&` parameters, or Pascal) actually implement, where the *caller's own variable* can be reassigned from inside the function. The distinction matters exactly at the moment shown above: mutating through a reference is visible to the caller; reassigning the local reference is not, and mixing those two up is one of the most common sources of "why didn't my function's result show up outside it?" bugs.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="parameters-arguments-and-passing-data-q1"
+    question="What is the difference between positional and named arguments?"
+    options={[
+      "Named arguments can only be used with numbers",
+      "Positional arguments are matched to parameters by order; named arguments let the caller specify which parameter each value fills by name, regardless of order"
+      ,
+      "Positional arguments are always required; named arguments are always optional",
+      "There is no real difference between them",
+    ]}
+    answer={1}
+    explanation="Positional matching relies purely on argument order; named arguments decouple the match from order by referencing the parameter's name explicitly."
+  />
+  <Quiz
+    id="parameters-arguments-and-passing-data-q2"
+    question="What does a default argument value provide?"
+    options={[
+      "A way to make a parameter required in every call",
+      "A fallback value a parameter takes on automatically when the caller doesn't supply one, sparing callers from specifying values they usually don't need to change"
+      ,
+      "A way to prevent a function from ever being called with that parameter",
+      "A type that can never be overridden",
+    ]}
+    answer={1}
+    explanation="Default arguments let common cases omit a parameter entirely while still allowing callers to override it when needed."
+  />
+  <Quiz
+    id="parameters-arguments-and-passing-data-q3"
+    question="In a language like Python or JavaScript, if a function mutates an object passed to it (e.g. cart.append(item)), is that change visible to the caller?"
+    options={[
+      "No, because objects are always fully copied when passed to a function",
+      "Yes, because the function receives a reference to the same underlying object, so mutating it affects the object the caller also refers to"
+      ,
+      "Only if the function explicitly returns the object",
+      "Only in statically typed languages",
+    ]}
+    answer={1}
+    explanation="Since the reference passed points at the same object the caller holds, mutating that object's contents inside the function is visible outside it too."
+  />
+  <Quiz
+    id="parameters-arguments-and-passing-data-q4"
+    question="Why doesn't reassigning a parameter inside a function (e.g. cart = []) affect the caller's original variable in Python or JavaScript?"
+    options={[
+      "Because reassignment is illegal inside a function",
+      "Because the reference itself was passed by value — reassigning the local parameter only changes what the local copy of the reference points to, leaving the caller's original reference untouched"
+      ,
+      "Because these languages don't support object references",
+      "Because functions cannot access their own parameters after the first line",
+    ]}
+    answer={1}
+    explanation="The parameter is a local copy of the reference; reassigning it points that local copy elsewhere, but the caller's own reference still points at the original object."
+  />
+</QuizSet>

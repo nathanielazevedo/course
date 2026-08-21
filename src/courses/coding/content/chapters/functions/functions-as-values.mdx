@@ -1,0 +1,107 @@
+In most modern languages, a function isn't a special, separate kind of thing — it's a value, just like a number or a string, that can be stored in a variable, passed as an argument, and returned from another function. This idea, once it clicks, unlocks a huge amount of what makes modern code in Python, JavaScript, Rust, and even Java (since lambdas arrived) look the way it does.
+
+### First-class functions
+
+A language has **first-class functions** when functions can be treated exactly like any other value: assigned to variables, stored in lists, passed into other functions, returned from functions. This is a design decision, not a given — older or more restrictive languages sometimes required extra ceremony (function pointers in C, which work but feel bolted-on) to get similar behavior. In a first-class-functions language, `const doubled = multiplyBy(2);` genuinely stores a function in `doubled`, the same way `const x = 5` stores a number in `x`.
+
+### Lambdas and anonymous functions
+
+A **lambda** (or **anonymous function**) is a function defined without a name, usually written inline exactly where it's needed:
+
+```python
+squared = list(map(lambda x: x * x, numbers))
+```
+```javascript
+const squared = numbers.map(x => x * x);
+```
+
+Naming every small, throwaway function (`def square(x): return x * x`) adds ceremony without adding clarity when the function is used exactly once, right where it's defined — which is exactly what lambdas are for.
+
+### Callbacks
+
+A **callback** is a function passed into another function specifically so that function can call it later, often in response to an event or once some asynchronous work finishes:
+
+```javascript
+button.addEventListener("click", () => {
+  console.log("clicked!");
+});
+```
+
+The function passed to `addEventListener` doesn't run immediately — it's stored and invoked later, whenever a click actually happens. This pattern underlies most UI programming and a huge amount of asynchronous code, covered further in Chapter 11's section on async programming.
+
+### Closures
+
+A **closure** is a function that "remembers" variables from the scope it was defined in, even after that outer scope has technically finished executing:
+
+```javascript
+function makeCounter() {
+  let count = 0;
+  return function () {
+    count += 1;
+    return count;
+  };
+}
+
+const counter = makeCounter();
+counter(); // 1
+counter(); // 2
+```
+
+`count` should, by the normal rules of scope (Chapter 5 covers this fully), disappear once `makeCounter` returns — its stack frame is gone. But the inner function *closes over* `count`, keeping it alive as long as the inner function itself exists, giving each call to `makeCounter()` its own private, persistent counter. This is one of the most powerful and initially confusing ideas in this course, and it's the mechanism behind an enormous amount of real-world JavaScript, Python, and Rust code — private state without needing a class at all.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="functions-as-values-q1"
+    question="What does it mean for a language to have 'first-class functions'?"
+    options={[
+      "Functions can only be called once",
+      "Functions can be treated like any other value — assigned to variables, passed as arguments, and returned from other functions"
+      ,
+      "The language does not support any other data types",
+      "Functions must always have a name",
+    ]}
+    answer={1}
+    explanation="First-class function support means functions participate in the language the same way numbers or strings do, without special ceremony to pass or store them."
+  />
+  <Quiz
+    id="functions-as-values-q2"
+    question="What is a lambda (anonymous function) primarily useful for?"
+    options={[
+      "Replacing all named functions in a codebase",
+      "Defining a small function inline, right where it's needed, without the ceremony of naming it separately when it's only used once"
+      ,
+      "Making functions run faster than named functions",
+      "Preventing a function from accepting any parameters",
+    ]}
+    answer={1}
+    explanation="Lambdas avoid unnecessary naming ceremony for small, throwaway functions used exactly where they're defined, such as inside a map() or filter() call."
+  />
+  <Quiz
+    id="functions-as-values-q3"
+    question="What is a callback function?"
+    options={[
+      "A function that can never accept any arguments",
+      "A function passed into another function so that function can invoke it later, often in response to an event or asynchronous completion"
+      ,
+      "A function that always runs before the program starts",
+      "A synonym for a pure function",
+    ]}
+    answer={1}
+    explanation="Callbacks are stored and invoked later by the function they were passed to, commonly in response to events like a click or the completion of an async operation."
+  />
+  <Quiz
+    id="functions-as-values-q4"
+    question="What does a closure do that lets a JavaScript counter function like makeCounter() maintain private state across multiple calls?"
+    options={[
+      "It stores the state in a global variable automatically",
+      "It captures ('closes over') variables from its defining scope, keeping them alive as long as the inner function exists, even after the outer function has returned"
+      ,
+      "It creates a new class instance for every call",
+      "It requires the variable to be declared with the const keyword",
+    ]}
+    answer={1}
+    explanation="A closure keeps its captured variables alive beyond the normal lifetime of the scope they were declared in, because the inner function retains a reference to them for as long as it itself exists."
+  />
+</QuizSet>

@@ -1,0 +1,78 @@
+Once you're comfortable in more than one language, a natural next situation arises constantly: porting an idea, an algorithm, or an entire small program from one language to another. Done carelessly, this produces exactly the kind of code this section is about avoiding — technically working, but wrong in a way that's hard to name precisely.
+
+### Translating intent rather than syntax
+
+The instinct when porting code is to translate line by line, construct by construct — this loop becomes that loop, this class becomes that class. This works, in the narrow sense that the resulting code often runs correctly, but it consistently produces code that reads as obviously foreign in its new language, because it's translating the previous language's *specific syntax* rather than the *intent* that syntax was expressing. The better approach, built directly on everything Chapter 1 established about recognizing concepts beneath syntax: understand what the original code is actually trying to accomplish — its intent — and then ask how *this* language, using its own idioms, would naturally express that same intent.
+
+### Idiomatic code
+
+**Idiomatic code** is code that reads the way an experienced user of a specific language would naturally write it — using that language's particular strengths and conventions, rather than forcing patterns borrowed wholesale from a different language's habits. A `for` loop manually building up a list by appending to it one element at a time is a direct, line-by-line translation from a language without strong list-comprehension support; the idiomatic Python equivalent is a comprehension (`[transform(x) for x in items if condition(x)]`, directly connecting back to Chapter 4's higher-order functions), because that's how Python itself expresses "transform and filter a collection," not because the loop version is wrong — it's just foreign to how Python code is actually written and read by people fluent in it.
+
+### Why direct translations often produce bad code
+
+A direct translation frequently ports over not just the *logic* but also the specific *idioms* and workarounds of the source language — including ones that exist purely to compensate for that language's own particular limitations, limitations the target language may not even share. Manually managing an index variable to loop through a collection (a genuine necessity in older C-style code, or in a language without iterators, Chapter 3) translated directly into Python or JavaScript carries over ceremony neither language actually needs, because both provide clean iteration (`for item in items`, `for (const item of items)`) as a first-class, idiomatic feature specifically so you don't have to manage an index by hand — the workaround the original code needed simply doesn't apply anymore, but a line-by-line translation faithfully reproduces it anyway.
+
+### A concrete example
+
+Porting a Java-style "getter and setter for every field" class directly into Python produces exactly this kind of foreign-feeling code — `get_name()` and `set_name()` methods wrapping a private field, faithfully reproducing Java's encapsulation convention (Chapter 6) even though Python's `@property` decorator (Chapter 6's coverage of properties) achieves the identical actual goal — controlled, potentially validated access to a field — while looking and reading like ordinary attribute access (`user.name`, not `user.get_name()`) everywhere it's used, which is how experienced Python developers actually expect a class's interface to read.
+
+### The real skill
+
+Translating well between languages is really the same fundamental skill Chapter 1 introduced at the very start of this course, applied in reverse: instead of recognizing which concept unfamiliar syntax represents, it's recognizing which concept your existing code represents, and then finding *that same concept's* most natural, idiomatic expression in the new target language — not the most literal, mechanical one. This is, in a real sense, the entire course's central claim distilled into a single practical skill: languages differ enormously in surface form, but the concepts underneath transfer completely, and genuinely fluent translation always happens at the level of those concepts, never at the level of literal syntax.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="translating-between-languages-q1"
+    question="What is the key difference between translating a program's syntax directly and translating its intent?"
+    options={[
+      "There is no meaningful difference — both approaches always produce identical results",
+      "Translating syntax directly maps constructs line by line, often producing code that runs but reads as foreign in the new language; translating intent means understanding what the code accomplishes and expressing that using the new language's own idioms"
+      ,
+      "Translating intent is impossible without first translating syntax",
+      "Syntax translation always produces faster code than intent translation",
+    ]}
+    answer={1}
+    explanation="Intent-based translation focuses on the underlying goal and expresses it idiomatically in the target language, while syntax-level translation mechanically maps constructs, often carrying over foreign-feeling patterns."
+  />
+  <Quiz
+    id="translating-between-languages-q2"
+    question="What does 'idiomatic code' mean?"
+    options={[
+      "Code that only uses a language's most obscure, rarely used features",
+      "Code that reads the way an experienced user of a specific language would naturally write it, using that language's particular strengths and conventions"
+      ,
+      "Code that is deliberately difficult to understand",
+      "Code translated literally from another language without any modification",
+    ]}
+    answer={1}
+    explanation="Idiomatic code follows the natural conventions and strengths of the language it's written in, rather than importing habits or workarounds from a different language."
+  />
+  <Quiz
+    id="translating-between-languages-q3"
+    question="Why does manually managing an index variable to loop through a collection, when ported directly into Python or JavaScript, count as a foreign, non-idiomatic pattern?"
+    options={[
+      "Because Python and JavaScript cannot use index variables at all",
+      "Because both languages provide clean, first-class iteration (like for item in items) specifically so an index doesn't need to be managed by hand, making the manual-index approach unnecessary ceremony carried over from a language that actually needed it"
+      ,
+      "Because index variables are illegal in every modern programming language",
+      "Because loops are not supported in either language",
+    ]}
+    answer={1}
+    explanation="The manual-index pattern is a workaround for languages lacking clean iteration support; carrying it into languages that do have that support (via idiomatic for-each style loops) reproduces unnecessary ceremony that no longer serves any purpose."
+  />
+  <Quiz
+    id="translating-between-languages-q4"
+    question="How does this section frame the skill of translating well between languages, relative to Chapter 1's opening material?"
+    options={[
+      "As a completely unrelated skill with no connection to earlier material",
+      "As the same fundamental skill from Chapter 1 — recognizing the concept beneath syntax — applied in reverse: recognizing which concept existing code represents, then finding that concept's most natural expression in the target language"
+      ,
+      "As a skill that only applies to statically typed languages",
+      "As something that requires abandoning everything learned about the source language",
+    ]}
+    answer={1}
+    explanation="The section explicitly connects translation skill back to Chapter 1's concept-recognition framing, applying it in the reverse direction — from an existing implementation back to its underlying concept, then forward into a new language's idiom."
+  />
+</QuizSet>

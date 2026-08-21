@@ -1,0 +1,145 @@
+Once you've written a variable, a conditional, a loop, and a function in one language, you already know 80% of what you need to read the same constructs in a language you've never touched. The syntax changes; the idea underneath almost never does. This section is a deliberate side-by-side tour, because seeing the same concept wearing five different outfits is what makes the pattern click.
+
+### Variables across languages
+
+```python
+# Python
+total = 0
+```
+```javascript
+// JavaScript
+let total = 0;
+```
+```rust
+// Rust
+let mut total = 0;
+```
+```go
+// Go
+var total = 0
+```
+
+Four different punctuation styles, one identical idea: bind the name `total` to the value `0` so it can be referred to and changed later. Rust's `mut` and the type-declaration keywords (`var`, `let`) are the languages being explicit about things Python leaves implicit — whether the binding can be reassigned, and how strictly its type is tracked. Chapters 5 and 7 dig into exactly what those differences mean.
+
+### Conditionals across languages
+
+```python
+if total > 100:
+    apply_discount()
+else:
+    charge_full_price()
+```
+```javascript
+if (total > 100) {
+  applyDiscount();
+} else {
+  chargeFullPrice();
+}
+```
+```rust
+if total > 100 {
+    apply_discount();
+} else {
+    charge_full_price();
+}
+```
+
+Every one of these is the same three-part shape: a condition, a branch to take if it's true, a branch to take if it's not. Python signals structure with indentation; the others use braces. That's it — that's the entire difference in the concept, even though it's the first thing that makes new syntax feel unfamiliar.
+
+### Loops across languages
+
+```python
+for item in items:
+    process(item)
+```
+```javascript
+for (const item of items) {
+  process(item);
+}
+```
+```go
+for _, item := range items {
+    process(item)
+}
+```
+
+All three are the same "iteration" idea covered fully in Chapter 3: walk a collection, doing something with each element, without the programmer manually tracking an index. Older-style `for (int i = 0; i < n; i++)` loops in C-family languages express the identical intent with the counter made explicit instead of hidden.
+
+### Functions across languages
+
+```python
+def add(a, b):
+    return a + b
+```
+```javascript
+function add(a, b) {
+  return a + b;
+}
+```
+```rust
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+```
+
+Name, parameters, a body, a return value — the shape never changes. Rust additionally requires you to say what type each parameter and return value is; that's a difference in the *type system* (Chapter 2), not in what a function fundamentally is.
+
+### Recognizing concepts beneath syntax
+
+The skill this section is training is a specific kind of pattern recognition: when you see unfamiliar syntax, ask "what concept is this?" before asking "what does this exact character mean?" A curly brace, a colon, an indentation level, a keyword like `fn` or `def` or `function` — these are all just different ways of marking the same handful of structural boundaries. Chapter 15 turns this recognition into an explicit, repeatable method for picking up any new language quickly.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="the-same-idea-different-syntax-q1"
+    question="What is the main point of comparing the same construct (a variable, a loop, a function) across multiple languages?"
+    options={[
+      "To memorize every language's exact keywords",
+      "To show that the underlying concept is usually identical even though the surface syntax differs",
+      "To prove that some languages are objectively better than others",
+      "To demonstrate that variables don't exist in some languages",
+    ]}
+    answer={1}
+    explanation="The comparison is meant to build the habit of recognizing a shared concept — like binding a name to a value — underneath different punctuation and keywords."
+  />
+  <Quiz
+    id="the-same-idea-different-syntax-q2"
+    question="What does Rust's `mut` keyword in a variable declaration signal, compared to Python's plain assignment?"
+    options={[
+      "That the variable is a function",
+      "That the language is being explicit about whether the binding is allowed to be reassigned, something Python leaves implicit"
+      ,
+      "That the variable will never be used",
+      "That Rust does not support variables",
+    ]}
+    answer={1}
+    explanation="Rust requires you to opt into mutability explicitly; Python allows reassignment by default without any special marker."
+  />
+  <Quiz
+    id="the-same-idea-different-syntax-q3"
+    question="What structural difference distinguishes Python's conditional syntax from JavaScript's or Rust's?"
+    options={[
+      "Python doesn't support conditionals at all",
+      "Python uses indentation to define blocks, while the others use braces, but the underlying condition/branch structure is the same"
+      ,
+      "JavaScript conditionals can't have an else branch",
+      "Rust conditionals require a semicolon after every line",
+    ]}
+    answer={1}
+    explanation="The three-part shape — condition, true branch, false branch — is identical; only the punctuation used to delimit the blocks differs."
+  />
+  <Quiz
+    id="the-same-idea-different-syntax-q4"
+    question="What skill is this section specifically training you to develop?"
+    options={[
+      "Writing code without ever reading documentation",
+      "Recognizing which underlying concept unfamiliar syntax represents, rather than trying to memorize every character up front"
+      ,
+      "Avoiding statically typed languages entirely",
+      "Translating code word-for-word between languages",
+    ]}
+    answer={1}
+    explanation="The goal is pattern recognition — asking 'what concept is this?' before getting stuck on unfamiliar punctuation or keywords."
+  />
+</QuizSet>

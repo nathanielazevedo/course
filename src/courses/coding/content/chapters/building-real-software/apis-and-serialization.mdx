@@ -1,0 +1,94 @@
+Chapter 4 covered functions as the unit that lets code within one program call itself. Once a program needs to call code running in a *different* process — possibly on a different machine entirely — a function call alone doesn't cross that boundary anymore. APIs and serialization are what makes it possible anyway.
+
+### Functions across process boundaries
+
+An **API (Application Programming Interface)**, in the specific sense this section means, is a defined way for one program to call functionality that lives in another process — Chapter 13's networking material covered the transport (sockets, TCP, HTTP); an API is the *contract* layered on top: which URLs exist, what data they expect, what they return. Calling `GET /users/42` on a web API is conceptually similar to calling `getUser(42)` as a local function (Chapter 4), with one crucial difference the rest of this section unpacks: everything crossing that boundary has to travel as bytes over a network, not as an in-memory reference the way a local function call's arguments do.
+
+### HTTP APIs
+
+**HTTP APIs** (often loosely called "REST APIs," after a set of architectural conventions many of them follow to varying degrees) expose functionality as URLs, using HTTP methods to indicate the kind of operation — `GET` to retrieve data, `POST` to create something, `PUT`/`PATCH` to update, `DELETE` to remove. This is Chapter 7's declarative programming applied to inter-process communication: a client requests a resource by describing *what* it wants (`GET /users/42`), and the server decides *how* to actually produce that response internally, exactly the same what-versus-how split SQL demonstrated for querying a database directly.
+
+### RPC
+
+**RPC (Remote Procedure Call)** frameworks (gRPC being the most prominent modern example) take a different stylistic approach to the same underlying problem: instead of URLs and HTTP verbs, you define functions with typed parameters and return values in a schema file, and the framework generates client and server code that lets calling a remote function look and feel almost exactly like calling a local one (Chapter 4) — the network call, serialization, and deserialization are all hidden behind what appears to be an ordinary function call in your code. This isn't magic; it's a deliberate design choice trading some of HTTP APIs' flexibility and universal tooling support for a more direct, statically typed, function-call-like developer experience.
+
+### Serialization
+
+**Serialization** is the process this whole section has been building toward: converting an in-memory value (an object, Chapter 6; a struct, Chapter 6) into a sequence of bytes that can actually be sent over a network or written to a file, with **deserialization** doing the reverse — reconstructing the original value (or something equivalent to it) from those bytes on the receiving end. This is necessary precisely because Chapter 5's references — an object's location in a specific process's own memory — mean absolutely nothing to a different, separate process; an object has to be converted into a self-contained, portable representation before it can cross a process boundary at all.
+
+### JSON
+
+**JSON (JavaScript Object Notation)** is the dominant serialization format for HTTP APIs — human-readable text representing objects, arrays, strings, numbers, and booleans, directly mirroring the primitive and composite types covered in Chapter 2, which is exactly why it maps so naturally onto nearly every language's own data structures with minimal translation needed.
+
+```json
+{ "id": 42, "name": "Ada", "roles": ["admin", "user"] }
+```
+
+### XML
+
+**XML (Extensible Markup Language)** predates JSON as a serialization format and remains common in older enterprise systems and certain industries (finance, healthcare) with deep, established XML-based standards — more verbose than JSON, but with a richer schema-validation ecosystem and native support for attributes alongside nested content that JSON's simpler, more minimal design deliberately left out.
+
+### Protobuf
+
+**Protocol Buffers (Protobuf)**, used heavily by gRPC, take a fundamentally different approach from both: instead of human-readable text, data is serialized into a compact binary format, defined by a schema (a `.proto` file) that both the sender and receiver agree on ahead of time. This trades JSON's human-readability and universal, no-schema-needed flexibility for meaningfully smaller message sizes and faster parsing — a real, measurable performance win at high volume, at the cost of needing the shared schema in place before any two systems can actually communicate.
+
+### Bytes over a network, one more time
+
+Every one of these formats is ultimately solving the exact same core problem stated at the very top of this section: values in one process's memory (Chapter 5) mean nothing on their own to another process, so they have to be converted into a self-contained sequence of bytes, sent across the network (Chapter 13), and reconstructed on the other side — the specific format chosen is a tradeoff between human-readability, message size, parsing speed, and how strictly both sides need to agree on structure ahead of time.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="apis-and-serialization-q1"
+    question="What crucial difference distinguishes calling a remote API endpoint from calling a local function, even though both can feel conceptually similar?"
+    options={[
+      "There is no meaningful difference between the two",
+      "Everything crossing the process/network boundary has to travel as bytes, not as an in-memory reference, requiring serialization and deserialization rather than a direct in-memory argument pass"
+      ,
+      "Remote API calls cannot accept any arguments at all",
+      "Local function calls always require an internet connection",
+    ]}
+    answer={1}
+    explanation="Unlike a local function call's arguments, which can be passed as in-memory references (Chapter 4), data crossing a network boundary has to be converted to bytes first, since a reference to one process's memory means nothing to another process."
+  />
+  <Quiz
+    id="apis-and-serialization-q2"
+    question="How does an RPC framework like gRPC differ stylistically from a typical HTTP/REST API?"
+    options={[
+      "RPC frameworks cannot communicate over a network at all",
+      "RPC frameworks generate client and server code from a typed schema, making a remote call look and feel almost exactly like calling a local function, whereas HTTP APIs expose functionality through URLs and HTTP verbs"
+      ,
+      "RPC and REST APIs are functionally identical with no differences",
+      "RPC frameworks only work with JSON, never with binary formats",
+    ]}
+    answer={1}
+    explanation="RPC hides the network call, serialization, and deserialization behind what appears to be an ordinary function call, in contrast to REST-style HTTP APIs' URL-and-verb-based interaction model."
+  />
+  <Quiz
+    id="apis-and-serialization-q3"
+    question="What is serialization, and why is it necessary for cross-process communication?"
+    options={[
+      "Serialization is a synonym for compiling source code",
+      "Serialization converts an in-memory value into a sequence of bytes that can be sent over a network or written to a file, because in-memory references (specific to one process's memory) mean nothing to a different process"
+      ,
+      "Serialization only applies to numeric values, never to objects",
+      "Serialization eliminates the need for any network transport at all",
+    ]}
+    answer={1}
+    explanation="Serialization bridges the gap between a value's in-memory representation, which is meaningless outside its own process, and a portable byte representation that can actually be transmitted and reconstructed elsewhere."
+  />
+  <Quiz
+    id="apis-and-serialization-q4"
+    question="What tradeoff does Protocol Buffers (Protobuf) make compared to JSON?"
+    options={[
+      "Protobuf is human-readable text, exactly like JSON, with no real differences",
+      "Protobuf uses a compact binary format defined by a shared schema, trading JSON's human-readability and no-schema flexibility for smaller message sizes and faster parsing"
+      ,
+      "Protobuf cannot be used with gRPC",
+      "Protobuf requires no schema agreement between sender and receiver, unlike JSON",
+    ]}
+    answer={1}
+    explanation="Protobuf's binary, schema-based format is more efficient in size and parsing speed than JSON's readable text format, at the cost of requiring both sides to agree on a schema ahead of time."
+  />
+</QuizSet>

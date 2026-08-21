@@ -1,0 +1,87 @@
+Manually downloading a library's source code, placing it in the right folder, and tracking which version you're using does not scale past a handful of tiny dependencies. Every mainstream language ecosystem has converged on a **package manager** — a tool that automates finding, installing, updating, and tracking a project's dependencies — precisely to make this manageable at real-world scale.
+
+### The common shape
+
+Despite different names and syntax, every mainstream package manager does roughly the same job: read a manifest file describing what your project depends on (and often, what versions are acceptable), download those packages (and, transitively, whatever *those* packages themselves depend on) from a central or configured registry, and record exactly what was actually installed in a lock file — the topic of the next section.
+
+### `npm`
+
+`npm` (and its close alternatives, `yarn` and `pnpm`) manages JavaScript and TypeScript dependencies, reading `package.json` for the declared dependencies and installing them into a `node_modules` folder. It's notable for how deep its dependency trees can get — a single frontend project can easily pull in hundreds of transitive packages — which made `npm`'s lock-file mechanism (covered next) especially important for the ecosystem's stability.
+
+### `pip`
+
+`pip` manages Python packages, installing from the Python Package Index (PyPI) based on a `requirements.txt` file or the newer `pyproject.toml` standard. Python's ecosystem historically had a looser relationship with isolated project environments than some others, which is exactly why tools like `venv` and `virtualenv` (creating an isolated set of installed packages per project) became such a standard companion practice — without them, two projects on the same machine needing different versions of the same package would conflict directly.
+
+### Maven and NuGet
+
+**Maven** manages Java dependencies via a `pom.xml` file describing dependencies and build steps together; **NuGet** does the equivalent for .NET, integrated directly into `.csproj` project files. Both reflect their ecosystems' broader conventions — more configuration-heavy and build-integrated than `npm` or `pip`, consistent with Java's and C#'s generally more structured, enterprise-oriented tooling culture (Chapter 12 revisits this kind of ecosystem personality directly).
+
+### Cargo
+
+**Cargo** is Rust's package manager and build tool combined into one, reading `Cargo.toml` and widely regarded as one of the smoothest package-manager experiences across any language — a large part of why is that it was designed from Rust's inception alongside the language itself, rather than bolted on afterward once an ecosystem without one had already grown large and inconsistent, which is closer to how several older languages' tooling actually evolved.
+
+### Go modules
+
+**Go modules**, using `go.mod`, manage Go's dependencies with a design that deliberately favors simplicity and minimal version conflict over maximum flexibility — reflecting the same overall philosophy (small, explicit, unambiguous) that shows up throughout Go's language design elsewhere in this course.
+
+### Why every ecosystem eventually needs one
+
+None of these tools are optional conveniences in any modern-scale project — without one, a project's dependencies quickly become impossible to reliably reproduce on a different machine, at a different time, or by a different developer, which is precisely the reproducibility problem the next section, on dependency resolution, dives into fully.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="package-managers-q1"
+    question="What is the common job every mainstream package manager performs, regardless of language?"
+    options={[
+      "Writing all the application's code automatically",
+      "Reading a manifest describing a project's dependencies, downloading those packages (and their own transitive dependencies), and recording exactly what was installed"
+      ,
+      "Compiling source code into a native executable",
+      "Replacing the need for a version control system",
+    ]}
+    answer={1}
+    explanation="Despite different names and file formats, package managers all automate the same core tasks: resolving, downloading, and recording a project's dependencies based on a manifest."
+  />
+  <Quiz
+    id="package-managers-q2"
+    question="Why did tools like venv and virtualenv become a standard companion to pip in the Python ecosystem?"
+    options={[
+      "Because pip cannot install any packages without them",
+      "Because without an isolated per-project environment, two projects on the same machine needing different versions of the same package would conflict directly"
+      ,
+      "Because Python does not support package management at all",
+      "Because venv is required to write Python syntax correctly",
+    ]}
+    answer={1}
+    explanation="Isolated environments prevent version conflicts between different projects on the same machine that might need different versions of the same dependency."
+  />
+  <Quiz
+    id="package-managers-q3"
+    question="What distinguishes Cargo's design history from several older languages' package-manager tooling?"
+    options={[
+      "Cargo was created decades before the Rust language itself",
+      "Cargo was designed from Rust's inception alongside the language, rather than being added afterward to an ecosystem that had already grown large without one"
+      ,
+      "Cargo does not manage dependencies at all, only compiles code",
+      "Cargo is identical in every respect to npm",
+    ]}
+    answer={1}
+    explanation="Being built in tandem with the language itself let Cargo's design avoid many of the inconsistencies that arise when a package manager is retrofitted onto an ecosystem that grew organically without one."
+  />
+  <Quiz
+    id="package-managers-q4"
+    question="Why does virtually every modern-scale project require a package manager rather than manually managing dependencies?"
+    options={[
+      "Because manually managing dependencies is illegal in most countries",
+      "Because without automated dependency management, a project's dependencies quickly become difficult to reliably reproduce across different machines, times, or developers"
+      ,
+      "Because package managers are the only way to write any source code",
+      "Because compilers cannot function without a package manager installed"
+      ,
+      ]}
+    answer={1}
+    explanation="Manual dependency tracking doesn't scale — reproducibility across environments and collaborators depends on the automated, consistent process a package manager provides."
+  />
+</QuizSet>

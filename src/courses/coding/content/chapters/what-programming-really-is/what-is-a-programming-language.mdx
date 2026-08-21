@@ -1,0 +1,74 @@
+Every programming language you'll ever touch — Python, JavaScript, Rust, C, Go — is doing the same two jobs at once. It's a **notation** for a human to describe a process, and it's a **specification** precise enough for a machine to carry that process out. Most of the confusion people have about "which language should I learn" comes from treating languages as if they were unrelated tools, when really they're unrelated *dialects* of the same underlying set of ideas: naming things, making decisions, repeating steps, and organizing data.
+
+### Code as instructions and descriptions
+
+Read a line of code two ways at once. `total = price * quantity` is an **instruction** — a machine will multiply two numbers and store the result. It's also a **description** — a human reading it understands, without running anything, that `total` represents the cost of some quantity of items at some price. Good code stays readable at both levels simultaneously. Bad code might still execute correctly while failing completely as a description — `x = a * b` computes the same thing but tells a reader nothing.
+
+This dual nature is why programming languages look the way they do: closer to structured English or algebra than to the raw binary a CPU actually consumes. A language's syntax is a compromise between what's easy for a person to write and read, and what's straightforward to translate into something a machine can execute — the rest of this chapter is about how that translation actually happens.
+
+### Programming languages as abstractions
+
+A CPU only understands a small set of primitive operations — move this value, add these two numbers, jump to this instruction if a condition holds. Every programming language is an abstraction layer built on top of that reality, hiding detail you don't want to manage by hand. `for item in items:` in Python hides the same loop machinery that C makes you spell out with a counter variable and a comparison; both eventually become similar sequences of low-level operations, but the language decides how much of that mechanism you have to see and control.
+
+Higher-level languages trade some control and predictability for productivity: you write less code, but you also have less say over exactly what the machine does step by step. Lower-level languages invert that trade: more code, more decisions to make explicitly, but tighter control over memory and performance. Neither direction is "better" in the abstract — it depends on what you're building and what you need to control.
+
+### Why so many languages exist
+
+If every language is ultimately describing the same underlying operations, why do hundreds of them exist? Because the tradeoffs a language makes — how much it abstracts away, how it catches mistakes, how it manages memory, what kind of programs it's optimized to express — matter differently depending on the job. A language built for scripting quick automation (Python) makes different choices than one built for a browser that has to run untrusted code fast (JavaScript), which makes different choices again than one built for an operating system kernel where every byte and every cycle counts (C, Rust).
+
+This course is built around a claim worth stating up front: learning to program is not the same task as learning any one language's syntax. Syntax is the shallow, fast-to-relearn part. What's actually hard, and what actually transfers, is understanding the concepts underneath — and that's what the rest of this course covers, one idea at a time, showing how each concept shows up across languages rather than teaching any single one in isolation.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-is-a-programming-language-q1"
+    question="A programming language serves two roles at once. What are they?"
+    options={[
+      "A marketing tool and a legal contract",
+      "A notation for a human to describe a process, and a specification precise enough for a machine to execute",
+      "A database schema and a network protocol",
+      "A compiler and an operating system",
+    ]}
+    answer={1}
+    explanation="Code is read by both people and machines — it has to be precise enough to execute and clear enough to communicate intent to a human reader."
+  />
+  <Quiz
+    id="what-is-a-programming-language-q2"
+    question="What does it mean to call a programming language an 'abstraction'?"
+    options={[
+      "It means the language cannot be compiled",
+      "It hides low-level machine detail behind constructs that are easier for humans to write and reason about"
+      ,
+      "It means the language has no syntax rules",
+      "It means the language only runs in a browser",
+    ]}
+    answer={1}
+    explanation="Languages sit on top of the CPU's small set of primitive operations, hiding varying amounts of that machinery behind more human-friendly constructs like loops and functions."
+  />
+  <Quiz
+    id="what-is-a-programming-language-q3"
+    question="Why do so many different programming languages exist, if they're all ultimately expressing similar underlying operations?"
+    options={[
+      "Because computers require a different language for each type of hardware"
+      ,
+      "Because each language makes different tradeoffs between abstraction, control, safety, and performance suited to different jobs",
+      "Because older languages stop working after a few years",
+      "Because there is no real difference between any of them",
+    ]}
+    answer={1}
+    explanation="Different problems call for different tradeoffs — how much control over memory you need, how much safety checking you want, how fast the code must run — and languages are designed around those tradeoffs."
+  />
+  <Quiz
+    id="what-is-a-programming-language-q4"
+    question="According to this course's core claim, what is the most transferable skill in programming?"
+    options={[
+      "Memorizing the exact syntax of as many languages as possible",
+      "Understanding the concepts underneath syntax — values, control flow, functions, memory, and so on — which show up in some form in nearly every language",
+      "Learning one language and never using another",
+      "Focusing only on the newest language released each year",
+    ]}
+    answer={1}
+    explanation="Syntax is quick to relearn; the concepts a language expresses in that syntax are what actually transfer between languages, which is the organizing idea behind this course."
+  />
+</QuizSet>

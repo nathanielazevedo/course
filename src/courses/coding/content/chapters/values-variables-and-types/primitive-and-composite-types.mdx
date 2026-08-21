@@ -1,0 +1,88 @@
+Every type a language offers falls into one of two broad categories: **primitive types**, the small set of basic building blocks a language provides natively, and **composite types**, structures built by combining primitives (and other composites) together. Recognizing which category a type belongs to tells you a lot about how it behaves — how it's stored, how it's compared, whether it's passed by value or by reference.
+
+### The primitives
+
+Almost every language provides some version of the same handful of primitives:
+
+- **Integers** — whole numbers, often with a fixed bit-width (`int32`, `int64`) in statically typed languages, or arbitrary precision in Python.
+- **Floating-point numbers** — numbers with a fractional part, represented approximately (Chapter 9 covers the representation itself).
+- **Characters** — a single unit of text; some languages (C) have a distinct `char` type, others (Python) treat a single character as just a string of length one.
+- **Strings** — sequences of characters, sometimes treated as primitive (Python), sometimes as a composite built from characters under the hood (C, where a string is really an array of `char`).
+- **Booleans** — true or false.
+
+Primitives are usually stored directly, compared by value (two `5`s are equal because they're the same number, not because they're "the same object somewhere in memory"), and immutable — you can't change a `5` into a `6`; you can only make a variable refer to a `6` instead.
+
+### The composites
+
+Composite types are built by combining values, and every language offers some version of these:
+
+- **Arrays** — fixed-size, ordered, typically same-type sequences (common in statically typed languages).
+- **Lists** — ordered, typically resizable sequences (Python's `list`, JavaScript's `Array`, which is actually more list-like than a strict C-style array).
+- **Maps** — key-to-value associations (Python's `dict`, JavaScript's `Map` and object literals, Java's `HashMap`).
+- **Sets** — unordered collections of unique values, with fast membership checks.
+- **Structs** — fixed collections of named fields, common in C, Go, and Rust.
+- **Tuples** — fixed-size, ordered groupings of values, often of different types, usually immutable.
+- **Objects** — the most general composite, bundling both data (fields) and behavior (methods) together, covered fully in Chapter 6.
+
+Composites are typically stored by reference (previous section), compared by structure or identity rather than automatically by value (two lists with identical contents aren't always considered "equal" without an explicit comparison method), and often mutable.
+
+### Why the distinction matters in practice
+
+This split explains behavior that otherwise seems arbitrary. Passing a number into a function and modifying it inside doesn't affect the caller's variable, because primitives are copied by value — the function got its own independent `5`. Passing a list into a function and calling `.append()` on it *does* affect the caller's list, because composites are typically passed by reference — the function got a reference to the same underlying list, not a copy. This exact behavior — sometimes summarized loosely as "pass by value vs. pass by reference" — is really just a consequence of primitives being value types and composites being reference types, and Chapter 4 covers precisely how it plays out across function calls.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="primitive-and-composite-types-q1"
+    question="What is the fundamental difference between a primitive type and a composite type?"
+    options={[
+      "Primitives are always faster, composites are always slower, with no other difference",
+      "Primitives are a language's basic built-in building blocks (numbers, booleans); composites are structures built by combining primitives and other composites together"
+      ,
+      "Composite types can only hold strings",
+      "Primitive types are always mutable",
+    ]}
+    answer={1}
+    explanation="Primitives are the atomic values a language provides directly; composites (lists, maps, structs, objects) are assembled from primitives and other composites."
+  />
+  <Quiz
+    id="primitive-and-composite-types-q2"
+    question="Why are two separate integer variables both holding the value 5 considered equal by simple value comparison?"
+    options={[
+      "Because integers are stored by reference to a shared object",
+      "Because primitives are compared by value — two 5s are equal simply because they represent the same number, not because they refer to the same underlying object"
+      ,
+      "Because integers cannot be compared at all",
+      "Because JavaScript disallows comparing numbers",
+    ]}
+    answer={1}
+    explanation="Value types are compared based on their actual content, unlike reference types, which are often compared by identity or require an explicit structural comparison."
+  />
+  <Quiz
+    id="primitive-and-composite-types-q3"
+    question="Why does modifying a list inside a function typically affect the caller's original list, while modifying a number parameter inside a function does not affect the caller's original number?"
+    options={[
+      "Because functions cannot accept numbers as parameters",
+      "Because composite types like lists are typically passed by reference (the function shares the same underlying data), while primitives are copied by value"
+      ,
+      "Because lists are always converted to strings when passed to functions",
+      "Because this behavior is random and varies unpredictably",
+    ]}
+    answer={1}
+    explanation="Reference types share the same underlying data across all references to them, so mutating that data through one reference is visible through every other reference — unlike value types, which are independently copied."
+  />
+  <Quiz
+    id="primitive-and-composite-types-q4"
+    question="Give an example of a type that's treated as primitive in one language but as a composite built from a more basic primitive in another."
+    options={[
+      "Booleans, which are always composite in every language",
+      "Strings — treated as a primitive in Python, but implemented as an array of characters (a composite) in C"
+      ,
+      "Integers, which are always composite in every language",
+      "There is no such example; every language categorizes types identically",
+    ]}
+    answer={1}
+    explanation="Strings are a good example of how the primitive/composite boundary is a language design choice, not a universal law — Python treats strings as primitive, C builds them from an array of chars."
+  />
+</QuizSet>

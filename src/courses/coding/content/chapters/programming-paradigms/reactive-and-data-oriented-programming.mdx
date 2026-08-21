@@ -1,0 +1,91 @@
+Two more recent paradigms round out the survey, both responding to problems that became pressing as software grew more interactive and more performance-sensitive: reactive programming, which formalizes "when this changes, update that" as a first-class idea, and data-oriented programming, which pushes data-first thinking (previewed in Chapter 6's structs and records) into a full strategy for high-performance code.
+
+### Streams
+
+**Reactive programming** treats a sequence of values over time — user input events, incoming network messages, sensor readings — as a **stream**: a single, ongoing thing you can transform, filter, and combine using the same `map`/`filter`-style operations Chapter 4 introduced for static collections, except the stream keeps producing new values indefinitely rather than being fixed in size.
+
+```javascript
+clicks$
+  .filter(event => event.target.matches("button"))
+  .map(event => event.target.dataset.action)
+  .subscribe(action => handleAction(action));
+```
+
+This reads almost identically to a `map`/`filter` chain over an array, but `clicks$` never "finishes" — new click events keep flowing through the same pipeline for as long as the program runs, which is the essential shift reactive programming makes: from processing a fixed collection once to continuously processing a stream forever.
+
+### Observables
+
+An **observable** is the core building block behind most reactive programming libraries (RxJS, Kotlin Flow, Combine on Apple platforms): a producer of a stream of values that other code can **subscribe** to, receiving each new value as it's produced, similar in spirit to the event-driven callback pattern from the previous section, but with the full `map`/`filter`/combine vocabulary layered on top instead of a single raw callback per event type.
+
+### Data propagation
+
+The deeper idea reactive programming is built around is automatic **data propagation**: when a source value changes, everything derived from it updates automatically, without the programmer manually re-running the derivation by hand. This is exactly the model behind a spreadsheet — change one cell, and every formula referencing it recalculates on its own — and it's the same underlying principle behind modern UI frameworks' reactive state (React's hooks, Vue's reactivity system, Svelte's reactive declarations): a UI component re-renders automatically when the state it depends on changes, rather than the programmer manually writing "now go update the screen" after every state change.
+
+### Data-oriented programming
+
+**Data-oriented programming** takes the opposite direction from object-oriented bundling: instead of grouping related data with its behavior inside objects scattered across memory, keep data in large, uniform, tightly packed arrays, and process it in bulk with functions operating over the whole array at once. This isn't a rejection of structs and records from Chapter 6 — it's the same "keep data plain" instinct, taken further and applied specifically for performance.
+
+### Cache-friendly design
+
+The performance motivation is concrete: modern CPUs are dramatically faster at reading memory sequentially than at jumping between scattered locations, because of how CPU caches work — reading one value pulls a whole nearby chunk into a fast cache automatically, so if the *next* value you need happens to already be in that chunk, it's essentially free; if it's scattered somewhere else in memory, the CPU stalls waiting on a much slower fetch. An array of a thousand plain structs, packed contiguously, is dramatically faster to process in a loop than a thousand scattered individual objects linked by pointers, purely because of this memory-layout effect — independent of anything about the algorithm itself.
+
+### ECS-style thinking
+
+**Entity-Component-System (ECS)**, common in game engines, is data-oriented programming as a full architectural pattern: instead of a `Player` object bundling position, health, and rendering data together (the OOP instinct), an ECS stores *all* positions in one contiguous array, *all* health values in another, and processes each array in a tight, cache-friendly loop — with an "entity" being nothing more than an ID used to look up its corresponding row across those separate arrays. It's a striking illustration of how differently the same underlying data can be organized once raw processing throughput, rather than conceptual modeling convenience, becomes the dominant design goal.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="reactive-and-data-oriented-programming-q1"
+    question="What is the essential shift reactive programming makes compared to the map/filter operations from Chapter 4?"
+    options={[
+      "Reactive programming cannot use map or filter at all",
+      "Reactive programming applies the same transformation vocabulary to a stream of values that keeps arriving indefinitely over time, rather than a fixed, static collection processed once"
+      ,
+      "Reactive programming only works with numbers",
+      "Reactive programming removes the need for any subscription or callback mechanism",
+    ]}
+    answer={1}
+    explanation="Streams generalize the familiar map/filter idioms to ongoing sequences of values over time, rather than a collection whose full contents are known and fixed up front."
+  />
+  <Quiz
+    id="reactive-and-data-oriented-programming-q2"
+    question="What is the core idea behind 'automatic data propagation' in reactive programming, as illustrated by the spreadsheet analogy?"
+    options={[
+      "Data must be manually copied between every dependent value",
+      "When a source value changes, everything derived from it updates automatically, without the programmer manually re-running the derivation logic by hand"
+      ,
+      "Spreadsheets have nothing in common with reactive programming",
+      "Reactive programming only applies to network requests",
+    ]}
+    answer={1}
+    explanation="Just as a spreadsheet formula recalculates automatically when a referenced cell changes, reactive systems automatically re-derive dependent values when their sources change."
+  />
+  <Quiz
+    id="reactive-and-data-oriented-programming-q3"
+    question="Why is a tightly packed array of plain structs typically faster to process in a loop than a collection of scattered individual objects linked by pointers?"
+    options={[
+      "Because arrays can only hold numbers, which are always fast to process",
+      "Because modern CPU caches load nearby memory in chunks, so sequential, contiguous data lets subsequent reads come from the fast cache, while scattered data forces slower individual memory fetches"
+      ,
+      "Because pointers are illegal in most programming languages",
+      "Because scattered objects always use more total memory",
+    ]}
+    answer={1}
+    explanation="Cache-friendly, contiguous memory layouts let the CPU serve many subsequent reads from cache after one fetch, while pointer-chasing through scattered memory triggers repeated, much slower fetches."
+  />
+  <Quiz
+    id="reactive-and-data-oriented-programming-q4"
+    question="How does an Entity-Component-System (ECS) architecture organize data differently from a traditional object-oriented Player object?"
+    options={[
+      "It stores all of a player's data bundled together in one object, identical to OOP",
+      "It stores each kind of data (positions, health, etc.) in its own separate, contiguous array across all entities, with an entity being just an ID used to look up its row in each array"
+      ,
+      "It eliminates the need to store any data about entities at all",
+      "It requires every entity to inherit from a common base class",
+    ]}
+    answer={1}
+    explanation="ECS separates data by kind into contiguous, cache-friendly arrays rather than bundling all of one entity's data together, prioritizing bulk-processing throughput over the OOP-style conceptual grouping."
+  />
+</QuizSet>

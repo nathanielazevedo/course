@@ -1,0 +1,99 @@
+Doing more than one thing "at once" starts with understanding the two units an operating system actually gives you to work with: processes and threads. Everything else in this chapter — concurrency, parallelism, synchronization, async — builds on this foundation.
+
+### Process isolation
+
+A **process** is a running instance of a program, given its own private, isolated slice of memory by the operating system — one process cannot directly read or write another process's memory, and a crash in one process doesn't corrupt or bring down another. This isolation is a deliberate safety boundary: your web browser and your text editor run as entirely separate processes precisely so a bug in one can't reach into and corrupt the other's data.
+
+### Memory spaces
+
+Each process gets its own **memory space** (or address space) — its own private view of memory, including its own stack (Chapter 5) and heap (Chapter 5), independent of every other process's. This is *why* processes are safe to isolate from each other in the first place: there's no shared memory to accidentally corrupt across a process boundary, because each process's addresses genuinely refer to different physical memory than the same addresses would in another process.
+
+### Threads
+
+A **thread** is a unit of execution *within* a process — a single process can run multiple threads simultaneously, and unlike separate processes, all the threads within one process share that process's memory space: the same heap, the same global variables, the same open file handles. This sharing is threading's whole point — it lets multiple lines of execution genuinely collaborate on the same data without the overhead or complexity of the inter-process communication techniques (Chapter 13 touches on this) that separate processes would need to coordinate at all.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 200" width="100%" height="auto" role="img" aria-label="Two separate processes, each with its own isolated memory space. Process one contains three threads that all share its one memory space; process two is entirely separate and cannot access process one's memory." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="20" y="20" width="280" height="160" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="160" y="40" fontSize="12" fontWeight="600" textAnchor="middle">PROCESS A (own memory space)</text>
+    <rect x="40" y="60" width="70" height="45" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="75" y="87" fontSize="11" textAnchor="middle">thread 1</text>
+    <rect x="125" y="60" width="70" height="45" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="160" y="87" fontSize="11" textAnchor="middle">thread 2</text>
+    <rect x="210" y="60" width="70" height="45" fill="#fff" stroke="#000" strokeWidth="1.2" />
+    <text x="245" y="87" fontSize="11" textAnchor="middle">thread 3</text>
+    <text x="160" y="145" fontSize="10" fill="#666" textAnchor="middle">shared heap, shared globals</text>
+    <rect x="360" y="20" width="260" height="160" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="490" y="40" fontSize="12" fontWeight="600" textAnchor="middle">PROCESS B (separate memory space)</text>
+    <rect x="440" y="70" width="100" height="45" fill="#f0f0f0" stroke="#000" strokeWidth="1.2" />
+    <text x="490" y="97" fontSize="11" textAnchor="middle">thread 1</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Threads within one process share its memory; separate processes are isolated from each other entirely.
+  </figcaption>
+</figure>
+
+### Thread scheduling
+
+The operating system's **scheduler** decides which thread actually gets CPU time at any given moment, switching between them rapidly (on a single CPU core, faster than any human could perceive) to create the *appearance* of many things happening simultaneously, even when the hardware genuinely has fewer cores than there are runnable threads. On a machine with multiple CPU cores, the scheduler can additionally run separate threads on separate cores at truly the same physical instant — the exact distinction between concurrency and parallelism the next section covers directly.
+
+### Race conditions
+
+Because threads within one process share memory, two threads reading and writing the same data at the same time without coordination can produce a **race condition** — the final result depends on the unpredictable, essentially arbitrary timing of which thread's operations happen to interleave in which order, rather than on any deterministic logic in the program itself. A race condition is one of the hardest classes of bug to reliably reproduce, precisely because its symptom depends on timing that can vary between runs, machines, and even individual executions of the exact same code — which is exactly the problem the synchronization tools covered later in this chapter exist to prevent.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="processes-and-threads-q1"
+    question="What is the key isolation property of a process?"
+    options={[
+      "Processes can freely read and write each other's memory",
+      "Each process gets its own private, isolated memory space, so one process cannot directly access another's memory, and a crash in one doesn't corrupt another"
+      ,
+      "All processes on a machine automatically share the same memory",
+      "A process can only ever contain exactly one thread",
+    ]}
+    answer={1}
+    explanation="Process isolation is an operating-system-enforced safety boundary that keeps separate running programs from directly interfering with each other's memory."
+  />
+  <Quiz
+    id="processes-and-threads-q2"
+    question="What is the key difference between threads and processes regarding memory?"
+    options={[
+      "Threads and processes both always have completely isolated memory from each other",
+      "Threads within one process share that process's memory space (the same heap, globals, and file handles), while separate processes have entirely isolated memory spaces from each other"
+      ,
+      "Processes share memory with each other, while threads never do",
+      "Threads cannot access any memory at all",
+    ]}
+    answer={1}
+    explanation="Threads are designed to collaborate by sharing their parent process's memory, in contrast to the strict isolation the operating system enforces between separate processes."
+  />
+  <Quiz
+    id="processes-and-threads-q3"
+    question="What does the operating system's scheduler do?"
+    options={[
+      "It permanently assigns one CPU core to one thread for the entire lifetime of the program",
+      "It decides which thread gets CPU time at any given moment, switching between threads rapidly to create the appearance of simultaneous execution, and can run threads on separate cores truly at the same instant on multi-core hardware"
+      ,
+      "It deletes threads that have been running too long",
+      "It only manages memory allocation, not execution",
+    ]}
+    answer={1}
+    explanation="The scheduler is responsible for allocating CPU time among runnable threads, whether by rapid switching on a single core or genuinely simultaneous execution across multiple cores."
+  />
+  <Quiz
+    id="processes-and-threads-q4"
+    question="What causes a race condition?"
+    options={[
+      "A single thread running too slowly",
+      "Two threads reading and writing the same shared memory at the same time without coordination, making the final result depend on unpredictable timing of how their operations interleave"
+      ,
+      "A process crashing unexpectedly",
+      "A program having too many functions",
+    ]}
+    answer={1}
+    explanation="Race conditions arise specifically from uncoordinated concurrent access to shared data, where the outcome depends on the arbitrary order in which operations from different threads happen to interleave."
+  />
+</QuizSet>

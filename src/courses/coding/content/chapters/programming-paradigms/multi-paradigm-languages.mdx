@@ -1,0 +1,72 @@
+This chapter has presented procedural, object-oriented, functional, declarative, event-driven, reactive, and data-oriented programming as though they were separate, competing categories a language commits to. In practice, almost no mainstream language you'll actually use makes you pick just one — and understanding why closes the loop on this entire chapter.
+
+### Why modern languages rarely fit one category
+
+Python lets you write procedural scripts, define classes with inheritance, use `map`/`filter`/lambdas in a functional style, and register event callbacks, all in the same file, chosen based on whichever fits the problem at hand best. JavaScript is simultaneously event-driven at its core (the browser's entire model is built on it), supports full object-oriented programming with classes, and has become increasingly functional in style (`.map()`, `.filter()`, immutable state patterns) as the ecosystem has matured. Rust combines a procedural, struct-based core with a strong functional influence (pattern matching, iterator chains, closures) and zero built-in classical inheritance at all — deliberately favoring composition and traits (its interface mechanism) instead.
+
+This isn't languages failing to commit to a coherent design — it's a deliberate, mature design choice. Real programs are rarely uniform: a data validation layer is often clearest written functionally (pure transformations, no side effects), a stateful domain model often benefits from object-oriented encapsulation, a UI layer is inherently event-driven or reactive, and a hot inner loop processing large datasets might benefit from data-oriented layout. A language that only supports one paradigm forces every one of those different kinds of code into the same ill-fitting shape.
+
+### Reading paradigm-mixed code
+
+Once you internalize that most languages are multi-paradigm, reading unfamiliar code gets easier: instead of asking "is this an object-oriented language or a functional language?" (often the wrong question entirely), ask "which paradigm is *this specific piece of code* using, and why does that fit what it's doing?" A `.filter().map().reduce()` chain inside an otherwise class-heavy Java codebase isn't a contradiction — it's the author reaching for the functional tool exactly where it fits best, inside a language that also gives them full object-oriented tools for everything else.
+
+### The practical takeaway
+
+Learning paradigms as separate, named tools — rather than as identities a language forces you into — is what actually lets you write clear code in any language, and it's the direct setup for Chapter 15's closing material on becoming genuinely language-agnostic. The question worth asking isn't "which paradigm should I always use?" but "what does this specific piece of the problem actually look like, and which paradigm's habits fit that shape best?" — a question every chapter of this course, taken together, has been quietly building the vocabulary to answer.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="multi-paradigm-languages-q1"
+    question="What does it mean for a language to be 'multi-paradigm,' as illustrated by Python, JavaScript, and Rust?"
+    options={[
+      "The language forces every program to use exactly one paradigm consistently throughout",
+      "The language supports and blends multiple paradigms — procedural, object-oriented, functional, and others — letting the programmer choose whichever fits a given piece of code best"
+      ,
+      "The language cannot support object-oriented programming under any circumstances",
+      "Multi-paradigm languages are always slower than single-paradigm languages",
+    ]}
+    answer={1}
+    explanation="Multi-paradigm languages provide tools from several paradigms at once, allowing different parts of the same program to be written in whichever style suits them, rather than enforcing a single approach throughout."
+  />
+  <Quiz
+    id="multi-paradigm-languages-q2"
+    question="According to this section, why do real programs benefit from mixing paradigms rather than committing to just one?"
+    options={[
+      "Because mixing paradigms is required by every compiler",
+      "Because different parts of a program — a validation layer, a stateful domain model, a UI, a hot performance-critical loop — are often clearest when written using whichever paradigm's habits best fit that specific kind of code"
+      ,
+      "Because paradigms have no real effect on how code is structured",
+      "Because using only one paradigm always causes compile errors",
+    ]}
+    answer={1}
+    explanation="Different kinds of problems within the same program map naturally onto different paradigms, so a language that forces one paradigm everywhere makes some of that code awkward to express."
+  />
+  <Quiz
+    id="multi-paradigm-languages-q3"
+    question="What question does this section suggest asking when reading unfamiliar code in a multi-paradigm language, instead of trying to classify the whole language as one paradigm?"
+    options={[
+      "Which paradigm does this language's creator personally prefer?",
+      "Which paradigm is this specific piece of code using, and why does that fit what it's doing?"
+      ,
+      "Is this code compiled or interpreted?",
+      "How many lines of code does this file contain?",
+    ]}
+    answer={1}
+    explanation="Since most languages support several paradigms, understanding a specific piece of code means recognizing which paradigm's habits it's drawing on locally, rather than assuming one paradigm governs the entire codebase."
+  />
+  <Quiz
+    id="multi-paradigm-languages-q4"
+    question="How does this section connect the multi-paradigm idea to the rest of the course?"
+    options={[
+      "It suggests paradigms are irrelevant and can be ignored entirely",
+      "It frames learning paradigms as separate, transferable tools (rather than language identities) as directly setting up the course's later material on becoming language-agnostic"
+      ,
+      "It claims only one true paradigm exists and all others are obsolete",
+      "It states that paradigms only matter for compiled languages",
+    ]}
+    answer={1}
+    explanation="Understanding paradigms as a toolbox you draw from as needed, rather than a language's fixed identity, is presented as directly building the mindset the course's final chapter on language-agnostic thinking relies on."
+  />
+</QuizSet>

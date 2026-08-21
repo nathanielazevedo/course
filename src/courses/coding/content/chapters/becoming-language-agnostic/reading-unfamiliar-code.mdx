@@ -1,0 +1,78 @@
+Learning a new language's concepts and syntax (the previous two sections) is one skill; actually reading a real, unfamiliar codebase written by someone else, in a language you may or may not know well, is a related but distinct one. This section is about the second skill specifically — a practical approach for making sense of code you didn't write, quickly.
+
+### Finding entry points
+
+Every program has an **entry point** — the actual place execution begins: a `main` function, an HTTP route handler that fires when a request arrives, a UI component's render method, an event listener (Chapter 7's event-driven programming) waiting on a specific trigger. Before trying to understand a codebase broadly, find where execution actually *starts* for the specific behavior you're trying to understand — reading files in alphabetical or directory order, with no sense of where execution genuinely begins, is one of the least effective ways to build a mental model of an unfamiliar system.
+
+### Following data flow
+
+Once you've found a relevant entry point, the most productive next step is usually **following data flow** rather than reading every line in order: pick one specific piece of data (a user ID from an incoming request, a value from a form) and trace where it actually goes — which function receives it, what that function does with it, where it gets passed next, what eventually happens to it. This works because it mirrors how this entire course has approached nearly every topic: values (Chapter 2) moving through functions (Chapter 4), transformed at each step, is the fundamental shape of computation this course has returned to again and again, and it remains the most reliable lens for understanding code you didn't write, regardless of which language it happens to be in.
+
+### Understanding dependencies
+
+Before diving into a specific file's logic, it's worth quickly answering a broader structural question first: what does this code actually depend on (Chapter 9's imports and modules), and what depends on it? A function buried deep in a dependency chain used by dozens of other places in the codebase demands more caution when changing than an isolated one used nowhere else — understanding this dependency structure up front, even briefly, tells you how much blast radius a given piece of code actually has before you've read a single line of its internal logic.
+
+### Recognizing patterns
+
+Everything covered throughout this course — the paradigms from Chapter 7, the error-handling styles from Chapter 8, the architectural patterns from Chapter 14 — exists precisely so you can recognize a **pattern** in unfamiliar code rather than puzzling out its intent line by line from scratch. A function riddled with `if err != nil` checks is unmistakably following Go's errors-as-values convention (Chapter 8), even in a codebase you've never seen before; a class hierarchy with an abstract base and several overriding subclasses is unmistakably polymorphism at work (Chapter 6); a chain of `.filter().map().reduce()` is unmistakably functional-style data processing (Chapter 4, Chapter 7). Recognizing "oh, this is *that* pattern" instantly transfers everything you already know about that pattern's behavior and tradeoffs onto this specific, unfamiliar piece of code — which is precisely the payoff of having spent fourteen chapters building a vocabulary of named, recognizable patterns in the first place, rather than encountering every new codebase as a completely blank slate with nothing to draw on.
+
+### Bringing it together
+
+Reading unfamiliar code well isn't really a separate skill from everything else this course has covered — it's the direct, practical application of it: find where execution starts, follow a specific piece of data through the functions it passes through, understand roughly how central or peripheral this code is to the rest of the system, and actively look for the named patterns this entire course has spent so much effort making recognizable. Approached this way, "unfamiliar language" stops being nearly as intimidating a phrase as it initially sounds — because most of what actually makes code readable was never really about the specific language at all.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="reading-unfamiliar-code-q1"
+    question="Why does this section recommend finding a codebase's relevant entry point before trying to understand it broadly?"
+    options={[
+      "Because entry points are the only part of a codebase worth reading at all",
+      "Because reading files in directory or alphabetical order, with no sense of where execution actually begins, is one of the least effective ways to build a mental model of an unfamiliar system"
+      ,
+      "Because entry points do not exist in most programming languages",
+      "Because finding an entry point eliminates the need to read any other code",
+    ]}
+    answer={1}
+    explanation="Starting from where execution genuinely begins (for the behavior you're investigating) gives a far more productive starting point than reading arbitrarily ordered files with no sense of actual execution order."
+  />
+  <Quiz
+    id="reading-unfamiliar-code-q2"
+    question="Why is 'following data flow' described as an effective strategy for reading unfamiliar code?"
+    options={[
+      "Because data never actually changes as it moves through a program",
+      "Because it mirrors the fundamental shape of computation this course has returned to repeatedly — values moving through functions, transformed at each step — making it a reliable lens regardless of the specific language"
+      ,
+      "Because data flow only applies to functional programming languages",
+      "Because tracing data flow requires no understanding of functions at all",
+    ]}
+    answer={1}
+    explanation="Since values passing through and being transformed by functions is the basic shape of computation across languages and paradigms, tracing a specific piece of data through that process is a reliably useful way to understand code."
+  />
+  <Quiz
+    id="reading-unfamiliar-code-q3"
+    question="Why does understanding a piece of code's dependency structure before diving into its logic matter?"
+    options={[
+      "Because dependency structure has no bearing on how risky a change to that code might be",
+      "Because a function used by many other parts of a codebase demands more caution when changing than an isolated one, so understanding dependencies up front reveals a piece of code's 'blast radius' before reading its internal logic"
+      ,
+      "Because only codebases with zero dependencies can be understood",
+      "Because dependencies always indicate a bug in the code",
+    ]}
+    answer={1}
+    explanation="Knowing how central or peripheral a piece of code is within the overall dependency graph informs how carefully it needs to be approached, independent of what its internal logic actually does."
+  />
+  <Quiz
+    id="reading-unfamiliar-code-q4"
+    question="How does 'recognizing patterns' in unfamiliar code connect to the rest of this course?"
+    options={[
+      "It has no connection to any material covered earlier in the course",
+      "It directly leverages the named paradigms, error-handling styles, and architectural patterns covered throughout the course, letting a reader instantly transfer known behavior and tradeoffs onto an unfamiliar piece of code that follows a recognizable pattern"
+      ,
+      "It only works if the reader already knows the exact language being read",
+      "It requires memorizing every possible codebase in advance",
+    ]}
+    answer={1}
+    explanation="Recognizing a familiar pattern (errors-as-values, polymorphism, functional pipelines) in unfamiliar code lets a reader apply everything already understood about that pattern, which is exactly the payoff of the vocabulary built throughout the course."
+  />
+</QuizSet>

@@ -1,0 +1,96 @@
+This course has spent twelve chapters mostly inside the language — values, control flow, functions, memory, objects, paradigms. This chapter steps outside it, to the moment code stops being purely a language exercise and starts asking the operating system for something real: a running process, a file, a network connection. It starts with the most basic question of all — what actually happens when you type a command and hit enter?
+
+### Executables
+
+An **executable** is a file the operating system knows how to load and run — for a compiled language (Chapter 10), this is the direct output of compilation and linking: machine code in a format the OS recognizes (an `.exe` on Windows, an ELF binary on Linux), along with metadata describing what the program needs to run (which shared libraries to dynamically link, where its entry point is). For an interpreted language, "running the program" more precisely means launching the interpreter as the actual executable, with your source file passed to it as an argument — `python app.py` is really "run the `python` executable, and have it interpret `app.py`," not "run `app.py` directly" the way `./my_compiled_program` genuinely is.
+
+### Processes, revisited
+
+When you run an executable, the operating system creates a new **process** (Chapter 11) to run it in — allocating a private memory space, setting up an initial stack, and, for a dynamically linked binary (Chapter 10), loading whatever shared libraries it depends on before your code's first instruction ever executes.
+
+<figure style={{ margin: "32px 0", textAlign: "center" }}>
+  <svg viewBox="0 0 640 200" width="100%" height="auto" role="img" aria-label="Sequence: an executable file on disk is loaded by the operating system, which creates a new process with its own memory space, sets up the stack and loads shared libraries, then jumps to the program's entry point to begin execution." style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
+    <rect x="10" y="70" width="140" height="55" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="80" y="102" fontSize="12" fontWeight="600" textAnchor="middle">EXECUTABLE (disk)</text>
+    <text x="175" y="102" fontSize="18" textAnchor="middle">→</text>
+    <rect x="205" y="70" width="150" height="55" fill="#f0f0f0" stroke="#000" strokeWidth="1.5" />
+    <text x="280" y="95" fontSize="12" fontWeight="600" textAnchor="middle">OS CREATES</text>
+    <text x="280" y="113" fontSize="12" fontWeight="600" textAnchor="middle">PROCESS</text>
+    <text x="380" y="102" fontSize="18" textAnchor="middle">→</text>
+    <rect x="410" y="70" width="220" height="55" fill="#fff" stroke="#000" strokeWidth="1.5" />
+    <text x="520" y="95" fontSize="12" fontWeight="600" textAnchor="middle">STACK + LIBRARIES</text>
+    <text x="520" y="113" fontSize="10" fill="#666" textAnchor="middle">loaded, then jump to entry point</text>
+  </svg>
+  <figcaption style={{ fontSize: "0.85rem", color: "#666", marginTop: "8px" }}>
+    Every program run — compiled or interpreted — passes through this same sequence before the first line of your code executes.
+  </figcaption>
+</figure>
+
+### Memory allocation
+
+Before your code's first instruction runs, the operating system has already reserved memory regions for the stack and set up the initial layout the process's heap allocator will use to satisfy future dynamic allocations (Chapter 5) — none of this is something your code explicitly requests; it's part of what "creating a process" means at the OS level, done automatically as a precondition for the program to run at all.
+
+### Program startup
+
+Between "the OS created the process" and "your `main` function starts running," most languages run their own startup sequence: a runtime environment (Chapter 1) initializes itself — setting up a garbage collector for managed languages, initializing the standard library's internal state, and, for languages with module-level top-level code (Chapter 9), actually running that code as each module is first imported. This is exactly why a Python script can appear to "do something" before its own explicit logic starts — a module-level `print()` statement anywhere it imports runs during this startup sequence, as a direct consequence of Chapter 9's point that importing a module executes its top-level code.
+
+### Why this matters
+
+Understanding this sequence demystifies a lot of otherwise-confusing behavior: why a missing shared library causes a failure before your program's own code ever runs (dynamic linking, Chapter 10, happens during process creation, before `main`); why "the process take a moment to start" is a real, measurable cost distinct from anything your own code does (memory allocation, runtime initialization, dynamic linking all happen first); and why the next section — system calls — is the mechanism your running process actually uses from this point forward, every single time it needs anything from the operating system that created it.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="what-happens-when-you-run-a-program-q1"
+    question="What is the key difference between 'running' a compiled executable and 'running' an interpreted script like a Python file?"
+    options={[
+      "There is no real difference between the two",
+      "A compiled executable is run directly by the OS as machine code; an interpreted script is really run by launching the interpreter as the actual executable, with the source file passed to it as an argument"
+      ,
+      "Interpreted scripts can never be executed by an operating system",
+      "Compiled executables always require an interpreter to run",
+    ]}
+    answer={1}
+    explanation="python app.py really means 'run the python executable and have it interpret app.py' — the interpreter, not the script file itself, is what the OS actually loads and executes as a process."
+  />
+  <Quiz
+    id="what-happens-when-you-run-a-program-q2"
+    question="What does the operating system do when creating a new process to run an executable, before the program's own code executes?"
+    options={[
+      "Nothing — the program's code runs immediately with no setup",
+      "It allocates a private memory space, sets up an initial stack, and (for dynamically linked binaries) loads required shared libraries"
+      ,
+      "It permanently deletes all other running processes",
+      "It compiles the source code from scratch",
+    ]}
+    answer={1}
+    explanation="Process creation involves real setup work — memory space allocation, stack initialization, and dynamic library loading — that happens automatically before the program's first instruction runs."
+  />
+  <Quiz
+    id="what-happens-when-you-run-a-program-q3"
+    question="Why can a Python script appear to 'do something' (like printing output) before its own explicit main logic runs?"
+    options={[
+      "Because Python programs cannot contain any logic outside of main",
+      "Because importing a module executes that module's top-level code, so a module-level print() statement in something the script imports runs during the startup/import sequence"
+      ,
+      "Because this behavior indicates a bug in the Python interpreter",
+      "Because compiled languages always print output before interpreted ones",
+    ]}
+    answer={1}
+    explanation="Module-level code executes as part of the import process, which happens during program startup, before whatever the script explicitly intends as its 'main' logic actually begins."
+  />
+  <Quiz
+    id="what-happens-when-you-run-a-program-q4"
+    question="Why does a missing shared library cause a program to fail before any of its own code runs?"
+    options={[
+      "Because shared libraries are unrelated to program startup",
+      "Because dynamic linking happens during process creation, before the program's entry point is reached, so a missing required library prevents that setup step from completing at all"
+      ,
+      "Because missing libraries only cause failures after the program has been running for a while",
+      "Because this only happens with statically linked programs",
+    ]}
+    answer={1}
+    explanation="Dynamic linking is resolved as part of process startup, prior to executing the program's own instructions, so a missing dependency causes the failure to surface before any of the program's actual logic runs."
+  />
+</QuizSet>

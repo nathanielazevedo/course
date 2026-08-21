@@ -1,0 +1,78 @@
+"Concurrency" and "parallelism" get used interchangeably in casual conversation constantly, and it causes real confusion, because they describe two genuinely different things — one about how a program is *structured*, the other about how it actually *executes* on hardware. Untangling them clears up a lot of confusion in the rest of this chapter.
+
+### Doing multiple things (concurrency)
+
+**Concurrency** is a property of how a program is *structured*: it's dealing with multiple tasks that are in progress during overlapping periods of time, making progress on each by interleaving between them, whether or not any two of them are ever executing at the literal same instant. A single CPU core, switching rapidly between three tasks — running a bit of task A, then task B, then task C, then back to A — is running those tasks *concurrently*, even though, at any single precise moment, only one of them is actually executing.
+
+### Doing multiple things simultaneously (parallelism)
+
+**Parallelism** is a property of *execution*: tasks that are physically running at the exact same instant, which requires genuinely separate hardware resources — multiple CPU cores, or multiple machines — to be true parallelism rather than just very fast switching that merely looks simultaneous from a human's perspective.
+
+### Why the distinction matters
+
+Concurrency is about *dealing with* multiple things; parallelism is about *doing* multiple things at literally the same moment. A single-core machine can absolutely be concurrent (rapidly switching between many tasks) while never being parallel (only one instruction genuinely executes at any given instant). A multi-core machine can be both: concurrent in how a program is structured, and parallel in how the hardware actually executes multiple threads of it simultaneously across separate cores. It's entirely possible — and common — to write concurrent code that never actually runs in parallel (a single-threaded event loop, covered later in this chapter, structures many tasks concurrently on exactly one thread) and equally possible to run genuinely parallel code that isn't concurrently *structured* in any interesting way at all (running the exact same independent calculation simultaneously across many cores, with no interleaving or coordination between the instances needed).
+
+### A concrete example
+
+Imagine a single chef (one CPU core) cooking three dishes by working on whichever one needs attention at each moment — stirring dish A while dish B simmers, then checking on dish C while dish A rests — genuinely making progress on all three "concurrently," despite doing only one physical action at any instant. Now imagine three separate chefs (multiple CPU cores), each cooking one dish independently and simultaneously — that's parallelism. A restaurant kitchen with three chefs, each juggling several dishes concurrently among themselves, is running both concurrently *and* in parallel at once — which is exactly the situation most real, modern multi-threaded software finds itself in on typical multi-core hardware.
+
+### Why this matters for language design
+
+This distinction is exactly why some concurrency models (JavaScript's single-threaded event loop, covered later in this chapter) can handle enormous numbers of concurrent tasks — thousands of pending network requests — using just one core, no true parallelism required at all, because most of that "concurrency" is really about efficiently interleaving waiting-on-I/O tasks rather than needing to execute compute-heavy work simultaneously. It's also exactly why other workloads — genuinely CPU-bound computation, like image processing across many files — need real parallelism (multiple cores actually crunching numbers at the same instant) to get faster, and no amount of clever concurrent structuring on a single core will speed that specific kind of work up at all.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="concurrency-vs-parallelism-q1"
+    question="What is the core distinction between concurrency and parallelism?"
+    options={[
+      "They are exactly the same concept described with two different words",
+      "Concurrency is a property of how a program is structured — dealing with multiple tasks over overlapping time periods; parallelism is a property of execution — tasks physically running at the exact same instant"
+      ,
+      "Parallelism can only happen on a single CPU core",
+      "Concurrency requires multiple physical machines to exist at all",
+    ]}
+    answer={1}
+    explanation="Concurrency describes structuring work to make progress on multiple tasks over overlapping time; parallelism specifically requires separate hardware resources executing simultaneously at the same instant."
+  />
+  <Quiz
+    id="concurrency-vs-parallelism-q2"
+    question="Can a single-core machine be concurrent without ever being parallel?"
+    options={[
+      "No, concurrency always requires multiple CPU cores",
+      "Yes — a single core can rapidly switch between multiple tasks (concurrency) while only ever executing one instruction at any given instant, meaning true parallelism never occurs"
+      ,
+      "No, a single-core machine can never run more than one task",
+      "Yes, but only if the machine has no operating system",
+    ]}
+    answer={1}
+    explanation="Concurrency is about structuring and interleaving progress on multiple tasks, which a single core can do through rapid switching, without ever achieving genuinely simultaneous execution (parallelism)."
+  />
+  <Quiz
+    id="concurrency-vs-parallelism-q3"
+    question="According to the chef analogy, what does a single chef juggling three dishes at once represent?"
+    options={[
+      "Parallelism, since three dishes are being cooked",
+      "Concurrency — making progress on multiple tasks by switching attention between them, without ever performing more than one physical action at any given instant"
+      ,
+      "Neither concurrency nor parallelism",
+      "A race condition",
+    ]}
+    answer={1}
+    explanation="One chef interleaving attention across dishes is the concurrency case — multiple tasks in progress over time, but only one action happening at any single instant."
+  />
+  <Quiz
+    id="concurrency-vs-parallelism-q4"
+    question="Why can't a genuinely CPU-bound workload (like heavy image processing) be sped up through clever concurrent structuring alone on a single core?"
+    options={[
+      "Because image processing cannot be represented as code at all",
+      "Because that kind of work needs actual simultaneous computation across separate hardware resources (true parallelism) to go faster, and no amount of interleaving on one core provides genuinely simultaneous execution"
+      ,
+      "Because CPU-bound work is always faster than I/O-bound work regardless of hardware",
+      "Because concurrency only applies to network requests",
+    ]}
+    answer={1}
+    explanation="Concurrency alone doesn't add real computational throughput on a single core — genuinely parallel execution across multiple cores is required to actually speed up compute-heavy work, unlike I/O-bound tasks that benefit from concurrent interleaving during idle waiting time."
+  />
+</QuizSet>

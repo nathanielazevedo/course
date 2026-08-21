@@ -1,0 +1,105 @@
+Every language nudges you toward organizing programs in a particular way — a **paradigm**, a general strategy for structuring code and thinking about computation. This chapter surveys the major ones, starting with the two most historically dominant: procedural and object-oriented programming, both of which most of this course's earlier chapters have already been implicitly building toward.
+
+### Procedural programming
+
+**Procedural programming** structures a program as a sequence of operations — steps executed in order, organized into procedures (functions) that can be called from other procedures, operating on data that's usually passed around explicitly rather than bundled with behavior. It's the most direct mapping from "how a CPU actually executes instructions" to source code, which is exactly why it was the dominant paradigm in early, performance-critical software.
+
+```c
+struct Account { double balance; };
+
+void deposit(struct Account *acc, double amount) {
+    acc->balance += amount;
+}
+
+void withdraw(struct Account *acc, double amount) {
+    if (amount > acc->balance) { /* handle error */ return; }
+    acc->balance -= amount;
+}
+```
+
+Notice `Account` here is pure data (a struct, Chapter 6's final section) and `deposit`/`withdraw` are separate functions that happen to operate on it — data and behavior are deliberately kept apart, the opposite of what object-oriented programming does next.
+
+### C as a classic example
+
+C is the clearest example of procedural programming taken seriously as a whole-language design: no classes, no inheritance, no methods — just structs for data and functions that operate on them, called explicitly, in a straightforward top-to-bottom sequence (with the control-flow tools from Chapter 3 to branch and loop through that sequence). Its continued dominance in operating systems, embedded systems, and performance-critical libraries is a testament to how far this comparatively simple model actually goes.
+
+### Object-oriented programming
+
+**Object-oriented programming (OOP)** — the entire subject of Chapter 6 — takes the opposite stance: bundle data and the behavior that operates on it together, into objects, and structure a program as those objects collaborating by calling each other's methods. Where the procedural example above has `deposit` reaching into an `Account` from the outside, an object-oriented version has `Account` own `deposit` as its own method, responsible for its own state.
+
+```java
+class Account {
+    private double balance;
+
+    void deposit(double amount) { balance += amount; }
+    void withdraw(double amount) {
+        if (amount > balance) throw new IllegalArgumentException();
+        balance -= amount;
+    }
+}
+```
+
+### Java and C# as classic examples
+
+Java and C# are the clearest examples of object-oriented programming taken as a whole-language design philosophy — in Java specifically, *everything* is technically a method on some class, even a program's `main` entry point, because the language doesn't allow free-floating functions outside a class at all. This is a deliberate design stance, not an accident: it reflects a belief that structuring almost everything around objects, encapsulation, and message-passing between them produces more maintainable large systems, particularly for the kind of large, long-lived enterprise software Java was built for.
+
+### Neither is "correct"
+
+Both paradigms are still in wide, serious use today, and neither has definitively "won" — procedural code remains the right choice where directness and minimal overhead matter most (systems programming, performance-critical code), and object-oriented structuring remains valuable wherever a program's complexity comes primarily from managing many interacting, stateful entities. Most real languages today, as the final section of this chapter covers, let you mix both freely rather than forcing a single paradigm on your entire codebase.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="procedural-and-object-oriented-programming-q1"
+    question="What is the defining characteristic of procedural programming, as illustrated by the C example?"
+    options={[
+      "Data and behavior are always bundled together in one type",
+      "Data (structs) and the functions that operate on it are kept deliberately separate, with a program structured as a sequence of function calls operating on that external data"
+      ,
+      "Every operation must be recursive",
+      "There are no functions at all in procedural programming",
+    ]}
+    answer={1}
+    explanation="Procedural programming keeps data structures and the functions that act on them separate, in contrast to OOP's approach of bundling them together inside objects."
+  />
+  <Quiz
+    id="procedural-and-object-oriented-programming-q2"
+    question="How does the object-oriented version of the Account example differ structurally from the procedural version?"
+    options={[
+      "There is no structural difference between the two versions",
+      "In the OOP version, deposit and withdraw are methods owned by the Account class itself, operating on its own encapsulated state, rather than external functions reaching into a separate data struct"
+      ,
+      "The OOP version cannot represent a balance at all",
+      "The procedural version requires inheritance while the OOP version does not",
+    ]}
+    answer={1}
+    explanation="OOP moves the behavior inside the type it operates on, as methods with implicit access to the object's own state, instead of keeping functions and data structures separate."
+  />
+  <Quiz
+    id="procedural-and-object-oriented-programming-q3"
+    question="Why is Java described as taking object-oriented design 'as a whole-language design philosophy'?"
+    options={[
+      "Because Java has no support for functions of any kind",
+      "Because Java requires essentially everything, including a program's entry point, to be a method on some class, disallowing free-floating functions outside of one"
+      ,
+      "Because Java cannot represent primitive data types",
+      "Because Java was the first object-oriented language ever created",
+    ]}
+    answer={1}
+    explanation="Java's design forces virtually all code, even a program's main entry point, to live inside a class as a method, reflecting a deliberate, thorough commitment to the object-oriented model."
+  />
+  <Quiz
+    id="procedural-and-object-oriented-programming-q4"
+    question="According to this section, is one of procedural or object-oriented programming objectively superior to the other?"
+    options={[
+      "Yes, object-oriented programming has completely replaced procedural programming in all modern software",
+      "No — each paradigm suits different needs, with procedural favored where directness and minimal overhead matter most, and OOP favored where managing many interacting stateful entities is the dominant complexity"
+      ,
+      "Yes, procedural programming is always faster and therefore always preferable",
+      "Neither paradigm is used in any language created after 2010",
+    ]}
+    answer={1}
+    explanation="The section explicitly frames both as still-relevant, context-dependent tools rather than declaring either universally superior, and notes most modern languages let you combine them freely."
+  />
+</QuizSet>

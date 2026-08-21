@@ -1,0 +1,88 @@
+Every synchronization tool covered earlier in this chapter — locks, mutexes, semaphores, atomics — solves concurrency by carefully controlling access to memory that multiple threads *share*. This section closes the chapter with a different philosophy entirely: instead of sharing memory and coordinating access to it, don't share memory at all — communicate by passing messages between independent units of execution instead.
+
+### Go's concurrency model
+
+Go's approach is captured in one of its most quoted design principles: "don't communicate by sharing memory; share memory by communicating." A **goroutine** is Go's lightweight unit of concurrent execution — far cheaper than an OS thread (thousands can run within a single program without the overhead full OS threads would impose), scheduled cooperatively by Go's own runtime rather than the operating system directly:
+
+```go
+func worker(jobs <-chan int, results chan<- int) {
+    for j := range jobs {
+        results <- j * 2
+    }
+}
+
+go worker(jobs, results)   // launches a new goroutine
+```
+
+### Channels
+
+A **channel** is a typed conduit for passing values between goroutines — instead of two goroutines directly reading and writing the same shared variable (which would need a mutex, as covered earlier), one goroutine sends a value on a channel, and another receives it, with the channel itself handling the necessary synchronization internally. This inverts the earlier approach: rather than protecting shared data with a lock, the data is only ever "owned" by one goroutine at a time, and ownership transfers explicitly through a channel send — there's no window where two goroutines could simultaneously touch the same value unsynchronized, because the channel itself is the only path between them.
+
+### Message passing as a general strategy
+
+**Message passing** is the general term for this style of concurrency: independent units of execution (goroutines, actors, processes) with their own private state communicate exclusively by sending each other messages, rather than reaching into each other's memory directly. This sidesteps race conditions structurally, the same way Rust's ownership model (Chapter 5) sidesteps memory-safety bugs — not by adding careful runtime coordination around shared access, but by making unsynchronized shared access impossible to express in the first place.
+
+### Actors and independent state
+
+The **actor model** — used prominently in Erlang, Elixir, and Akka (on the JVM) — generalizes this idea further: an **actor** is an independent unit with its own completely private state that no other actor can ever access directly, communicating only by sending asynchronous messages to other actors' **mailboxes** (a queue of pending messages waiting to be processed). Each actor processes its own mailbox one message at a time, sequentially, which means an individual actor's own state never needs internal synchronization at all — from that actor's own perspective, it's just handling messages one after another, even though the overall system, with potentially thousands of actors, is deeply concurrent.
+
+### Distributed thinking
+
+What makes the actor model and message passing especially valuable is that they scale naturally from "concurrency within one machine" to genuinely **distributed systems** across multiple machines — a message sent to a goroutine's channel and a message sent over a network to a process on a different physical server are conceptually the same operation (send a message, don't touch shared memory), which is precisely why message-passing-based systems tend to generalize to distributed architectures far more gracefully than shared-memory concurrency (locks and mutexes fundamentally require memory that's actually shared, which simply doesn't exist across separate machines) — a connection this course returns to when networking and distributed systems come up directly in Chapter 13.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="message-passing-goroutines-channels-and-actors-q1"
+    question="What does Go's design principle 'share memory by communicating' mean in contrast to lock-based concurrency?"
+    options={[
+      "It means Go goroutines should share memory directly and coordinate with locks, exactly like threads",
+      "Instead of multiple units of execution directly sharing memory and using locks to coordinate access, ownership of data is transferred explicitly by sending it through a channel, avoiding unsynchronized shared access entirely"
+      ,
+      "It means Go has no concept of concurrency at all",
+      "It means goroutines cannot ever exchange any data",
+    ]}
+    answer={1}
+    explanation="Go's philosophy avoids the shared-memory-plus-locking approach by transferring data ownership through channels, so there's never a window of genuinely unsynchronized shared access."
+  />
+  <Quiz
+    id="message-passing-goroutines-channels-and-actors-q2"
+    question="How does a channel prevent the kind of race condition that shared memory without synchronization would create?"
+    options={[
+      "It doesn't — channels are exactly as prone to race conditions as raw shared memory",
+      "By handling the necessary synchronization internally as goroutines send and receive values, meaning data is only ever owned by one goroutine at a time rather than being directly accessed by multiple goroutines at once"
+      ,
+      "By preventing goroutines from ever running concurrently at all",
+      "By requiring every goroutine to use a separate lock",
+    ]}
+    answer={1}
+    explanation="Channels structure communication so that data transfers explicitly between goroutines rather than being simultaneously accessible to multiple goroutines, eliminating the unsynchronized access that causes race conditions."
+  />
+  <Quiz
+    id="message-passing-goroutines-channels-and-actors-q3"
+    question="Why doesn't an individual actor in the actor model need internal synchronization for its own state?"
+    options={[
+      "Because actors never actually have any state of their own",
+      "Because an actor processes its own mailbox of messages one at a time, sequentially, so from its own perspective it's just handling messages one after another with no concurrent access to its own state"
+      ,
+      "Because actors always run on a single dedicated CPU core",
+      "Because actors are identical to threads with a different name",
+    ]}
+    answer={1}
+    explanation="Sequential mailbox processing means an actor never handles more than one message at a time against its own state, avoiding the need for locks or other synchronization within that actor."
+  />
+  <Quiz
+    id="message-passing-goroutines-channels-and-actors-q4"
+    question="Why does message passing generalize more naturally to distributed systems across multiple machines than lock-based shared-memory concurrency?"
+    options={[
+      "Because locks work identically whether memory is shared or on separate machines",
+      "Because sending a message doesn't require actually shared memory the way locks and mutexes do, and a message sent locally (over a channel) or across a network to another machine are conceptually the same operation"
+      ,
+      "Because distributed systems never need any form of concurrency",
+      "Because message passing can only work within a single process",
+    ]}
+    answer={1}
+    explanation="Message passing doesn't depend on physically shared memory, unlike locks and mutexes, which require memory genuinely shared between threads — something that doesn't exist across separate machines in a distributed system."
+  />
+</QuizSet>

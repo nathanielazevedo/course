@@ -1,0 +1,88 @@
+TypeScript and Java sit on opposite ends of a shared theme — both add substantial static analysis on top of a foundation, but from opposite directions: TypeScript layers types onto a language that was never designed with them, while Java was static and class-based from its very first release, decades before TypeScript existed.
+
+### Adding static analysis to JavaScript
+
+TypeScript (Chapter 1, Chapter 10) is JavaScript with an optional static type layer bolted on top, checked entirely at compile time and then stripped away completely before the code actually runs — a form of gradual typing (Chapter 2) and transpilation (Chapter 10) combined. This is a genuinely unusual position: TypeScript's type system has zero effect on runtime behavior at all — every type error it catches is purely a compile-time-only safety net, and the compiled output is ordinary, untyped JavaScript, subject to exactly the same dynamic, weakly typed runtime behavior covered in the previous section.
+
+### Structural typing
+
+TypeScript's type checker uses structural typing (Chapter 6) by default, matching JavaScript's own duck-typing-friendly spirit (Chapter 2): two types are considered compatible if they have the same shape, regardless of whether either was explicitly declared to implement the other.
+
+```typescript
+interface Point { x: number; y: number; }
+function distance(p: Point) { /* ... */ }
+
+const coord = { x: 3, y: 4, label: "origin" };
+distance(coord);   // fine — coord has the required shape, extra fields are allowed
+```
+
+This fits naturally with JavaScript's underlying object model (the previous section's prototype chains) — checking shape rather than declared identity is a very natural fit for a language whose runtime never had a concept of nominal types to check against in the first place.
+
+### JVM and static typing (Java)
+
+Java, by contrast, has been statically and nominally typed (Chapter 6) from its first release — every variable's type is declared and checked at compile time, and satisfying an interface requires an explicit `implements` declaration, not just a matching shape. It compiles to bytecode that runs on the JVM (Chapter 10), giving it the portability ("write once, run anywhere") and automatic memory management (Chapter 5's garbage collection) that come with that model.
+
+### Classical OOP
+
+Java is one of the clearest examples of classical, class-based object-oriented programming (Chapter 6, Chapter 7) taken seriously as an entire language philosophy: every piece of code lives inside a class, inheritance and interfaces are core, first-class language features rather than optional patterns, and the language's evolution over decades has largely been about adding functional-style features (lambdas, streams) *on top of* that object-oriented foundation, rather than replacing it.
+
+### Enterprise design
+
+Java's design priorities — strong static typing to catch errors early in large codebases, a stable, backward-compatible standard library, the JVM's portability across enterprise server environments — directly reflect the large-scale, long-lived, multi-team software it was built for. This is exactly why Java remains dominant in banking systems, large corporate backends, and Android app development (which uses a JVM-compatible runtime): its design tradeoffs favor exactly the kind of predictability, tooling maturity, and long-term maintainability that matters most at that scale, even at some cost to the fast, exploratory iteration Python and JavaScript both prioritize more heavily.
+
+### Check Yourself
+
+<QuizSet>
+  <Quiz
+    id="typescript-and-java-q1"
+    question="What happens to TypeScript's type information by the time code actually runs?"
+    options={[
+      "It's preserved and checked again at runtime, just like Java's types",
+      "It's completely stripped away during compilation to JavaScript, meaning TypeScript's type system has zero effect on runtime behavior — it's a purely compile-time safety net"
+      ,
+      "It causes the program to run inside a virtual machine",
+      "It converts the code into Java bytecode",
+    ]}
+    answer={1}
+    explanation="TypeScript's types are erased entirely during transpilation to JavaScript, so all type checking happens before execution, with the runtime behaving exactly like ordinary dynamically typed JavaScript."
+  />
+  <Quiz
+    id="typescript-and-java-q2"
+    question="How does TypeScript's default structural typing differ from Java's nominal typing?"
+    options={[
+      "They are identical — both require explicit interface declarations",
+      "TypeScript considers two types compatible if they have the same shape, regardless of any declared relationship; Java requires a class to explicitly declare which interfaces it implements"
+      ,
+      "Java uses structural typing and TypeScript uses nominal typing, the reverse of the actual case",
+      "Neither language has any concept of interfaces",
+    ]}
+    answer={1}
+    explanation="TypeScript checks compatibility based purely on matching shape (structural typing), fitting JavaScript's duck-typing spirit, while Java requires an explicit implements declaration (nominal typing)."
+  />
+  <Quiz
+    id="typescript-and-java-q3"
+    question="What role does the JVM play for Java, and what does it provide?"
+    options={[
+      "The JVM has no relationship to Java at all",
+      "Java compiles to bytecode that runs on the JVM, providing cross-platform portability and automatic memory management through garbage collection"
+      ,
+      "The JVM only exists for interpreting Python code",
+      "The JVM compiles Java directly into TypeScript",
+    ]}
+    answer={1}
+    explanation="Java's JVM-based execution model is what enables 'write once, run anywhere' portability and automatic garbage-collected memory management, as covered in earlier chapters on execution models and memory."
+  />
+  <Quiz
+    id="typescript-and-java-q4"
+    question="Why does Java remain dominant in large-scale enterprise software like banking systems, according to this section?"
+    options={[
+      "Because Java code always runs faster than any other language",
+      "Because its design priorities — strong static typing catching errors early, a stable backward-compatible standard library, and JVM portability — favor the predictability and long-term maintainability that matter most at large, multi-team scale"
+      ,
+      "Because Java has no competitors in any domain",
+      "Because Java cannot be used for any other kind of software",
+    ]}
+    answer={1}
+    explanation="Java's static typing, stability, and portability align closely with the needs of large, long-lived enterprise systems, even though these same tradeoffs come at some cost to the fast iteration that dynamically typed languages offer."
+  />
+</QuizSet>
